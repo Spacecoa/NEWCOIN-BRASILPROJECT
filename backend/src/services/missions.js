@@ -243,16 +243,28 @@ export async function getMissions(userId) {
   if (!settings.missions_enabled) return { enabled: false, day, missions: [], collective: coll, principles: PRINCIPLES };
 
   const isNewUser = userRow.rows[0]?.is_new ?? false;
-  const suggestions = {};
-  const applicable = [];
-  for (const [id, def] of Object.entries(DEFS)) {
-    if (def.onlyNewUsers && !isNewUser) continue;
-    if (def.requiresTimeCounting && !settings.count_time) continue;
-    if (def.applies && !(await def.applies([userId, tz]))) continue;
-    suggestions[id] = await def.suggest([userId]);
-    if (def.always || suggestions[id].length) applicable.push(id);
+
+  // A seleção do dia é fixada na primeira consulta. Assim, uma missão concluída não some quando
+  // acabam os alvos (ex.: a única pessoa nova já recebeu boas-vindas) e nada muda no meio do dia.
+  let { rows: dayRows } = await query('SELECT missions FROM daily_missions WHERE user_id = $1 AND day = $2', [userId, day]);
+  if (!dayRows[0]) {
+    const applicable = [];
+    for (const [id, def] of Object.entries(DEFS)) {
+      if (def.onlyNewUsers && !isNewUser) continue;
+      if (def.requiresTimeCounting && !settings.count_time) continue;
+      if (def.applies && !(await def.applies([userId, tz]))) continue;
+      if (def.always || (await def.suggest([userId])).length) applicable.push(id);
+    }
+    await query('INSERT INTO daily_missions (user_id, day, missions) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [
+      userId,
+      day,
+      selectMissions(userId, day, applicable, { isNewUser }),
+    ]);
+    ({ rows: dayRows } = await query('SELECT missions FROM daily_missions WHERE user_id = $1 AND day = $2', [userId, day]));
   }
-  const chosen = selectMissions(userId, day, applicable, { isNewUser });
+  const chosen = dayRows[0].missions.filter((id) => CATALOG[id] && DEFS[id]);
+  const suggestions = {};
+  for (const id of chosen) suggestions[id] = await DEFS[id].suggest([userId]);
   const { rows: skipRows } = await query('SELECT mission FROM mission_skips WHERE user_id = $1 AND day = $2', [userId, day]);
   const skipped = new Set(skipRows.map((r) => r.mission));
 

@@ -59,6 +59,8 @@ flowchart TD
 
 A ordenação usa um hash estável (FNV-1a), então a mesma pessoa no mesmo dia vê sempre as mesmas missões. Recarregar a página não "sorteia" de novo, o que evita o efeito caça-níquel.
 
+A escolha é **gravada na primeira consulta do dia** (`daily_missions`). Assim, uma missão concluída não some quando acabam os alvos (por exemplo, a única pessoa nova já recebeu boas-vindas), e a lista não muda no meio do dia quando aparecem novos alvos. Sem isso, a missão sumia e o token não era creditado.
+
 ## 4. Painel coletivo: "A rede, junta"
 
 Mostra apenas números agregados da instância:

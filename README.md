@@ -70,7 +70,7 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 ### Testes
 
 ```bash
-cd backend  && npm test   # 106 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd backend  && npm test   # 109 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
 cd frontend && npm test   # 30 testes: lógica e componentes (jsdom)
 ```
 

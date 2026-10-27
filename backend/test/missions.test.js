@@ -40,6 +40,7 @@ describe('missões diárias', () => {
     expect(body.summary.done).toBeGreaterThanOrEqual(1);
     // quem já tinha postado em outro dia não recebe "apresentar"
     await query("UPDATE posts SET created_at = now() - interval '2 days' WHERE author_id = $1", [nina.user.id]);
+    await query('DELETE FROM daily_missions WHERE user_id = $1', [nina.user.id]); // primeira consulta de outro dia
     body = await missions(nina);
     expect(body.missions.map((m) => m.id)).not.toContain('apresentar');
   });
@@ -87,6 +88,49 @@ describe('missões diárias', () => {
 
   it('rotas desconhecidas em /api continuam 404 (não 401)', async () => {
     expect((await api().get('/api/nao-existe')).status).toBe(404);
+  });
+});
+
+describe('seleção do dia é fixa (missão concluída não some)', () => {
+  let ana, nina;
+  const TZ_TODAY = "(now() AT TIME ZONE 'America/Sao_Paulo')::date";
+  beforeEach(async () => {
+    await resetDb();
+    ana = await signup('ana');
+    await age(ana);
+    nina = await signup('nina');
+  });
+  const force = (who, ids) => query(`INSERT INTO daily_missions (user_id, day, missions) VALUES ($1, ${TZ_TODAY}, $2) ON CONFLICT (user_id, day) DO UPDATE SET missions = $2`, [who.user.id, ids]);
+
+  it('concluir a única missão com alvo mantém a missão na lista e credita o token', async () => {
+    const hello = await post(nina, 'Oi, cheguei agora!');
+    await force(ana, ['boas_vindas', 'curtir', 'organizar', 'comentar']);
+    let body = await missions(ana);
+    expect(status(body, 'boas_vindas')).toBe('todo');
+    expect(body.missions.find((m) => m.id === 'boas_vindas').suggestions.map((s) => s.username)).toEqual(['nina']);
+
+    await post(ana, 'Bem-vinda, @nina! Que bom ter você aqui.', hello.id);
+    body = await missions(ana);
+    expect(status(body, 'boas_vindas')).toBe('done'); // antes sumia, porque não havia mais alvos
+    expect(body.token).toMatchObject({ earned_now: 3, earned_today: 3, balance: 6 });
+    expect((await missions(ana)).token).toMatchObject({ earned_now: 0, balance: 6 }); // sem pagar duas vezes
+  });
+
+  it('a seleção não muda no meio do dia, mesmo com novos alvos', async () => {
+    const first = (await missions(ana)).missions.map((m) => m.id);
+    const ids = ['x1', 'x2', 'x3', 'x4', 'x5'];
+    for (const [i, u] of ids.entries()) await post(await signup(`novo${i}`), `Chegando agora! Alguém sabe algo? ${u}?`);
+    expect((await missions(ana)).missions.map((m) => m.id)).toEqual(first);
+    const { rows } = await query('SELECT count(*)::int AS n FROM daily_missions WHERE user_id = $1', [ana.user.id]);
+    expect(rows[0].n).toBe(1);
+  });
+
+  it('novo dia, nova seleção: a de ontem fica guardada e não interfere', async () => {
+    await missions(ana);
+    await query("UPDATE daily_missions SET day = day - 1 WHERE user_id = $1", [ana.user.id]);
+    await missions(ana);
+    const { rows } = await query('SELECT count(*)::int AS n FROM daily_missions WHERE user_id = $1', [ana.user.id]);
+    expect(rows[0].n).toBe(2);
   });
 });
 
