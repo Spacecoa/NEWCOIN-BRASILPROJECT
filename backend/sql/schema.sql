@@ -218,3 +218,13 @@ CREATE TABLE IF NOT EXISTS activity_days (
   last_beat_at TIMESTAMPTZ,
   PRIMARY KEY (user_id, day)
 );
+
+-- Missões escolhidas para cada pessoa no dia. Fixa a seleção na primeira consulta:
+-- missões já concluídas não somem quando acabam os alvos, e nada muda no meio do dia.
+CREATE TABLE IF NOT EXISTS daily_missions (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day        DATE   NOT NULL,
+  missions   TEXT[] NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, day)
+);
