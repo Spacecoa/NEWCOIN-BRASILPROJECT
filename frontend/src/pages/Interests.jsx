@@ -86,10 +86,10 @@ export default function Interests() {
   async function save() {
     setError(null);
     try {
-      const { muted_topics, keywords, weights, topics, session_limit, diversity, half_life_hours, hide_metrics } = draft;
+      const { muted_topics, keywords, weights, topics, session_limit, diversity, half_life_hours, hide_metrics, missions_enabled } = draft;
       const r = await api('/api/feed/preferencias', {
         method: 'PUT',
-        body: { muted_topics, keywords, weights, topics, session_limit, diversity, half_life_hours, hide_metrics },
+        body: { muted_topics, keywords, weights, topics, session_limit, diversity, half_life_hours, hide_metrics, missions_enabled },
       });
       setDraft(r.settings);
       setStatus('Preferências salvas. O feed Para você já usa os novos pesos.');
@@ -217,6 +217,13 @@ export default function Interests() {
             <span className="block text-xs text-zinc-500">Sem números de curtidas e reposts no feed Para você.</span>
           </span>
           <input type="checkbox" checked={draft.hide_metrics} onChange={(e) => set({ hide_metrics: e.target.checked })} className="h-5 w-5 accent-brand-600" />
+        </label>
+        <label className="flex min-h-11 items-center justify-between gap-3 py-2">
+          <span>
+            <span className="block font-semibold">Missões diárias</span>
+            <span className="block text-xs text-zinc-500">Até 3 sugestões por dia de ações que ajudam a rede. Sem pontos nem sequências.</span>
+          </span>
+          <input type="checkbox" checked={draft.missions_enabled} onChange={(e) => set({ missions_enabled: e.target.checked })} className="h-5 w-5 accent-brand-600" />
         </label>
       </Section>
 

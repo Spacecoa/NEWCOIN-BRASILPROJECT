@@ -262,6 +262,9 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | DELETE | `/api/feed/aprendizado` | ✔ | Apaga o aprendizado |
 | POST | `/api/posts/:id/feedback` | ✔ | `{kind: "more" \| "less"}` |
 | GET | `/api/feed/algoritmo` | — | Especificação pública do algoritmo |
+| GET | `/api/missoes` | ✔ | Missões do dia, verificadas pelas ações reais, e painel coletivo |
+| POST | `/api/missoes/:id/pular` | ✔ | Pular uma missão hoje |
+| GET/POST | `/api/convites` | ✔ | Listar / gerar convites de uso único |
 | GET | `/.well-known/webfinger?resource=acct:u@dominio` | — | Descoberta federada |
 | GET | `/federation/users/:u` · `/outbox` | — | Ator e últimos posts (ActivityStreams) |
 

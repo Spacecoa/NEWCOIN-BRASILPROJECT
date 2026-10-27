@@ -8,6 +8,7 @@ import Home from './pages/Home.jsx';
 import Interests from './pages/Interests.jsx';
 import Login from './pages/Login.jsx';
 import Mentions from './pages/Mentions.jsx';
+import Missions from './pages/Missions.jsx';
 import Profile from './pages/Profile.jsx';
 import Register from './pages/Register.jsx';
 import Thread from './pages/Thread.jsx';
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="explorar" element={<Explore />} />
         <Route path="mencoes" element={<Mentions />} />
         <Route path="interesses" element={<Interests />} />
+        <Route path="missoes" element={<Missions />} />
         <Route path="u/:username" element={<Profile />} />
         <Route path="post/:id" element={<Thread />} />
         <Route path="canais" element={<Channels />} />

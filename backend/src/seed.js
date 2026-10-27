@@ -57,6 +57,11 @@ const REPLIES = [
   'Discordo um pouco: depende muito da carga.',
 ];
 
+const NEWCOMERS = [
+  ['nina_nova', 'Nina Barros', 'Estudo redes comunitárias e rádios livres.', 'Oi! Cheguei agora pelo convite da @ana_dev. Alguém recomenda grupos para quem estuda redes comunitárias?'],
+  ['otavio_recife', 'Otávio Lins', 'Dados abertos e mapeamento de bairro em Recife.', 'Primeiro post: trabalho com dados abertos em Recife e quero conectar quem mapeia o próprio bairro.'],
+];
+
 const CHANNELS = [
   { slug: 'avisos', title: 'Avisos da instância', description: 'Comunicados oficiais (somente admins publicam).', kind: 'channel' },
   { slug: 'sistemas_distribuidos', title: 'Sistemas Distribuídos', description: 'Grupo de estudo aberto.', kind: 'group' },
@@ -100,7 +105,8 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
       const uid = id();
       await db.query(
         'INSERT INTO users (id, username, email, password_hash, display_name, bio, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-        [uid, username, `${username}@exemplo.test`, passwordHash, name, bio, snowflakeToDate(uid)],
+        // Contas "veteranas" (≈2 meses), para que só as recém-chegadas contem como novas nas missões.
+        [uid, username, `${username}@exemplo.test`, passwordHash, name, bio, new Date(Date.now() - (60 - i) * 86_400_000)],
       );
       users.push({ id: uid, username });
     }
@@ -111,7 +117,7 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
     for (const a of users) {
       for (const b of users) {
         if (a.id !== b.id && rand() < 0.4) {
-          await db.query('INSERT INTO follows (follower_id, followee_id) VALUES ($1,$2)', [a.id, b.id]);
+          await db.query("INSERT INTO follows (follower_id, followee_id, created_at) VALUES ($1,$2, now() - interval '30 days')", [a.id, b.id]);
           follows++;
         }
       }
@@ -159,8 +165,28 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
       }
     }
 
+    // Recém-chegadas (entraram ontem): alvos reais para as missões "Dê boas-vindas",
+    // "Responda quem perguntou" e "Amplifique uma voz pequena".
+    const ana = users.find((u) => u.username === 'ana_dev');
+    for (const [username, name, bio, text] of NEWCOMERS) {
+      const uid = id();
+      await db.query(
+        'INSERT INTO users (id, username, email, password_hash, display_name, bio, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [uid, username, `${username}@exemplo.test`, passwordHash, name, bio, new Date(Date.now() - 20 * 3_600_000)],
+      );
+      userByName.set(username, uid);
+      if (ana) {
+        await db.query("INSERT INTO follows (follower_id, followee_id, created_at) VALUES ($1,$2, now() - interval '20 hours')", [uid, ana.id]);
+        if (username === NEWCOMERS[0][0]) {
+          await db.query("INSERT INTO invites (code, inviter_id, used_by, used_at) VALUES ('bemvinda', $1, $2, now() - interval '20 hours')", [ana.id, uid]);
+        }
+      }
+      await insertPost({ author: { id: uid }, text });
+    }
+    const newcomerPostIds = new Set(posts.slice(-NEWCOMERS.length).map((p) => p.id));
+
     let likes = 0;
-    for (const p of posts.filter((x) => !x.repostOf)) {
+    for (const p of posts.filter((x) => !x.repostOf && !newcomerPostIds.has(x.id))) {
       for (const u of users) {
         if (rand() < 0.2) {
           await db.query('INSERT INTO likes (user_id, post_id) VALUES ($1,$2)', [u.id, p.id]);
@@ -181,7 +207,7 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
     for (const [i, ch] of CHANNELS.entries()) {
       const owner = users[i % users.length];
       const cid = id();
-      await db.query('INSERT INTO channels (id, slug, title, description, kind, owner_id) VALUES ($1,$2,$3,$4,$5,$6)', [
+      await db.query("INSERT INTO channels (id, slug, title, description, kind, owner_id, created_at) VALUES ($1,$2,$3,$4,$5,$6, now() - interval '30 days')", [
         cid, ch.slug, ch.title, ch.description, ch.kind, owner.id,
       ]);
       const members = users.filter((u) => u.id === owner.id || rand() < 0.6);
@@ -211,7 +237,7 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
       await db.query('UPDATE channels SET pts = $2 WHERE id = $1', [cid, pts]);
     }
 
-    log(`Seed concluído: ${users.length} usuários, ${follows} follows, ${posts.length} posts, ${likes} likes, ${CHANNELS.length} canais, ${messages} mensagens.`);
+    log(`Seed concluído: ${users.length + NEWCOMERS.length} usuários (${NEWCOMERS.length} recém-chegadas), ${follows} follows, ${posts.length} posts, ${likes} likes, ${CHANNELS.length} canais, ${messages} mensagens.`);
   });
 
   // Timelines materializadas ficaram obsoletas: o Redis as reconstrói sob demanda.

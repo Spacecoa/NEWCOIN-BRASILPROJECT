@@ -143,3 +143,26 @@ CREATE TABLE IF NOT EXISTS hidden_posts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, post_id)
 );
+
+-- ---------------------------------------------------------------------------
+-- Missões diárias de organização popular — ver src/lib/missions.js
+-- A conclusão de cada missão é DERIVADA das ações reais (posts, follows,
+-- mensagens, convites); não há pontos nem sequências armazenados.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS mission_skips (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day        DATE   NOT NULL,
+  mission    TEXT   NOT NULL,
+  PRIMARY KEY (user_id, day, mission)
+);
+
+-- Convites: crescimento de pessoa para pessoa.
+CREATE TABLE IF NOT EXISTS invites (
+  code       TEXT PRIMARY KEY CHECK (code ~ '^[a-z0-9]{8}$'),
+  inviter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  used_by    BIGINT UNIQUE REFERENCES users(id) ON DELETE SET NULL,
+  used_at    TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS invites_inviter_idx ON invites (inviter_id);

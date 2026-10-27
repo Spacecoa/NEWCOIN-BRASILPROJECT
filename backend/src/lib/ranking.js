@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   diversity: 0.5, // 0 = sem penalidade, 1 = máxima variedade
   session_limit: 40, // depois disso: "Você está em dia"
   hide_metrics: false, // esconder contadores no feed de interesses
+  missions_enabled: true, // mostrar as missões diárias (ver lib/missions.js)
 });
 
 export const LEARNING = Object.freeze({

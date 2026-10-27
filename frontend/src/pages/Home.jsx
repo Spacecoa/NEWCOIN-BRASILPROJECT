@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../lib/api.js';
 import { Link } from 'react-router';
 import ComposeSheet from '../components/ComposeSheet.jsx';
 import Composer from '../components/Composer.jsx';
@@ -49,6 +50,10 @@ export default function Home() {
     }
   };
   const interests = tab === 'interesses';
+  const [missions, setMissions] = useState(null);
+  useEffect(() => {
+    api('/api/missoes').then(setMissions).catch(() => setMissions(null));
+  }, []);
 
   return (
     <>
@@ -64,6 +69,20 @@ export default function Home() {
           <Icon name="sliders" />
         </Link>
       </PageHeader>
+      {missions?.enabled && missions.summary.total > 0 && (
+        <Link
+          to="/missoes"
+          className="mx-4 mb-3 flex min-h-12 items-center gap-3 rounded-3xl bg-brand-50 px-4 py-2 text-sm dark:bg-brand-600/15"
+        >
+          <span className="text-brand-600"><Icon name="sprout" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-extrabold text-brand-700 dark:text-brand-100">Missões do dia</span>
+            <span className="block truncate text-zinc-600 dark:text-zinc-300">
+              {missions.summary.done} de {missions.summary.total} · {missions.missions.find((m) => m.status === 'todo')?.title ?? 'Tudo feito por hoje'}
+            </span>
+          </span>
+        </Link>
+      )}
       <div role="tablist" aria-label="Tipo de feed" className="mx-4 mb-2 grid grid-cols-2 rounded-full bg-zinc-100 p-1 dark:bg-zinc-900">
         {[
           ['seguindo', 'Seguindo'],
