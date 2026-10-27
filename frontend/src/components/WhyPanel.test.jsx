@@ -2,7 +2,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { makePost, mockFetch } from '../test/fixtures.js';
+import { AuthProvider } from '../auth/AuthContext.jsx';
 import WhyPanel from './WhyPanel.jsx';
+
+const wrap = (ui) => <AuthProvider>{ui}</AuthProvider>;
 
 const ranked = makePost({
   ranking: {
@@ -20,7 +23,7 @@ const ranked = makePost({
 
 describe('<WhyPanel>', () => {
   it('mostra a posição, a nota e cada fator com seu detalhe', async () => {
-    render(<WhyPanel post={ranked} />);
+    render(wrap(<WhyPanel post={ranked} />));
     await userEvent.click(screen.getByRole('button', { name: /Por que este post\? · nº 2/ }));
     expect(screen.getByText(/Pontuação 71 de 100/)).toHaveTextContent('Bancos de dados');
     expect(screen.getByText('Seus interesses')).toBeInTheDocument();
@@ -32,12 +35,24 @@ describe('<WhyPanel>', () => {
   it('"Menos disto" envia o sinal e esconde o post', async () => {
     const calls = mockFetch([[/\/feedback$/, { ok: true, kind: 'less' }]]);
     const onHide = vi.fn();
-    render(<WhyPanel post={ranked} onHide={onHide} />);
+    render(wrap(<WhyPanel post={ranked} onHide={onHide} />));
     await userEvent.click(screen.getByRole('button', { name: /Por que este post/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Menos disto' }));
     expect(calls[0].url).toBe(`/api/posts/${ranked.id}/feedback`);
     expect(JSON.parse(calls[0].init.body)).toEqual({ kind: 'less' });
     expect(onHide).toHaveBeenCalledWith(ranked.id);
     expect(screen.getByText('Anotado: menos posts assim.')).toBeInTheDocument();
+  });
+
+  it('no modo aparelho, "Menos disto" aprende só no navegador e não chama a API', async () => {
+    const calls = mockFetch([]);
+    const onHide = vi.fn();
+    const local = { ...ranked, author_id: '2', text: 'Postgres e Redis', ranking: { ...ranked.ranking, local: true } };
+    render(wrap(<WhyPanel post={local} onHide={onHide} authorUsername="bruno" />));
+    expect(screen.getByRole('button', { name: /calculado neste aparelho/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Por que este post/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Menos disto' }));
+    expect(calls.filter((c) => c.url.includes('/feedback'))).toHaveLength(0);
+    expect(onHide).toHaveBeenCalledWith(local.id);
   });
 });

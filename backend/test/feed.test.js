@@ -99,7 +99,7 @@ describe('feed de interesses (algoritmo aberto)', () => {
   it('descrição do algoritmo é pública', async () => {
     const res = await api().get('/api/feed/algoritmo');
     expect(res.status).toBe(200);
-    expect(res.body.codigo_fonte).toBe('backend/src/lib/ranking.js');
+    expect(res.body.codigo_fonte).toBe('shared/ranking/ranking.js');
     expect(res.body.learning.nao_usa).toContain('tempo de tela');
   });
 });

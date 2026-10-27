@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, tokenStore } from '../lib/api.js';
+import { resetCachedMode } from '../lib/rankingMode.js';
 import { closeSocket, getSocket } from '../lib/socket.js';
 
 const AuthContext = createContext(null);
@@ -43,6 +44,7 @@ export function AuthProvider({ children }) {
       logout: () => {
         tokenStore.set(null);
         closeSocket();
+        resetCachedMode();
         setToken(null);
         setUser(null);
       },

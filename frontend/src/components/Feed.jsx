@@ -23,6 +23,8 @@ export default function Feed({
   cursorParam = 'until_id',
   autoLoad = true,
   renderEnd,
+  // Fonte alternativa (ex.: ranking neste aparelho): async (cursor, limit) => { data, includes, meta }
+  source,
 }) {
   const { socket } = useAuth();
   const store = usePostStore();
@@ -49,7 +51,9 @@ export default function Feed({
       setLoading(true);
       setError(null);
       try {
-        const result = await api(withParams(endpoint, { max_results: PAGE_SIZE, [cursorParam]: reset ? null : nextToken }));
+        const result = source
+          ? await source(reset ? null : nextToken, PAGE_SIZE)
+          : await api(withParams(endpoint, { max_results: PAGE_SIZE, [cursorParam]: reset ? null : nextToken }));
         if (gen !== generation.current) return;
         merge(result);
         const newIds = result.data.map((p) => p.id);
@@ -66,7 +70,7 @@ export default function Feed({
         }
       }
     },
-    [endpoint, nextToken, merge, cursorParam],
+    [endpoint, nextToken, merge, cursorParam, source],
   );
 
   // Recarrega do zero quando o endpoint muda (ex.: trocar de perfil ou aba).

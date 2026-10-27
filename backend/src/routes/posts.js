@@ -55,8 +55,8 @@ router.delete('/:id/like', requireAuth, async (req, res) => {
 /** "Mais disto" / "Menos disto": sinal explícito para o algoritmo de interesses. */
 router.post('/:id/feedback', requireAuth, async (req, res) => {
   const { kind } = parse(z.object({ kind: z.enum(['more', 'less']) }), req.body);
-  await recordSignal(req.user.id, parse(idParam, req.params.id), kind);
-  res.json({ ok: true, kind });
+  const { stored } = await recordSignal(req.user.id, parse(idParam, req.params.id), kind);
+  res.json({ ok: true, kind, stored });
 });
 
 router.post('/:id/repost', requireAuth, createLimiter, async (req, res) => {

@@ -4,8 +4,10 @@ import { decayed, learn, mergeSettings, rank } from '../lib/ranking.js';
 import { extractTopics, TOPICS } from '../lib/topics.js';
 import { hydrate } from './posts.js';
 
-const CANDIDATE_DAYS = 7;
-const CANDIDATE_LIMIT = 500;
+export const CANDIDATE_DAYS = 7;
+export const CANDIDATE_LIMIT = 500;
+// Preferências que NÃO são do algoritmo: sobrevivem à troca de modo.
+const NON_ALGORITHM_KEYS = ['missions_enabled', 'count_time'];
 
 export async function getSettings(userId) {
   const { rows } = await query('SELECT settings FROM feed_settings WHERE user_id = $1', [userId]);
@@ -76,12 +78,16 @@ export async function recordSignal(userId, postId, signal) {
     const orig = await query('SELECT author_id, text FROM posts WHERE id = $1', [post.repost_of_id]);
     if (orig.rows[0]) post = orig.rows[0];
   }
-  if (post.author_id === userId) return; // interagir com o próprio post não ensina nada
+  if (post.author_id === userId) return { stored: false }; // interagir com o próprio post não ensina nada
+  // No modo "neste aparelho", o aprendizado fica só no navegador: o servidor não guarda nada.
+  const settings = await getSettings(userId);
+  if (settings.ranking_mode === 'device') return { stored: false };
   for (const topic of extractTopics(post.text)) await upsertLearned('learned_topics', 'topic', userId, topic, signal);
   await upsertLearned('learned_authors', 'author_id', userId, post.author_id, signal);
   if (signal === 'less') {
     await query('INSERT INTO hidden_posts (user_id, post_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [userId, postId]);
   }
+  return { stored: true };
 }
 
 /** Versão best-effort para os ganchos de like/repost/reply: nunca derruba a ação principal. */
@@ -93,24 +99,79 @@ export async function recordSignalSafely(userId, postId, signal) {
   }
 }
 
+/**
+ * Posts candidatos do feed de interesses. O conjunto NÃO depende das preferências
+ * (só exclui os próprios posts e os escondidos no servidor), então entregá-lo ao
+ * navegador não revela à instância do que a pessoa gosta.
+ */
+function candidateRows(userId) {
+  return query(
+    `SELECT p.id, p.author_id, p.text, p.created_at, p.like_count, p.repost_count FROM posts p
+     WHERE p.repost_of_id IS NULL AND p.author_id <> $1
+       AND p.created_at > now() - make_interval(days => $2)
+       AND NOT EXISTS (SELECT 1 FROM hidden_posts h WHERE h.user_id = $1 AND h.post_id = p.id)
+     ORDER BY p.id DESC LIMIT $3`,
+    [userId, CANDIDATE_DAYS, CANDIDATE_LIMIT],
+  );
+}
+
+const followingIds = async (userId) =>
+  (await query('SELECT followee_id FROM follows WHERE follower_id = $1', [userId])).rows.map((r) => r.followee_id);
+
+/** Modo "neste aparelho": candidatos hidratados + quem a pessoa segue. O ranking acontece no navegador. */
+export async function candidatesForDevice(userId) {
+  const [rows, following] = await Promise.all([candidateRows(userId), followingIds(userId)]);
+  const result = await hydrate(rows.rows.map((r) => r.id), userId);
+  return {
+    ...result,
+    meta: {
+      result_count: result.data.length,
+      following,
+      window_days: CANDIDATE_DAYS,
+      limit: CANDIDATE_LIMIT,
+      generated_at: new Date().toISOString(),
+      algorithm: 'interesses-v1',
+    },
+  };
+}
+
+/**
+ * Troca onde o feed é calculado. Ao ir para o aparelho, o servidor APAGA as preferências
+ * do algoritmo, o aprendizado e os posts escondidos (o cliente copia tudo antes).
+ */
+export async function setRankingMode(userId, mode) {
+  const current = await getSettings(userId);
+  let next;
+  if (mode === 'device') {
+    await resetLearning(userId);
+    next = mergeSettings({ ...Object.fromEntries(NON_ALGORITHM_KEYS.map((k) => [k, current[k]])), ranking_mode: 'device' });
+  } else {
+    next = mergeSettings({ ...current, ranking_mode: 'server' });
+  }
+  await query(
+    `INSERT INTO feed_settings (user_id, settings, updated_at) VALUES ($1, $2, now())
+     ON CONFLICT (user_id) DO UPDATE SET settings = EXCLUDED.settings, updated_at = now()`,
+    [userId, JSON.stringify(next)],
+  );
+  return next;
+}
+
+export async function hiddenPostIds(userId) {
+  const { rows } = await query('SELECT post_id FROM hidden_posts WHERE user_id = $1 ORDER BY post_id', [userId]);
+  return rows.map((r) => r.post_id);
+}
+
 /** Feed "Interesses": candidatos recentes → rank() → página. Cursor = posição no ranking. */
 export async function interestFeed(userId, { offset = 0, limit = 20 } = {}) {
-  const [settings, learnedRaw, followRows, candidates] = await Promise.all([
+  const [settings, learnedRaw, following, candidates] = await Promise.all([
     getSettings(userId),
     getLearned(userId),
-    query('SELECT followee_id FROM follows WHERE follower_id = $1', [userId]),
-    query(
-      `SELECT p.id, p.author_id, p.text, p.created_at, p.like_count, p.repost_count FROM posts p
-       WHERE p.repost_of_id IS NULL AND p.author_id <> $1
-         AND p.created_at > now() - make_interval(days => $2)
-         AND NOT EXISTS (SELECT 1 FROM hidden_posts h WHERE h.user_id = $1 AND h.post_id = p.id)
-       ORDER BY p.id DESC LIMIT $3`,
-      [userId, CANDIDATE_DAYS, CANDIDATE_LIMIT],
-    ),
+    followingIds(userId),
+    candidateRows(userId),
   ]);
   const ranked = rank(candidates.rows, {
     settings,
-    following: new Set(followRows.rows.map((r) => r.followee_id)),
+    following: new Set(following),
     learnedTopics: Object.fromEntries(learnedRaw.topics.map((t) => [t.topic, t.value])),
     learnedAuthors: Object.fromEntries(learnedRaw.authors.map((a) => [a.author_id, a.value])),
   });

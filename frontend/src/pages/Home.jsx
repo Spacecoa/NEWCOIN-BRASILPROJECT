@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api.js';
+import { createDeviceSource } from '../lib/deviceAlgo.js';
+import { useRankingMode } from '../lib/rankingMode.js';
+import { useAuth } from '../auth/AuthContext.jsx';
 import { Link } from 'react-router';
 import ComposeSheet from '../components/ComposeSheet.jsx';
 import Composer from '../components/Composer.jsx';
@@ -50,6 +53,13 @@ export default function Home() {
     }
   };
   const interests = tab === 'interesses';
+  const { user } = useAuth();
+  const mode = useRankingMode();
+  // Uma fonte nova por visita à aba: busca os candidatos e ordena neste navegador.
+  const deviceSource = useMemo(
+    () => (mode === 'device' && user ? createDeviceSource(user.id, () => api('/api/feed/candidatos')) : null),
+    [mode, user, tab],
+  );
   const [missions, setMissions] = useState(null);
   useEffect(() => {
     api('/api/missoes').then(setMissions).catch(() => setMissions(null));
@@ -59,7 +69,13 @@ export default function Home() {
     <>
       <PageHeader
         title="Início"
-        subtitle={interests ? 'Ordenado pelo algoritmo aberto, que você controla' : 'Quem você segue, do mais novo ao mais antigo'}
+        subtitle={
+          interests
+            ? mode === 'device'
+              ? 'Ordenado neste aparelho pelo algoritmo aberto'
+              : 'Ordenado pelo algoritmo aberto, que você controla'
+            : 'Quem você segue, do mais novo ao mais antigo'
+        }
       >
         <Link
           to="/interesses"
@@ -100,10 +116,13 @@ export default function Home() {
           </button>
         ))}
       </div>
-      {interests ? (
+      {interests && !mode ? (
+        <p className="p-8 text-center text-zinc-500">Carregando…</p>
+      ) : interests ? (
         <Feed
-          key="interesses"
-          endpoint="/api/feed/interesses"
+          key={`interesses-${mode}`}
+          endpoint={mode === 'device' ? 'device:interesses' : '/api/feed/interesses'}
+          source={deviceSource ?? undefined}
           cursorParam="next_token"
           autoLoad={false}
           emptyText="Nada novo nos seus interesses. Ajuste seus tópicos ou siga mais pessoas."
