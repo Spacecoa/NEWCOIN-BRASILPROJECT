@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #ecfdf3;
+  --color-brand-100: #d1fadf;
+  --color-brand-500: #12a150;
+  --color-brand-600: #0e8a44;
+  --color-brand-700: #0b6e37;
+}
+
+html {
+  color-scheme: light dark;
+}
+body {
+  @apply bg-white text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+}
