@@ -8,9 +8,11 @@
 - **Mensageria no estilo Telegram:** canais (broadcast) e grupos em tempo real, com `pts` por canal para detectar e recuperar lacunas, reações com emoji e papéis owner/admin/member.
 - **Federável:** handles `usuario@instancia`, WebFinger e um outbox ActivityStreams somente leitura.
 
-| Home "Seguindo" | Thread | Canal em tempo real |
+| Início (celular) | Novo post | Canal em tempo real |
 |---|---|---|
-| ![Home](docs/img/home.png) | ![Thread](docs/img/thread.png) | ![Canal](docs/img/channel.png) |
+| ![Início](docs/img/home.png) | ![Novo post](docs/img/compose.png) | ![Canal](docs/img/channel.png) |
+
+Visual mobile first e minimalista, com fonte arredondada (Nunito). No desktop, a navegação vira coluna lateral ([print no tema escuro](docs/img/desktop-dark.png)).
 
 ## Entregáveis
 
