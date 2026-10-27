@@ -108,3 +108,58 @@ describe('transparência', () => {
     expect(d.defaults.weights.popularidade).toBe(0);
   });
 });
+
+// Versão original do MMR (sem limite e sem pré-cálculo), guardada para provar que a otimização
+// não muda o resultado.
+function diversifyReferencia(items, lambda, window = 5) {
+  const pool = [...items];
+  const out = [];
+  while (pool.length) {
+    let best = 0;
+    let bestVal = -Infinity;
+    const recent = out.slice(-window);
+    for (let i = 0; i < pool.length; i++) {
+      const penalty = recent.length ? Math.max(...recent.map((r) => similarity(pool[i], r))) : 0;
+      const val = pool[i].score - lambda * penalty;
+      if (val > bestVal || (val === bestVal && BigInt(pool[i].post.id) > BigInt(pool[best].post.id))) {
+        best = i;
+        bestVal = val;
+      }
+    }
+    out.push(pool.splice(best, 1)[0]);
+  }
+  return out;
+}
+
+describe('desempenho do MMR sem mudar o resultado', () => {
+  // gerador pseudoaleatório determinístico
+  let seed = 12345;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const TOPICOS = ['bancos', 'frontend', 'redes', 'infra', 'ensino', 'dados'];
+
+  it('é idêntico à versão completa cortada no limite, em 300 casos aleatórios (com empates)', () => {
+    for (let c = 0; c < 300; c++) {
+      const n = 1 + Math.floor(rnd() * 80);
+      const items = Array.from({ length: n }, (_, i) => ({
+        score: Math.round(rnd() * 10) / 10, // muitos empates de nota
+        topics: TOPICOS.filter(() => rnd() < 0.3),
+        post: { id: String(1000 + Math.floor(rnd() * 5000) * 10 + i), author_id: String(Math.floor(rnd() * 6)) },
+      }));
+      const lambda = [0, 0.3, 0.5, 1][c % 4];
+      const limit = 1 + Math.floor(rnd() * n);
+      const novo = diversify(items, lambda, 5, limit).map((x) => x.post.id);
+      const ref = diversifyReferencia(items, lambda).slice(0, limit).map((x) => x.post.id);
+      expect(novo).toEqual(ref);
+    }
+  });
+
+  it('rank() com 500 candidatos fica bem abaixo de 50 ms de CPU', () => {
+    const posts = Array.from({ length: 500 }, (_, i) => post({ author_id: String(i % 97), text: ['Postgres e cache', 'React e CSS', 'Deploy no Kubernetes', 'Aula de sexta', 'WebFinger e federação'][i % 5] + ' ' + i, created_at: hoursAgo(i % 100) }));
+    const c = ctx({ topics: { bancos: 0.8 }, keywords: ['webfinger'] });
+    rank(posts, c);
+    const t0 = performance.now();
+    for (let i = 0; i < 5; i++) rank(posts, c);
+    expect((performance.now() - t0) / 5).toBeLessThan(50);
+  });
+});
+

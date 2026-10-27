@@ -43,8 +43,9 @@ Também há uma versão publicada em https://claude.ai/artifact/1KYADm2kxRoJqg8r
 | 7 | **Atenção e algoritmo aberto** (gatilhos de recompensa nas redes e o feed "Para você" controlado pelo usuário) | [`docs/07-atencao-e-algoritmo-aberto.md`](docs/07-atencao-e-algoritmo-aberto.md) |
 | 8 | **Missões diárias de organização popular** (crescimento orgânico, sem pontos nem sequências) e convites | [`docs/08-missoes-organizacao-popular.md`](docs/08-missoes-organizacao-popular.md) |
 | 9 | **Token interno NewCoin** (recompensa entre pessoas, emissão só por missões, utilidade nula no início) | [`docs/09-token-interno.md`](docs/09-token-interno.md) |
-| 10 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
-| 11 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
+| 10 | **Segurança e DoS** (análise, medições e correções propostas) | [`docs/10-seguranca-e-dos.md`](docs/10-seguranca-e-dos.md) |
+| 11 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
+| 12 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
 
 ## Stack
 
@@ -84,7 +85,7 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 ### Testes
 
 ```bash
-cd backend  && npm test   # 117 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd backend  && npm test   # 119 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
 cd frontend && npm test   # 38 testes: lógica e componentes (jsdom)
 ```
 
