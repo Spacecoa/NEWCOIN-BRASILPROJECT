@@ -262,6 +262,8 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | DELETE | `/api/feed/aprendizado` | ✔ | Apaga o aprendizado |
 | POST | `/api/posts/:id/feedback` | ✔ | `{kind: "more" \| "less"}` |
 | GET | `/api/feed/algoritmo` | — | Especificação pública do algoritmo |
+| GET | `/api/feed/candidatos` | ✔ | Candidatos para calcular o feed no navegador (modo "neste aparelho") |
+| PUT | `/api/feed/modo` | ✔ | `server` ou `device`: onde o feed "Para você" é calculado |
 | GET | `/api/missoes` | ✔ | Missões do dia, verificadas pelas ações reais, e painel coletivo |
 | POST | `/api/missoes/:id/pular` | ✔ | Pular uma missão hoje |
 | GET/POST | `/api/convites` | ✔ | Listar / gerar convites de uso único |

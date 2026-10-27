@@ -7,7 +7,7 @@
 - **Feed no estilo X/Twitter:** home "Seguindo" em ordem cronológica reversa, threads, menções, perfis, follow, like e repost. Usa IDs Snowflake, paginação por cursor (`since_id`/`until_id`), fan-out na escrita em Redis e o formato de resposta `data` + `includes` + `meta`.
 - **Mensageria no estilo Telegram:** canais (broadcast) e grupos em tempo real, com `pts` por canal para detectar e recuperar lacunas, reações com emoji e papéis owner/admin/member.
 - **Federável:** handles `usuario@instancia`, WebFinger e um outbox ActivityStreams somente leitura.
-- **Algoritmo aberto:** aba "Para você" ordenada pelos interesses que a pessoa declara, com explicação em cada post, controles completos, aprendizado só por ações explícitas e um fim de sessão ("Você está em dia"). Popularidade vale zero por padrão.
+- **Algoritmo aberto:** aba "Para você" ordenada pelos interesses que a pessoa declara, com explicação em cada post, controles completos, aprendizado só por ações explícitas e um fim de sessão ("Você está em dia"). Popularidade vale zero por padrão. Cada pessoa escolhe **onde o feed é calculado**: no servidor da instância ou **neste aparelho**, com o mesmo código (`shared/ranking/`); no aparelho, preferências e aprendizado nunca saem do navegador.
 - **Missões diárias e token interno:** até 4 missões por dia feitas dentro do app (curtir, republicar, comentar, recompensar, tempo ativo, receber quem chegou, responder perguntas, abrir grupos, convidar), verificadas pelas ações reais. Cada uma rende **NewCoin (NWC)**, um token interno que só serve, por enquanto, para recompensar posts de outras pessoas (transferência de 1 NWC, como um like). Sem sequências nem ranking. Convites de uso único.
 
 | Início (celular) | Novo post | Canal em tempo real |
@@ -84,8 +84,8 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 ### Testes
 
 ```bash
-cd backend  && npm test   # 109 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
-cd frontend && npm test   # 30 testes: lógica e componentes (jsdom)
+cd backend  && npm test   # 117 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd frontend && npm test   # 38 testes: lógica e componentes (jsdom)
 ```
 
 Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL`. Os testes de integração **apagam** o banco de teste e o banco 1 do Redis.
@@ -121,6 +121,7 @@ A tabela completa de rotas e eventos de tempo real está em [`docs/03-arquitetur
 ```
 backend/    API Express, serviços de domínio, Socket.io, schema SQL, seed, testes
 demo/       demo interativa em uma página HTML (sem servidor)
+shared/     código puro usado pelo backend e pelo navegador (algoritmo "Para você")
 frontend/   SPA React (Feed, PostCard, Composer, Thread, Perfil, Canais)
 docs/       análises, arquitetura (Mermaid), relatório comparativo, suposições
 ```

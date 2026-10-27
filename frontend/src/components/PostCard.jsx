@@ -3,6 +3,8 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { api } from '../lib/api.js';
 import { useState } from 'react';
 import { fullDate, relativeTime } from '../lib/time.js';
+import { learnLocal } from '../lib/deviceAlgo.js';
+import { getCachedMode } from '../lib/rankingMode.js';
 import { useToken } from '../lib/token.js';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
@@ -52,6 +54,11 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
   async function act(path, active) {
     if (!me) return navigate('/login');
     onChange?.(await api(`/api/posts/${shown.id}/${path}`, { method: active ? 'DELETE' : 'POST' }));
+    // Modo aparelho: o servidor não aprende; o navegador aprende com o mesmo sinal.
+    if (getCachedMode() === 'device') {
+      const signal = path === 'like' ? (active ? 'unlike' : 'like') : active ? null : 'repost';
+      if (signal) learnLocal(me.id, shown, signal, author?.username);
+    }
   }
 
   async function tip() {
@@ -146,7 +153,7 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
               <Link to="/missoes" className="underline">Ver missões</Link>
             </p>
           )}
-          {post.ranking && <WhyPanel post={post} onHide={onDelete} />}
+          {post.ranking && <WhyPanel post={post} onHide={onDelete} authorUsername={author?.username} />}
         </div>
       </div>
     </article>

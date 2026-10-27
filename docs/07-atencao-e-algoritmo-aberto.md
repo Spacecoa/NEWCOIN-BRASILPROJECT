@@ -71,7 +71,7 @@ O Telegram, vale notar, **não tem feed algorítmico**: canais e grupos são cro
 4. **Explicável item por item.** Cada post traz a conta que o colocou ali.
 5. **Tem fim.** Limite por sessão e sem rolagem automática.
 6. **Variedade obrigatória.** A reordenação MMR evita sequências do mesmo autor ou tema.
-7. **Aberto.** O código (`backend/src/lib/ranking.js`) é uma função pura, e a especificação está publicada em `GET /api/feed/algoritmo`.
+7. **Aberto.** O código (`shared/ranking/ranking.js`) é uma função pura, e a especificação está publicada em `GET /api/feed/algoritmo`.
 8. **Reversível.** O aprendizado é visível, perde força com o tempo e pode ser apagado com um toque.
 
 ### 2.2 Pipeline
@@ -168,6 +168,8 @@ Quando a pessoa ainda não escolheu nada, o feed avisa que está "quase em ordem
 | DELETE | `/api/feed/aprendizado` | Apaga afinidades e posts escondidos |
 | POST | `/api/posts/:id/feedback` | `{ kind: "more" \| "less" }` |
 | GET | `/api/feed/algoritmo` | Especificação pública (sem login) |
+| GET | `/api/feed/candidatos` | Candidatos para o ranking no aparelho (+ `meta.following`) |
+| PUT | `/api/feed/modo` | `{ mode: "server" \| "device" }`; ir para o aparelho apaga os dados do algoritmo no servidor |
 
 ### 2.9 Testes
 
@@ -175,7 +177,43 @@ Quando a pessoa ainda não escolheu nada, o feed avisa que está "quase em ordem
 - `backend/test/feed.test.js`: preferências reordenando o feed; palavras-chave e silenciamento; validação; curtir ensinando; "menos disto" escondendo e reduzindo afinidade; reset; fim de sessão sem repetição; especificação pública.
 - `frontend`: painel "Por que este post?", "Menos disto" e cursor e fim do feed de interesses.
 
-### 2.10 Limites e próximos passos
+### 2.10 Onde o cálculo acontece: no servidor ou neste aparelho
+
+Cada pessoa escolhe, em **Meu algoritmo → Onde o seu feed é calculado**:
+
+| | No servidor da instância (padrão) | Neste aparelho |
+|---|---|---|
+| Quem faz a conta | O backend (`GET /api/feed/interesses`) | O navegador, com **o mesmo arquivo** `shared/ranking/ranking.js` |
+| O que o servidor envia | A página já ordenada | Os candidatos (`GET /api/feed/candidatos`): posts originais dos últimos 7 dias, até 500, e a lista de quem a pessoa segue |
+| Onde ficam preferências, aprendizado e "menos disto" | No banco da instância | Só no navegador (`localStorage`, chave `agora.algo.v1.<id>`) |
+| O servidor sabe do que a pessoa gosta? | Sim | Não: o conjunto de candidatos é o mesmo para qualquer preferência |
+| Troca de aparelho | Continua igual | Começa do zero |
+
+```mermaid
+sequenceDiagram
+  participant N as Navegador
+  participant S as Servidor
+  N->>S: PUT /api/feed/modo { mode: "device" }
+  Note over N: antes, copia preferências, aprendizado e escondidos
+  S-->>N: apaga feed_settings (algoritmo), learned_*, hidden_posts
+  N->>S: GET /api/feed/candidatos
+  S-->>N: { data, includes, meta.following }
+  Note over N: rank() com as preferências locais → páginas, explicações, fim de sessão
+  N->>S: POST /api/posts/:id/like (ação pública, como sempre)
+  Note over N: aprende localmente, e o servidor não grava learned_* no modo aparelho
+```
+
+**Garantias, cobertas por testes:**
+
+- **Mesma entrada, mesma ordem.** Um teste de integração ordena os candidatos com `rank()` (como o navegador faz) e compara com o feed do servidor para as mesmas preferências e aprendizado: o resultado é idêntico.
+- **Os candidatos não dependem das preferências.** Mudar tópicos, palavras-chave ou silenciamentos não altera a resposta de `/api/feed/candidatos`.
+- **Na troca para o aparelho, o servidor apaga** as preferências do algoritmo, o aprendizado e os posts escondidos, e mantém só o modo e as opções que não são do algoritmo (missões e contagem de tempo).
+- **No modo aparelho, o servidor não aprende.** Curtir, repostar e responder continuam sendo ações públicas normais, mas não geram `learned_topics`/`learned_authors`. "Mais/menos disto" nem chega ao servidor; se chegar por outro cliente, a resposta é `stored: false`.
+- **Sem armazenamento disponível** (modo privado), o algoritmo funciona só em memória durante a visita. Dados apagados ou corrompidos fazem o algoritmo recomeçar do zero, sem quebrar o feed.
+
+**Limites:** a lista de quem a pessoa segue e as curtidas continuam públicas, como em qualquer rede, e o servidor vê quais posts foram abertos ou curtidos. O modo aparelho protege as **preferências declaradas e o aprendizado**, não a atividade pública. Também não há sincronização entre aparelhos (seria o próximo passo, por exemplo exportando e importando as preferências).
+
+### 2.11 Limites e próximos passos
 
 - **Taxonomia simples**, em português e por palavra-chave. Há falsos positivos e negativos. Próximo passo: permitir que cada instância edite a taxonomia ou usar embeddings **locais** (sem enviar texto para terceiros), mantendo a explicação por tópico.
 - **Partida a frio:** sem preferências, o feed se aproxima do cronológico, de propósito, e avisa isso.

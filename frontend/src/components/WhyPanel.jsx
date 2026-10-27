@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useAuth } from '../auth/AuthContext.jsx';
 import { api } from '../lib/api.js';
+import { learnLocal } from '../lib/deviceAlgo.js';
 
 const LABELS = {
   interesse: 'Seus interesses',
@@ -13,13 +15,16 @@ const LABELS = {
  * "Por que este post?": mostra a conta exata que colocou o post nesta posição
  * e deixa o usuário corrigir o algoritmo com "Mais disto" / "Menos disto".
  */
-export default function WhyPanel({ post, onHide }) {
+export default function WhyPanel({ post, onHide, authorUsername }) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [sent, setSent] = useState(null);
   const { ranking } = post;
 
   async function feedback(kind) {
-    await api(`/api/posts/${post.id}/feedback`, { method: 'POST', body: { kind } });
+    // No modo aparelho o sinal fica só no navegador; o servidor não fica sabendo.
+    if (ranking.local) learnLocal(user?.id, post, kind, authorUsername);
+    else await api(`/api/posts/${post.id}/feedback`, { method: 'POST', body: { kind } });
     setSent(kind);
     if (kind === 'less') onHide?.(post.id);
   }
@@ -32,7 +37,7 @@ export default function WhyPanel({ post, onHide }) {
         onClick={() => setOpen((v) => !v)}
         className="-ml-2 min-h-9 rounded-full px-2 text-xs font-semibold text-zinc-500 hover:text-brand-600"
       >
-        {open ? 'Ocultar explicação' : `Por que este post? · nº ${ranking.position}`}
+        {open ? 'Ocultar explicação' : `Por que este post? · nº ${ranking.position}${ranking.local ? ' · calculado neste aparelho' : ''}`}
       </button>
       {open && (
         <div className="mt-1 rounded-2xl bg-zinc-50 p-3 text-sm dark:bg-zinc-900" role="region" aria-label="Explicação do ranking">

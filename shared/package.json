@@ -1,0 +1,6 @@
+{
+  "name": "agora-shared",
+  "private": true,
+  "description": "Código puro compartilhado entre backend (Node) e frontend (navegador). Sem dependências.",
+  "type": "module"
+}

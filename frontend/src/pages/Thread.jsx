@@ -4,6 +4,9 @@ import Composer from '../components/Composer.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import PostCard from '../components/PostCard.jsx';
 import { api } from '../lib/api.js';
+import { useAuth } from '../auth/AuthContext.jsx';
+import { learnLocal } from '../lib/deviceAlgo.js';
+import { getCachedMode } from '../lib/rankingMode.js';
 import { buildThread } from '../lib/thread.js';
 import { usePostStore } from '../lib/usePostStore.js';
 
@@ -20,6 +23,7 @@ export default function Thread() {
   const { id } = useParams();
   const store = usePostStore();
   const { merge } = store;
+  const { user: me } = useAuth();
   const [order, setOrder] = useState(null);
   const [error, setError] = useState(null);
 
@@ -61,6 +65,7 @@ export default function Thread() {
         placeholder={`Responder a @${store.users[focal.author_id]?.username ?? ''}`}
         onPosted={(result) => {
           merge(result);
+          if (getCachedMode() === 'device') learnLocal(me.id, focal, 'reply', store.users[focal.author_id]?.username);
           setOrder((prev) => [...prev, result.data.id]);
         }}
       />
