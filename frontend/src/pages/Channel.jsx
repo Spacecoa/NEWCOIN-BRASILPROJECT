@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Avatar from '../components/Avatar.jsx';
+import Icon from '../components/Icon.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
 import { applyDifference, applyIncoming, mergeReactions } from '../lib/channelSync.js';
@@ -128,13 +129,14 @@ export default function Channel() {
   const canPost = channel.viewer_role && (channel.kind === 'group' || channel.viewer_role !== 'member');
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col sm:h-screen">
+    <div className="flex h-[calc(100dvh-5.5rem-env(safe-area-inset-bottom,0px))] flex-col md:h-dvh">
       <PageHeader
-        title={`${channel.kind === 'channel' ? '📣' : '💬'} ${channel.title}`}
+        back
+        title={channel.title}
         subtitle={`${channel.member_count} membros · sincronizado até pts ${sync.lastPts}`}
       >
         {channel.viewer_role !== 'owner' && (
-          <button onClick={() => membership(!channel.viewer_role)} className="rounded-full border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700">
+          <button onClick={() => membership(!channel.viewer_role)} className="min-h-11 rounded-full bg-zinc-100 px-4 text-sm font-extrabold dark:bg-zinc-900">
             {channel.viewer_role ? 'Sair' : 'Entrar'}
           </button>
         )}
@@ -151,8 +153,8 @@ export default function Channel() {
           return (
             <li key={m.id} className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
               <Avatar user={author} size="sm" />
-              <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${mine ? 'bg-brand-600 text-white' : 'bg-zinc-100 dark:bg-zinc-900'}`}>
-                <p className={`text-xs font-semibold ${mine ? 'text-brand-100' : 'text-brand-600'}`}>{author?.display_name ?? '…'}</p>
+              <div className={`max-w-[80%] rounded-3xl px-4 py-2 ${mine ? 'rounded-br-lg bg-brand-600 text-white' : 'rounded-bl-lg bg-zinc-100 dark:bg-zinc-900'}`}>
+                {!mine && <p className="text-xs font-extrabold text-zinc-500">{author?.display_name ?? '…'}</p>}
                 <p className="whitespace-pre-wrap break-words">{m.text}</p>
                 <p className={`mt-1 text-right text-[10px] ${mine ? 'text-brand-100' : 'text-zinc-500'}`} title={fullDate(m.created_at)}>
                   {relativeTime(m.created_at)} · pts {m.pts}
@@ -163,14 +165,14 @@ export default function Channel() {
                       key={r.emoji}
                       onClick={() => react(m, r.emoji)}
                       aria-pressed={r.reacted}
-                      className={`rounded-full px-2 text-xs ${r.reacted ? 'bg-brand-100 text-brand-700 ring-1 ring-brand-500' : 'bg-white/70 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200'}`}
+                      className={`min-h-7 rounded-full px-2 text-xs ${r.reacted ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-500' : 'bg-white/80 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200'}`}
                     >
                       {r.emoji} {r.count}
                     </button>
                   ))}
                   {channel.viewer_role && (
                     <details className="relative">
-                      <summary className="cursor-pointer list-none rounded-full px-1.5 text-xs opacity-60 hover:opacity-100" aria-label="Reagir">＋</summary>
+                      <summary className="flex min-h-7 cursor-pointer list-none items-center rounded-full px-1.5 opacity-60 hover:opacity-100" aria-label="Reagir"><Icon name="smile" className="h-4 w-4" /></summary>
                       <div className="absolute z-10 mt-1 flex gap-1 rounded-full bg-white p-1 shadow dark:bg-zinc-800">
                         {QUICK_REACTIONS.map((emoji) => (
                           <button key={emoji} onClick={() => react(m, emoji)} className="px-1">{emoji}</button>
@@ -186,19 +188,19 @@ export default function Channel() {
         <li ref={bottom} />
       </ol>
       {canPost ? (
-        <form onSubmit={send} className="flex gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800">
+        <form onSubmit={send} className="flex gap-2 px-3 py-2">
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={4096}
             placeholder="Mensagem"
             aria-label="Mensagem"
-            className="flex-1 rounded-full bg-zinc-100 px-4 py-2 outline-none dark:bg-zinc-900"
+            className="min-h-11 min-w-0 flex-1 rounded-full bg-zinc-50 px-4 text-base outline-none focus:ring-2 focus:ring-brand-500/40 dark:bg-zinc-900"
           />
-          <button disabled={!text.trim()} className="rounded-full bg-brand-600 px-4 font-semibold text-white disabled:opacity-50">Enviar</button>
+          <button disabled={!text.trim()} className="min-h-11 rounded-full bg-brand-600 px-5 font-extrabold text-white disabled:opacity-40">Enviar</button>
         </form>
       ) : (
-        <p className="border-t border-zinc-200 p-3 text-center text-sm text-zinc-500 dark:border-zinc-800">
+        <p className="p-3 text-center text-sm text-zinc-500">
           {channel.viewer_role ? 'Neste canal só administradores publicam.' : 'Entre para participar.'}
         </p>
       )}

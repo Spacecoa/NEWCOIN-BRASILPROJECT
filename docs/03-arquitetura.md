@@ -257,6 +257,18 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | POST | `/api/channels/:slug/messages` | ✔ | Enviar (regras de `kind`/papel) |
 | POST | `/api/channels/:slug/messages/:id/reactions` | ✔ | `{emoji}` |
 | DELETE | `/api/channels/:slug/messages/:id/reactions/:emoji` | ✔ | Remover reação |
+| GET | `/api/feed/interesses` | ✔ | Feed "Para você" do algoritmo aberto, com explicação por post |
+| GET/PUT | `/api/feed/preferencias` | ✔ | Preferências do algoritmo e o que ele aprendeu |
+| DELETE | `/api/feed/aprendizado` | ✔ | Apaga o aprendizado |
+| POST | `/api/posts/:id/feedback` | ✔ | `{kind: "more" \| "less"}` |
+| GET | `/api/feed/algoritmo` | — | Especificação pública do algoritmo |
+| GET | `/api/missoes` | ✔ | Missões do dia, verificadas pelas ações reais, e painel coletivo |
+| POST | `/api/missoes/:id/pular` | ✔ | Pular uma missão hoje |
+| GET/POST | `/api/convites` | ✔ | Listar / gerar convites de uso único |
+| GET | `/api/token` | — | Regras públicas do token interno |
+| GET | `/api/carteira` | ✔ | Saldo e extrato |
+| POST | `/api/posts/:id/recompensa` | ✔ | Transfere 1 NWC ao autor do post |
+| POST | `/api/atividade` | ✔ | Sinal de minuto ativo (missão de tempo) |
 | GET | `/.well-known/webfinger?resource=acct:u@dominio` | — | Descoberta federada |
 | GET | `/federation/users/:u` · `/outbox` | — | Ator e últimos posts (ActivityStreams) |
 

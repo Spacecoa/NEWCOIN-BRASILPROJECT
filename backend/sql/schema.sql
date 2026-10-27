@@ -106,3 +106,115 @@ CREATE TABLE IF NOT EXISTS message_reactions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (message_id, user_id, emoji)
 );
+
+-- ---------------------------------------------------------------------------
+-- Algoritmo de atenção aberto ("Interesses") — ver src/lib/ranking.js
+-- ---------------------------------------------------------------------------
+
+-- Preferências declaradas (pesos, tópicos, palavras-chave, limites). JSON validado pela API.
+CREATE TABLE IF NOT EXISTS feed_settings (
+  user_id    BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  settings   JSONB  NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- O que foi aprendido com ações explícitas. Decai com o tempo (meia-vida de 14 dias),
+-- é visível ao usuário e pode ser apagado a qualquer momento.
+CREATE TABLE IF NOT EXISTS learned_topics (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  topic      TEXT   NOT NULL,
+  value      REAL   NOT NULL CHECK (value BETWEEN -1 AND 1),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, topic)
+);
+
+CREATE TABLE IF NOT EXISTS learned_authors (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  author_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  value      REAL   NOT NULL CHECK (value BETWEEN -1 AND 1),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, author_id)
+);
+
+-- "Menos disto": o post some do feed de interesses dessa pessoa.
+CREATE TABLE IF NOT EXISTS hidden_posts (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id    BIGINT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, post_id)
+);
+
+-- ---------------------------------------------------------------------------
+-- Missões diárias de organização popular — ver src/lib/missions.js
+-- A conclusão de cada missão é DERIVADA das ações reais (posts, follows,
+-- mensagens, convites); não há pontos nem sequências armazenados.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS mission_skips (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day        DATE   NOT NULL,
+  mission    TEXT   NOT NULL,
+  PRIMARY KEY (user_id, day, mission)
+);
+
+-- Convites: crescimento de pessoa para pessoa.
+CREATE TABLE IF NOT EXISTS invites (
+  code       TEXT PRIMARY KEY CHECK (code ~ '^[a-z0-9]{8}$'),
+  inviter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  used_by    BIGINT UNIQUE REFERENCES users(id) ON DELETE SET NULL,
+  used_at    TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS invites_inviter_idx ON invites (inviter_id);
+
+-- ---------------------------------------------------------------------------
+-- Token interno (NewCoin) — ver src/services/tokens.js e docs/09-token-interno.md
+-- Sem valor monetário, sem conversão, sem saída do app. Só nasce de missões
+-- concluídas; recompensas entre pessoas apenas TRANSFEREM saldo existente.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS token_balances (
+  user_id    BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  balance    INTEGER NOT NULL DEFAULT 0 CHECK (balance >= 0),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Extrato imutável: o saldo é sempre a soma do extrato (verificado nos testes).
+CREATE TABLE IF NOT EXISTS token_ledger (
+  id         BIGINT PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount     INTEGER NOT NULL CHECK (amount <> 0),
+  kind       TEXT NOT NULL CHECK (kind IN ('grant', 'mission', 'tip_sent', 'tip_received')),
+  ref        TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS token_ledger_user_idx ON token_ledger (user_id, id DESC);
+
+-- Uma recompensa por missão, por pessoa, por dia (idempotência garantida pelo banco).
+CREATE TABLE IF NOT EXISTS mission_rewards (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day        DATE   NOT NULL,
+  mission    TEXT   NOT NULL,
+  amount     INTEGER NOT NULL CHECK (amount > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, day, mission)
+);
+
+-- Recompensa entre pessoas: como um like, uma por post por pessoa.
+CREATE TABLE IF NOT EXISTS tips (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id    BIGINT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  amount     INTEGER NOT NULL DEFAULT 1 CHECK (amount > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, post_id)
+);
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS tip_count INTEGER NOT NULL DEFAULT 0;
+
+-- Tempo ativo no app (só minutos agregados por dia; nunca usado no ranking).
+CREATE TABLE IF NOT EXISTS activity_days (
+  user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day          DATE   NOT NULL,
+  minutes      INTEGER NOT NULL DEFAULT 0 CHECK (minutes BETWEEN 0 AND 1440),
+  last_beat_at TIMESTAMPTZ,
+  PRIMARY KEY (user_id, day)
+);

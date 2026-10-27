@@ -19,11 +19,11 @@ export function formatUser(row) {
 
 const USER_COLS = 'id, username, display_name, bio, created_at';
 
-export async function createUser({ username, email, password, display_name }) {
+export async function createUser({ username, email, password, display_name }, db = { query }) {
   const id = nextId();
   const passwordHash = await hashPassword(password);
   try {
-    const { rows } = await query(
+    const { rows } = await db.query(
       `INSERT INTO users (id, username, email, password_hash, display_name)
        VALUES ($1, $2, $3, $4, $5) RETURNING ${USER_COLS}`,
       [id, username, email, passwordHash, display_name ?? username],

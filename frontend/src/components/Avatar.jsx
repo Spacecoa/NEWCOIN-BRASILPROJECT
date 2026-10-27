@@ -1,9 +1,17 @@
-const COLORS = ['bg-emerald-600', 'bg-sky-600', 'bg-amber-600', 'bg-rose-600', 'bg-violet-600', 'bg-teal-600', 'bg-orange-600'];
+// Avatares em tons suaves (fundo claro + inicial escura), para não competir com o conteúdo.
+const TONES = [
+  'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200',
+  'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200',
+  'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200',
+  'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200',
+  'bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200',
+  'bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-200',
+];
 
-function colorFor(seed = '') {
+function toneFor(seed = '') {
   let h = 0;
   for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return COLORS[h % COLORS.length];
+  return TONES[h % TONES.length];
 }
 
 export default function Avatar({ user, size = 'md' }) {
@@ -14,7 +22,7 @@ export default function Avatar({ user, size = 'md' }) {
     .map((w) => w[0]?.toUpperCase())
     .join('');
   return (
-    <div aria-hidden className={`${dims} ${colorFor(user?.username)} flex shrink-0 items-center justify-center rounded-full font-semibold text-white`}>
+    <div aria-hidden className={`${dims} ${toneFor(user?.username)} flex shrink-0 items-center justify-center rounded-full font-extrabold`}>
       {initials}
     </div>
   );

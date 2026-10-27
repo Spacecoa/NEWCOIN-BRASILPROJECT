@@ -4,6 +4,7 @@ import { optionalAuth, requireAuth } from '../lib/auth.js';
 import { parse } from '../lib/errors.js';
 import { pageMeta, parsePageParams } from '../lib/pagination.js';
 import { rateLimit } from '../lib/rateLimit.js';
+import { recordSignal } from '../services/interests.js';
 import * as posts from '../services/posts.js';
 import { publicTimelineIds } from '../services/timeline.js';
 
@@ -49,6 +50,13 @@ router.post('/:id/like', requireAuth, async (req, res) => {
 });
 router.delete('/:id/like', requireAuth, async (req, res) => {
   res.json(await posts.unlike(req.user.id, parse(idParam, req.params.id)));
+});
+
+/** "Mais disto" / "Menos disto": sinal explícito para o algoritmo de interesses. */
+router.post('/:id/feedback', requireAuth, async (req, res) => {
+  const { kind } = parse(z.object({ kind: z.enum(['more', 'less']) }), req.body);
+  await recordSignal(req.user.id, parse(idParam, req.params.id), kind);
+  res.json({ ok: true, kind });
 });
 
 router.post('/:id/repost', requireAuth, createLimiter, async (req, res) => {

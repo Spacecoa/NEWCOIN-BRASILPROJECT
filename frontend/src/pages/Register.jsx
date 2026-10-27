@@ -1,11 +1,14 @@
+import { useSearchParams } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import AuthForm, { Field, Link } from './AuthForm.jsx';
 
 export default function Register() {
   const { register } = useAuth();
+  const [params] = useSearchParams();
+  const invite = params.get('convite')?.trim().toLowerCase() || undefined;
   return (
     <AuthForm
-      title="Criar conta"
+      title={invite ? 'Você foi convidada(o)' : 'Criar conta'}
       submitLabel="Cadastrar"
       onSubmit={(f) =>
         register({
@@ -13,6 +16,7 @@ export default function Register() {
           display_name: f.get('display_name') || undefined,
           email: f.get('email'),
           password: f.get('password'),
+          invite_code: invite,
         })
       }
       footer={<>Já tem conta? <Link to="/login" className="text-brand-600 hover:underline">Entrar</Link></>}

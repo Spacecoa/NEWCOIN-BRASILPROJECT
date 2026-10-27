@@ -7,7 +7,8 @@ export const MAX_LENGTH = 280;
  * Caixa de criação de post. Com `replyTo`, cria uma resposta (thread).
  * Chama onPosted({ data, includes }) com o post criado.
  */
-export default function Composer({ replyTo = null, onPosted, placeholder = 'O que está acontecendo?', autoFocus = false }) {
+export default function Composer({ replyTo = null, onPosted, placeholder = 'O que está acontecendo?', autoFocus = false, bare = false, id }) {
+  const fieldId = id ?? (replyTo ? `reply-${replyTo}` : 'composer');
   const [text, setText] = useState('');
   const [error, setError] = useState(null);
   const [sending, setSending] = useState(false);
@@ -31,12 +32,12 @@ export default function Composer({ replyTo = null, onPosted, placeholder = 'O qu
   }
 
   return (
-    <form onSubmit={submit} className="border-b border-zinc-200 p-4 dark:border-zinc-800">
-      <label className="sr-only" htmlFor={replyTo ? `reply-${replyTo}` : 'composer'}>
+    <form onSubmit={submit} className={bare ? '' : 'px-4 pb-4 pt-1'}>
+      <label className="sr-only" htmlFor={fieldId}>
         {replyTo ? 'Escreva sua resposta' : 'Novo post'}
       </label>
       <textarea
-        id={replyTo ? `reply-${replyTo}` : 'composer'}
+        id={fieldId}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
@@ -45,7 +46,7 @@ export default function Composer({ replyTo = null, onPosted, placeholder = 'O qu
         placeholder={placeholder}
         autoFocus={autoFocus}
         rows={3}
-        className="w-full resize-none bg-transparent text-lg outline-none placeholder:text-zinc-400"
+        className="w-full resize-none rounded-2xl bg-zinc-50 px-4 py-3 text-base outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-500/40 dark:bg-zinc-900"
       />
       <div className="mt-2 flex items-center justify-end gap-3">
         {error && <span role="alert" className="mr-auto text-sm text-rose-600">{error}</span>}
@@ -55,7 +56,7 @@ export default function Composer({ replyTo = null, onPosted, placeholder = 'O qu
         <button
           type="submit"
           disabled={disabled}
-          className="rounded-full bg-brand-600 px-4 py-1.5 font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+          className="min-h-11 rounded-full bg-brand-600 px-5 font-extrabold text-white hover:bg-brand-700 disabled:opacity-40"
         >
           {replyTo ? 'Responder' : 'Postar'}
         </button>

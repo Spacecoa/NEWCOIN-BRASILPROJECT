@@ -20,14 +20,14 @@ export default function Explore() {
   return (
     <>
       <PageHeader title="Explorar" subtitle="Timeline pública desta instância" />
-      <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="px-4 pb-3">
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Buscar pessoas"
           aria-label="Buscar pessoas"
-          className="w-full rounded-full bg-zinc-100 px-4 py-2 outline-none dark:bg-zinc-900"
+          className="min-h-11 w-full rounded-full bg-zinc-50 px-4 text-base outline-none focus:ring-2 focus:ring-brand-500/40 dark:bg-zinc-900"
         />
         {results.length > 0 && (
           <ul className="mt-2">

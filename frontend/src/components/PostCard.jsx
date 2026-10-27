@@ -1,24 +1,32 @@
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { api } from '../lib/api.js';
+import { useState } from 'react';
 import { fullDate, relativeTime } from '../lib/time.js';
+import { useToken } from '../lib/token.js';
 import Avatar from './Avatar.jsx';
+import Icon from './Icon.jsx';
 import RichText from './RichText.jsx';
+import WhyPanel from './WhyPanel.jsx';
 
-function ActionButton({ label, active, activeClass, count, onClick, icon }) {
+// Ação minimalista: ícone em traço, contador só quando > 0, alvo de toque de 44 px.
+function ActionButton({ label, icon, active = false, count, onClick, hideCount = false, disabled = false }) {
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={active}
+      disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
       }}
-      className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 ${active ? activeClass : 'text-zinc-500'}`}
+      className={`-ml-2 flex min-h-11 min-w-11 items-center gap-1.5 rounded-full px-2 text-sm tabular-nums transition-colors hover:text-brand-600 ${
+        active ? 'text-brand-600' : 'text-zinc-400'
+      }`}
     >
-      <span aria-hidden>{icon}</span>
-      {count !== undefined && <span className="tabular-nums">{count}</span>}
+      <Icon name={icon} filled={active && icon === 'heart'} className="h-[18px] w-[18px]" />
+      {!hideCount && count > 0 && <span>{count}</span>}
     </button>
   );
 }
@@ -27,9 +35,11 @@ function ActionButton({ label, active, activeClass, count, onClick, icon }) {
  * Renderiza um post. Se for repost, mostra o original com o cabeçalho "X repostou".
  * `store` = { posts, users } normalizados; `onChange` recebe { data, includes }.
  */
-export default function PostCard({ post, store, onChange, onDelete, highlight = false }) {
+export default function PostCard({ post, store, onChange, onDelete, highlight = false, hideMetrics = false }) {
   const { user: me } = useAuth();
   const navigate = useNavigate();
+  const token = useToken();
+  const [tipError, setTipError] = useState(null);
   const repostRef = post.referenced_posts.find((r) => r.type === 'reposted');
   const shown = repostRef ? store.posts[repostRef.id] : post;
   if (!shown) return null; // original apagado
@@ -44,6 +54,17 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
     onChange?.(await api(`/api/posts/${shown.id}/${path}`, { method: active ? 'DELETE' : 'POST' }));
   }
 
+  async function tip() {
+    if (!me) return navigate('/login');
+    if (shown.viewer.tipped) return;
+    setTipError(null);
+    try {
+      onChange?.(await api(`/api/posts/${shown.id}/recompensa`, { method: 'POST' }));
+    } catch (err) {
+      setTipError(err.message);
+    }
+  }
+
   async function remove() {
     if (!confirm('Apagar este post?')) return;
     await api(`/api/posts/${post.id}`, { method: 'DELETE' });
@@ -53,61 +74,79 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
   return (
     <article
       onClick={() => !highlight && navigate(`/post/${shown.id}`)}
-      className={`border-b border-zinc-200 px-4 py-3 dark:border-zinc-800 ${highlight ? '' : 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50'}`}
+      className={`px-4 py-3 ${highlight ? '' : 'cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/60'}`}
     >
       {reposter && (
-        <p className="mb-1 ml-12 text-xs font-semibold text-zinc-500">
-          🔁 {reposter.id === me?.id ? 'Você repostou' : `${reposter.display_name} repostou`}
+        <p className="mb-1 ml-[52px] flex items-center gap-1 text-xs text-zinc-500">
+          <Icon name="repost" className="h-3.5 w-3.5" />
+          {reposter.id === me?.id ? 'Você repostou' : `${reposter.display_name} repostou`}
         </p>
       )}
       <div className="flex gap-3">
-        <Link to={`/u/${author?.username}`} onClick={(e) => e.stopPropagation()}>
+        <Link to={`/u/${author?.username}`} onClick={(e) => e.stopPropagation()} className="h-fit">
           <Avatar user={author} />
         </Link>
         <div className="min-w-0 flex-1">
-          <header className="flex flex-wrap items-baseline gap-x-1.5 text-sm">
-            <Link to={`/u/${author?.username}`} onClick={(e) => e.stopPropagation()} className="font-semibold hover:underline">
+          <header className="flex flex-wrap items-baseline gap-x-1.5">
+            <Link to={`/u/${author?.username}`} onClick={(e) => e.stopPropagation()} className="font-extrabold hover:underline">
               {author?.display_name}
             </Link>
-            <span className="text-zinc-500">@{author?.username}</span>
-            <span className="text-zinc-400">·</span>
-            <time dateTime={shown.created_at} title={fullDate(shown.created_at)} className="text-zinc-500">
+            <span className="text-sm text-zinc-400">@{author?.username}</span>
+            <span className="text-sm text-zinc-400">·</span>
+            <time dateTime={shown.created_at} title={fullDate(shown.created_at)} className="text-sm text-zinc-400">
               {relativeTime(shown.created_at)}
             </time>
           </header>
           {shown.in_reply_to_post_id && (
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-400">
               Em resposta a {parentAuthor ? <span className="text-brand-600">@{parentAuthor.username}</span> : 'um post'}
             </p>
           )}
-          <div className={highlight ? 'mt-2 text-xl' : 'mt-0.5'}>
+          <div className={highlight ? 'mt-2 text-xl leading-snug' : 'mt-0.5'}>
             <RichText text={shown.text} />
           </div>
-          {highlight && <p className="mt-3 text-sm text-zinc-500">{fullDate(shown.created_at)}</p>}
-          <footer className="-ml-2 mt-2 flex max-w-md justify-between">
-            <ActionButton label="Responder" icon="💬" count={reply_count} onClick={() => navigate(`/post/${shown.id}`)} />
+          {highlight && <p className="mt-3 text-sm text-zinc-400">{fullDate(shown.created_at)}</p>}
+          <footer className="mt-1 flex max-w-sm items-center justify-between">
+            <ActionButton label="Responder" icon="reply" count={reply_count} hideCount={hideMetrics} onClick={() => navigate(`/post/${shown.id}`)} />
             <ActionButton
               label={shown.viewer.reposted ? 'Desfazer repost' : 'Repostar'}
-              icon="🔁"
+              icon="repost"
               count={repost_count}
+              hideCount={hideMetrics}
               active={shown.viewer.reposted}
-              activeClass="text-emerald-600"
               onClick={() => act('repost', shown.viewer.reposted)}
             />
             <ActionButton
               label={shown.viewer.liked ? 'Descurtir' : 'Curtir'}
-              icon={shown.viewer.liked ? '♥' : '♡'}
+              icon="heart"
               count={like_count}
+              hideCount={hideMetrics}
               active={shown.viewer.liked}
-              activeClass="text-rose-600"
               onClick={() => act('like', shown.viewer.liked)}
             />
+            {!(me && shown.author_id === me.id) && (
+              <ActionButton
+                label={shown.viewer.tipped ? `Você recompensou com 1 ${token.symbol}` : `Recompensar com 1 ${token.symbol}`}
+                icon="coin"
+                count={shown.public_metrics.tip_count}
+                hideCount={hideMetrics}
+                active={shown.viewer.tipped}
+                onClick={tip}
+              />
+            )}
             {me && post.author_id === me.id && !repostRef ? (
-              <ActionButton label="Apagar" icon="🗑" onClick={remove} />
+              <ActionButton label="Apagar" icon="trash" onClick={remove} />
             ) : (
-              <span className="w-8" />
+              <span className="w-11" />
             )}
           </footer>
+          {tipError && (
+            <p role="alert" className="text-xs text-rose-600" onClick={(e) => e.stopPropagation()}>
+              {tipError}{' '}
+              <Link to="/missoes" className="underline">Ver missões</Link>
+            </p>
+          )}
+          {post.ranking && <WhyPanel post={post} onHide={onDelete} />}
         </div>
       </div>
     </article>

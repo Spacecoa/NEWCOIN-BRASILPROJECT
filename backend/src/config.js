@@ -15,5 +15,9 @@ export const config = {
   corsOrigin: env.CORS_ORIGIN ?? 'http://localhost:5173',
   // Tamanho máximo da timeline materializada no Redis. O X documenta que a home
   // timeline retorna no máximo ~800 posts; usamos o mesmo teto.
+  // Fuso que define o "dia" das missões diárias.
+  tokenName: env.TOKEN_NAME ?? 'NewCoin',
+  tokenSymbol: env.TOKEN_SYMBOL ?? 'NWC',
+  missionTimezone: env.MISSION_TZ ?? 'America/Sao_Paulo',
   timelineCacheSize: Number(env.TIMELINE_CACHE_SIZE ?? 800),
 };

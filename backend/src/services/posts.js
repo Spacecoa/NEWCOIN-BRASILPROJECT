@@ -3,6 +3,7 @@ import { conflict, forbidden, notFound } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
 import { extractMentions } from '../lib/text.js';
 import { bus } from '../realtime/bus.js';
+import { recordSignalSafely } from './interests.js';
 import { fanOut } from './timeline.js';
 import { getUsersByIds } from './users.js';
 
@@ -32,8 +33,9 @@ function formatPost(row) {
       like_count: row.like_count,
       reply_count: row.reply_count,
       repost_count: row.repost_count,
+      tip_count: row.tip_count ?? 0,
     },
-    viewer: { liked: row.liked ?? false, reposted: row.reposted ?? false },
+    viewer: { liked: row.liked ?? false, reposted: row.reposted ?? false, tipped: row.tipped ?? false },
   };
 }
 
@@ -42,7 +44,8 @@ async function fetchPostRows(ids, viewerId) {
   const { rows } = await query(
     `SELECT p.*,
        EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $2) AS liked,
-       EXISTS (SELECT 1 FROM posts r WHERE r.repost_of_id = p.id AND r.author_id = $2) AS reposted
+       EXISTS (SELECT 1 FROM posts r WHERE r.repost_of_id = p.id AND r.author_id = $2) AS reposted,
+       EXISTS (SELECT 1 FROM tips t WHERE t.post_id = p.id AND t.user_id = $2) AS tipped
      FROM posts p WHERE p.id = ANY($1::bigint[])`,
     [ids, viewerId ?? null],
   );
@@ -116,6 +119,7 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
   });
 
   const audience = await fanOut(id, authorId);
+  if (replyToId) await recordSignalSafely(authorId, replyToId, 'reply');
   const post = await getPost(id, authorId);
   bus.emit('post:created', { post, audience });
   const notify = new Set(mentionedIds);
@@ -155,7 +159,8 @@ export async function like(userId, postId) {
       [userId, postId],
     );
     if (rowCount) await client.query('UPDATE posts SET like_count = like_count + 1 WHERE id = $1', [postId]);
-  });
+    return rowCount > 0;
+  }).then((added) => added && recordSignalSafely(userId, postId, 'like'));
   return getPost(postId, userId);
 }
 
@@ -163,7 +168,8 @@ export async function unlike(userId, postId) {
   await withTransaction(async (client) => {
     const { rowCount } = await client.query('DELETE FROM likes WHERE user_id = $1 AND post_id = $2', [userId, postId]);
     if (rowCount) await client.query('UPDATE posts SET like_count = GREATEST(like_count - 1, 0) WHERE id = $1', [postId]);
-  });
+    return rowCount > 0;
+  }).then((removed) => removed && recordSignalSafely(userId, postId, 'unlike'));
   return getPost(postId, userId);
 }
 
@@ -183,6 +189,7 @@ export async function repost(userId, postId) {
     return { inserted: rowCount > 0, originalId };
   });
   if (created.inserted) {
+    await recordSignalSafely(userId, created.originalId, 'repost');
     const audience = await fanOut(id, userId);
     const post = await getPost(id, userId);
     bus.emit('post:created', { post, audience });

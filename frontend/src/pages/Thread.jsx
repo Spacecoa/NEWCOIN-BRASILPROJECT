@@ -9,7 +9,7 @@ import { usePostStore } from '../lib/usePostStore.js';
 
 function ReplyTree({ nodes, store, onDelete, depth = 0 }) {
   return nodes.map(({ post, children }) => (
-    <div key={post.id} className={depth ? 'border-l-2 border-zinc-200 dark:border-zinc-800' : ''} style={{ marginLeft: depth ? Math.min(depth, 4) * 16 : 0 }}>
+    <div key={post.id} className={depth ? 'border-l border-zinc-100 dark:border-zinc-900' : ''} style={{ marginLeft: depth ? Math.min(depth, 3) * 12 : 0 }}>
       <PostCard post={store.posts[post.id] ?? post} store={store} onChange={store.merge} onDelete={onDelete} />
       <ReplyTree nodes={children} store={store} onDelete={onDelete} depth={depth + 1} />
     </div>
@@ -47,13 +47,13 @@ export default function Thread() {
 
   return (
     <>
-      <PageHeader title="Thread" subtitle={`${posts.length} posts nesta conversa`} />
+      <PageHeader back title="Thread" subtitle={`${posts.length} posts nesta conversa`} />
       {ancestors.map((p) => (
         <div key={p.id} className="opacity-90">
           <PostCard post={p} store={store} onChange={merge} />
         </div>
       ))}
-      <div className="bg-brand-50/40 dark:bg-zinc-900/40">
+      <div className="border-y border-zinc-100 dark:border-zinc-900">
         <PostCard post={focal} store={store} onChange={merge} highlight />
       </div>
       <Composer

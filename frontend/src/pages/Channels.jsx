@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import Icon from '../components/Icon.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
 
@@ -31,21 +32,25 @@ export default function Channels() {
 
   return (
     <>
-      <PageHeader title="Canais e grupos" subtitle="Mensageria em tempo real (inspirada no Telegram)">
-        <button onClick={() => setShowForm((v) => !v)} className="rounded-full bg-brand-600 px-3 py-1 text-sm font-semibold text-white">
-          {showForm ? 'Cancelar' : 'Criar'}
+      <PageHeader title="Canais" subtitle="Grupos e canais em tempo real">
+        <button
+          onClick={() => setShowForm((v) => !v)}
+          aria-label={showForm ? 'Cancelar' : 'Criar canal'}
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-900"
+        >
+          <Icon name={showForm ? 'close' : 'plus'} />
         </button>
       </PageHeader>
       {showForm && (
-        <form onSubmit={create} className="space-y-2 border-b border-zinc-200 p-4 dark:border-zinc-800">
-          <input name="slug" required pattern="[A-Za-z0-9_]{3,32}" placeholder="identificador (ex.: estudos_p2p)" className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700" />
-          <input name="title" required maxLength={64} placeholder="Título" className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700" />
-          <input name="description" maxLength={255} placeholder="Descrição (opcional)" className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700" />
-          <select name="kind" className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700">
+        <form onSubmit={create} className="space-y-2 px-4 pb-4">
+          <input name="slug" required pattern="[A-Za-z0-9_]{3,32}" placeholder="identificador (ex.: estudos_p2p)" className="min-h-12 w-full rounded-2xl bg-zinc-50 px-4 text-base outline-none focus:ring-2 focus:ring-brand-500/40 dark:bg-zinc-900" />
+          <input name="title" required maxLength={64} placeholder="Título" className="min-h-12 w-full rounded-2xl bg-zinc-50 px-4 text-base outline-none focus:ring-2 focus:ring-brand-500/40 dark:bg-zinc-900" />
+          <input name="description" maxLength={255} placeholder="Descrição (opcional)" className="min-h-12 w-full rounded-2xl bg-zinc-50 px-4 text-base outline-none focus:ring-2 focus:ring-brand-500/40 dark:bg-zinc-900" />
+          <select name="kind" className="min-h-12 w-full rounded-2xl bg-zinc-50 px-4 text-base outline-none focus:ring-2 focus:ring-brand-500/40 dark:bg-zinc-900">
             <option value="group">Grupo — todos os membros escrevem</option>
             <option value="channel">Canal — só administradores publicam</option>
           </select>
-          <button className="rounded-full bg-brand-600 px-4 py-1.5 font-semibold text-white">Criar</button>
+          <button className="min-h-11 rounded-full bg-brand-600 px-5 font-extrabold text-white">Criar</button>
         </form>
       )}
       {error && <p role="alert" className="p-4 text-rose-600">{error}</p>}
@@ -54,14 +59,19 @@ export default function Channels() {
       ) : (
         <ul>
           {channels.map((c) => (
-            <li key={c.id} className="border-b border-zinc-200 dark:border-zinc-800">
-              <Link to={`/canais/${c.slug}`} className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900">
-                <p className="font-semibold">
-                  {c.kind === 'channel' ? '📣' : '💬'} {c.title}
-                  {c.viewer_role && <span className="ml-2 rounded bg-brand-100 px-1.5 text-xs text-brand-700">{c.viewer_role}</span>}
-                </p>
-                <p className="text-sm text-zinc-500">{c.description || KIND_LABEL[c.kind]}</p>
-                <p className="text-xs text-zinc-400">{KIND_LABEL[c.kind]} · {c.member_count} membros · pts {c.pts}</p>
+            <li key={c.id}>
+              <Link to={`/canais/${c.slug}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
+                  <Icon name={c.kind === 'channel' ? 'megaphone' : 'channels'} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2 font-extrabold">
+                    <span className="truncate">{c.title}</span>
+                    {c.viewer_role && <span className="rounded-full bg-brand-50 px-2 text-xs font-semibold text-brand-700 dark:bg-brand-600/15 dark:text-brand-100">{c.viewer_role}</span>}
+                  </span>
+                  <span className="block truncate text-sm text-zinc-500">{c.description || KIND_LABEL[c.kind]}</span>
+                  <span className="block text-xs text-zinc-400">{KIND_LABEL[c.kind]} · {c.member_count} membros</span>
+                </span>
               </Link>
             </li>
           ))}

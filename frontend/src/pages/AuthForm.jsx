@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 
 const input =
-  'w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 outline-none focus:border-brand-500 dark:border-zinc-700';
+  'w-full min-h-12 rounded-2xl bg-zinc-50 px-4 text-base outline-none focus:ring-2 focus:ring-brand-500/40 dark:bg-zinc-900';
 
 export function Field({ label, ...props }) {
   return (
@@ -28,13 +28,13 @@ export default function AuthForm({ title, submitLabel, onSubmit, footer, childre
     }
   }
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div className="flex min-h-dvh items-center justify-center px-6">
       <form onSubmit={handle} className="w-full max-w-sm space-y-4">
-        <p className="text-3xl font-black text-brand-600">Ágora</p>
+        <p className="text-3xl font-extrabold tracking-tight text-brand-600">ágora</p>
         <h1 className="text-xl font-bold">{title}</h1>
         {children}
         {error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
-        <button disabled={busy} className="w-full rounded-full bg-brand-600 py-2 font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
+        <button disabled={busy} className="min-h-12 w-full rounded-full bg-brand-600 font-extrabold text-white hover:bg-brand-700 disabled:opacity-50">
           {submitLabel}
         </button>
         <p className="text-sm text-zinc-500">{footer}</p>
