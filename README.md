@@ -16,6 +16,18 @@
 
 Visual mobile first e minimalista, com fonte arredondada (Nunito). No desktop, a navegação vira coluna lateral ([print no tema escuro](docs/img/desktop-dark.png)).
 
+## Demo interativa
+
+Uma página única que roda no navegador, sem servidor, com os mesmos dados fictícios do seed. Ela simula o app inteiro: feed **Seguindo** e **Para você**, a tela **Meu algoritmo**, threads, canal em tempo real, **missões do dia** e a **carteira NWC**. O painel **Bastidores** mostra, a cada ação, as requisições HTTP, as consultas SQL, os comandos Redis e os eventos de WebSocket que o backend real faria.
+
+| Para você, com explicação | Meu algoritmo | Missões do dia | Carteira NWC |
+|---|---|---|---|
+| ![Feed Para você com o painel "Por que este post?"](docs/img/demo-para-voce.png) | ![Tela Meu algoritmo com os pesos de cada fator](docs/img/demo-algoritmo.png) | ![Missões do dia com saldo e meta coletiva](docs/img/demo-missoes.png) | ![Carteira com saldo, totais e extrato](docs/img/demo-carteira.png) |
+
+![Demo no desktop, tema escuro, com o painel Bastidores](docs/img/demo-desktop.png)
+
+A demo está publicada em https://claude.ai/artifact/1KYADm2kxRoJqg8rsX6H9d (link privado: só abre para quem recebeu acesso).
+
 ## Entregáveis
 
 | # | Entregável | Onde |
