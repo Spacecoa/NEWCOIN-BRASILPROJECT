@@ -9,7 +9,12 @@ export function usePostStore() {
 
   const merge = useCallback(({ data, includes } = {}) => {
     const list = [...(Array.isArray(data) ? data : data ? [data] : []), ...(includes?.posts ?? [])];
-    if (list.length) setPosts((prev) => ({ ...prev, ...Object.fromEntries(list.map((p) => [p.id, p])) }));
+    // Preserva a explicação do ranking quando uma ação (like, repost) devolve o post sem ela.
+    if (list.length)
+      setPosts((prev) => ({
+        ...prev,
+        ...Object.fromEntries(list.map((p) => [p.id, p.ranking || !prev[p.id]?.ranking ? p : { ...p, ranking: prev[p.id].ranking }])),
+      }));
     if (includes?.users?.length) setUsers((prev) => ({ ...prev, ...Object.fromEntries(includes.users.map((u) => [u.id, u])) }));
   }, []);
 

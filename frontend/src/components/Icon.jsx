@@ -14,6 +14,8 @@ const PATHS = {
   back: 'M15 5l-7 7 7 7',
   logout: 'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h10',
   megaphone: 'M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1zm12-1.5a4 4 0 0 1 0 7',
+  sliders: 'M4 7h9m4 0h3M4 17h3m4 0h9M15 5v4M9 15v4',
+  check: 'M5 12.5 10 17l9-10',
   smile: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm-3.5-7a4.5 4.5 0 0 0 7 0M9 9.5h.01M15 9.5h.01',
 };
 

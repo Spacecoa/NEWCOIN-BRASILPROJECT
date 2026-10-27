@@ -15,13 +15,22 @@ const PAGE_SIZE = 20;
  * ao clicar, busca com `since_id` (o mesmo padrão do X: não insere automaticamente
  * para não deslocar o conteúdo que a pessoa está lendo).
  */
-export default function Feed({ endpoint, live = false, emptyText = 'Nada por aqui ainda.', header }) {
+export default function Feed({
+  endpoint,
+  live = false,
+  emptyText = 'Nada por aqui ainda.',
+  header,
+  cursorParam = 'until_id',
+  autoLoad = true,
+  renderEnd,
+}) {
   const { socket } = useAuth();
   const store = usePostStore();
   const { merge, remove } = store;
   const [ids, setIds] = useState([]);
   const [nextToken, setNextToken] = useState(null);
   const [done, setDone] = useState(false);
+  const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [pending, setPending] = useState(() => new Set());
@@ -40,11 +49,12 @@ export default function Feed({ endpoint, live = false, emptyText = 'Nada por aqu
       setLoading(true);
       setError(null);
       try {
-        const result = await api(withParams(endpoint, { max_results: PAGE_SIZE, until_id: reset ? null : nextToken }));
+        const result = await api(withParams(endpoint, { max_results: PAGE_SIZE, [cursorParam]: reset ? null : nextToken }));
         if (gen !== generation.current) return;
         merge(result);
         const newIds = result.data.map((p) => p.id);
         setIds((prev) => (reset ? newIds : [...prev, ...newIds.filter((id) => !prev.includes(id))]));
+        setMeta(result.meta);
         setNextToken(result.meta.next_token ?? null);
         setDone(!result.meta.next_token);
       } catch (err) {
@@ -56,7 +66,7 @@ export default function Feed({ endpoint, live = false, emptyText = 'Nada por aqu
         }
       }
     },
-    [endpoint, nextToken, merge],
+    [endpoint, nextToken, merge, cursorParam],
   );
 
   // Recarrega do zero quando o endpoint muda (ex.: trocar de perfil ou aba).
@@ -72,13 +82,14 @@ export default function Feed({ endpoint, live = false, emptyText = 'Nada por aqu
 
   // Rolagem infinita: quando o sentinela entra na tela, carrega a próxima página.
   useEffect(() => {
-    if (done || !sentinel.current || typeof IntersectionObserver === 'undefined') return;
+    // Sem autoLoad (feed de interesses), a próxima página só vem por um toque: o fim fica visível.
+    if (!autoLoad || done || !sentinel.current || typeof IntersectionObserver === 'undefined') return;
     const obs = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && idsRef.current.length) loadMore();
     }, { rootMargin: '400px' });
     obs.observe(sentinel.current);
     return () => obs.disconnect();
-  }, [done, loadMore]);
+  }, [autoLoad, done, loadMore]);
 
   useEffect(() => {
     if (!live || !socket) return;
@@ -119,7 +130,7 @@ export default function Feed({ endpoint, live = false, emptyText = 'Nada por aqu
 
   return (
     <section aria-label="Feed" aria-busy={loading}>
-      {header?.(prepend)}
+      {header?.(prepend, meta)}
       {pending.size > 0 && (
         <button
           type="button"
@@ -130,7 +141,16 @@ export default function Feed({ endpoint, live = false, emptyText = 'Nada por aqu
         </button>
       )}
       {ids.map((id) =>
-        store.posts[id] ? <PostCard key={id} post={store.posts[id]} store={store} onChange={merge} onDelete={handleDelete} /> : null,
+        store.posts[id] ? (
+          <PostCard
+            key={id}
+            post={store.posts[id]}
+            store={store}
+            onChange={merge}
+            onDelete={handleDelete}
+            hideMetrics={Boolean(meta?.hide_metrics)}
+          />
+        ) : null,
       )}
       {error && (
         <p role="alert" className="p-4 text-center text-rose-600">
@@ -138,6 +158,7 @@ export default function Feed({ endpoint, live = false, emptyText = 'Nada por aqu
         </p>
       )}
       {!loading && done && ids.length === 0 && <p className="p-8 text-center text-zinc-500">{emptyText}</p>}
+      {!loading && done && ids.length > 0 && renderEnd?.(meta)}
       <div ref={sentinel} className="flex justify-center p-4">
         {loading ? (
           <span className="text-sm text-zinc-500">Carregando…</span>

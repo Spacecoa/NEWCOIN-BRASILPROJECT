@@ -106,3 +106,40 @@ CREATE TABLE IF NOT EXISTS message_reactions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (message_id, user_id, emoji)
 );
+
+-- ---------------------------------------------------------------------------
+-- Algoritmo de atenção aberto ("Interesses") — ver src/lib/ranking.js
+-- ---------------------------------------------------------------------------
+
+-- Preferências declaradas (pesos, tópicos, palavras-chave, limites). JSON validado pela API.
+CREATE TABLE IF NOT EXISTS feed_settings (
+  user_id    BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  settings   JSONB  NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- O que foi aprendido com ações explícitas. Decai com o tempo (meia-vida de 14 dias),
+-- é visível ao usuário e pode ser apagado a qualquer momento.
+CREATE TABLE IF NOT EXISTS learned_topics (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  topic      TEXT   NOT NULL,
+  value      REAL   NOT NULL CHECK (value BETWEEN -1 AND 1),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, topic)
+);
+
+CREATE TABLE IF NOT EXISTS learned_authors (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  author_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  value      REAL   NOT NULL CHECK (value BETWEEN -1 AND 1),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, author_id)
+);
+
+-- "Menos disto": o post some do feed de interesses dessa pessoa.
+CREATE TABLE IF NOT EXISTS hidden_posts (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id    BIGINT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, post_id)
+);

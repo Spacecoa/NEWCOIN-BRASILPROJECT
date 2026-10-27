@@ -56,7 +56,7 @@ Um padrão comum chama atenção: **as duas plataformas devolvem entidades relac
 
 | Item | Motivo |
 |---|---|
-| Timeline "Para você" (ranqueamento) | O objetivo era o feed cronológico transparente; ranquear exige dados de engajamento e um modelo |
+| Timeline "Para você" baseada em engajamento | Substituída por um algoritmo **aberto** de interesses declarados (ver [`07-atencao-e-algoritmo-aberto.md`](07-atencao-e-algoritmo-aberto.md)) |
 | Mídia, quotes, enquetes, edição | Fora do escopo mínimo. O caminho de mídia está descrito na arquitetura (§6) |
 | Cliente MTProto ou uso da API real do Telegram | Desnecessário para aprender o desenho, e evitaria qualquer risco de violar os ToS |
 | Federação server-to-server | Exige assinatura HTTP, inbox e moderação. Só as pré-condições foram implementadas |

@@ -5,9 +5,10 @@ import { fullDate, relativeTime } from '../lib/time.js';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
 import RichText from './RichText.jsx';
+import WhyPanel from './WhyPanel.jsx';
 
 // Ação minimalista: ícone em traço, contador só quando > 0, alvo de toque de 44 px.
-function ActionButton({ label, icon, active = false, count, onClick }) {
+function ActionButton({ label, icon, active = false, count, onClick, hideCount = false }) {
   return (
     <button
       type="button"
@@ -22,7 +23,7 @@ function ActionButton({ label, icon, active = false, count, onClick }) {
       }`}
     >
       <Icon name={icon} filled={active && icon === 'heart'} className="h-[18px] w-[18px]" />
-      {count > 0 && <span>{count}</span>}
+      {!hideCount && count > 0 && <span>{count}</span>}
     </button>
   );
 }
@@ -31,7 +32,7 @@ function ActionButton({ label, icon, active = false, count, onClick }) {
  * Renderiza um post. Se for repost, mostra o original com o cabeçalho "X repostou".
  * `store` = { posts, users } normalizados; `onChange` recebe { data, includes }.
  */
-export default function PostCard({ post, store, onChange, onDelete, highlight = false }) {
+export default function PostCard({ post, store, onChange, onDelete, highlight = false, hideMetrics = false }) {
   const { user: me } = useAuth();
   const navigate = useNavigate();
   const repostRef = post.referenced_posts.find((r) => r.type === 'reposted');
@@ -90,11 +91,12 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
           </div>
           {highlight && <p className="mt-3 text-sm text-zinc-400">{fullDate(shown.created_at)}</p>}
           <footer className="mt-1 flex max-w-sm items-center justify-between">
-            <ActionButton label="Responder" icon="reply" count={reply_count} onClick={() => navigate(`/post/${shown.id}`)} />
+            <ActionButton label="Responder" icon="reply" count={reply_count} hideCount={hideMetrics} onClick={() => navigate(`/post/${shown.id}`)} />
             <ActionButton
               label={shown.viewer.reposted ? 'Desfazer repost' : 'Repostar'}
               icon="repost"
               count={repost_count}
+              hideCount={hideMetrics}
               active={shown.viewer.reposted}
               onClick={() => act('repost', shown.viewer.reposted)}
             />
@@ -102,6 +104,7 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
               label={shown.viewer.liked ? 'Descurtir' : 'Curtir'}
               icon="heart"
               count={like_count}
+              hideCount={hideMetrics}
               active={shown.viewer.liked}
               onClick={() => act('like', shown.viewer.liked)}
             />
@@ -111,6 +114,7 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
               <span className="w-11" />
             )}
           </footer>
+          {post.ranking && <WhyPanel post={post} onHide={onDelete} />}
         </div>
       </div>
     </article>

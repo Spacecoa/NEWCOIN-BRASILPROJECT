@@ -257,6 +257,11 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | POST | `/api/channels/:slug/messages` | ✔ | Enviar (regras de `kind`/papel) |
 | POST | `/api/channels/:slug/messages/:id/reactions` | ✔ | `{emoji}` |
 | DELETE | `/api/channels/:slug/messages/:id/reactions/:emoji` | ✔ | Remover reação |
+| GET | `/api/feed/interesses` | ✔ | Feed "Para você" do algoritmo aberto, com explicação por post |
+| GET/PUT | `/api/feed/preferencias` | ✔ | Preferências do algoritmo e o que ele aprendeu |
+| DELETE | `/api/feed/aprendizado` | ✔ | Apaga o aprendizado |
+| POST | `/api/posts/:id/feedback` | ✔ | `{kind: "more" \| "less"}` |
+| GET | `/api/feed/algoritmo` | — | Especificação pública do algoritmo |
 | GET | `/.well-known/webfinger?resource=acct:u@dominio` | — | Descoberta federada |
 | GET | `/federation/users/:u` · `/outbox` | — | Ator e últimos posts (ActivityStreams) |
 

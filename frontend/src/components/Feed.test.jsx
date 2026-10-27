@@ -90,4 +90,25 @@ describe('<Feed>', () => {
     expect(btn).toHaveAttribute('aria-pressed', 'true');
     expect(btn).toHaveTextContent('1');
   });
+
+  it('feed de interesses: cursor next_token, sem rolagem automática e com fim explícito', async () => {
+    const a = makePost({ text: 'primeiro do ranking' });
+    const b = makePost({ text: 'segundo do ranking' });
+    const calls = mockFetch([
+      [/next_token=1/, { ...page([b]), meta: { result_count: 1, caught_up: true, session: { delivered: 2 } } }],
+      [/\/api\/feed\/interesses/, { ...page([a]), meta: { result_count: 1, next_token: '1', caught_up: false } }],
+    ]);
+    renderFeed({
+      endpoint: '/api/feed/interesses',
+      cursorParam: 'next_token',
+      autoLoad: false,
+      renderEnd: (meta) => <p>Você está em dia ({meta.session.delivered})</p>,
+    });
+    await screen.findByText('primeiro do ranking');
+    expect(screen.queryByText(/Você está em dia/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Carregar mais' }));
+    expect(await screen.findByText('Você está em dia (2)')).toBeInTheDocument();
+    expect(calls[1].url).toContain('next_token=1');
+    expect(calls[1].url).not.toContain('until_id');
+  });
 });

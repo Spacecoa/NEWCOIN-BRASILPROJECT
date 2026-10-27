@@ -5,6 +5,7 @@ import Channel from './pages/Channel.jsx';
 import Channels from './pages/Channels.jsx';
 import Explore from './pages/Explore.jsx';
 import Home from './pages/Home.jsx';
+import Interests from './pages/Interests.jsx';
 import Login from './pages/Login.jsx';
 import Mentions from './pages/Mentions.jsx';
 import Profile from './pages/Profile.jsx';
@@ -31,6 +32,7 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="explorar" element={<Explore />} />
         <Route path="mencoes" element={<Mentions />} />
+        <Route path="interesses" element={<Interests />} />
         <Route path="u/:username" element={<Profile />} />
         <Route path="post/:id" element={<Thread />} />
         <Route path="canais" element={<Channels />} />
