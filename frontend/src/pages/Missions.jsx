@@ -52,7 +52,7 @@ function Suggestion({ s }) {
   );
 }
 
-function MissionCard({ m, onSkip, onInvite, invite }) {
+function MissionCard({ m, onSkip, onInvite, invite, symbol }) {
   const done = m.status === 'done';
   const skipped = m.status === 'skipped';
   return (
@@ -62,10 +62,29 @@ function MissionCard({ m, onSkip, onInvite, invite }) {
           <Icon name={done ? 'check' : 'circle'} className="h-6 w-6" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="font-extrabold">{m.title}</h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-extrabold">{m.title}</h3>
+            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-extrabold tabular-nums ${done ? 'bg-brand-600 text-white' : 'bg-white text-brand-700 dark:bg-zinc-800 dark:text-brand-100'}`}>
+              +{m.reward} {symbol}
+            </span>
+          </div>
           <p className="text-sm">{m.description}</p>
           <p className="mt-1 text-sm text-zinc-500">{m.why}</p>
-          {done && <p className="mt-2 text-sm font-semibold text-brand-700 dark:text-brand-100">Feito. Obrigado por cuidar da rede.</p>}
+          {m.progress && !done && (
+            <div className="mt-2">
+              <div className="flex justify-between text-xs text-zinc-500">
+                <span>
+                  {m.progress.current} de {m.progress.target}
+                  {m.id === 'tempo_no_app' ? ' min' : ''}
+                  {m.progress.authors_needed ? ` · ${m.progress.authors} de ${m.progress.authors_needed} pessoas diferentes` : ''}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800" role="progressbar" aria-label={`Progresso: ${m.title}`} aria-valuenow={m.progress.current} aria-valuemin={0} aria-valuemax={m.progress.target}>
+                <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.round((m.progress.current / m.progress.target) * 100)}%` }} />
+              </div>
+            </div>
+          )}
+          {done && <p className="mt-2 text-sm font-semibold text-brand-700 dark:text-brand-100">Feito. {m.reward} {symbol} creditados na sua carteira.</p>}
           {skipped && <p className="mt-2 text-sm text-zinc-500">Pulada hoje.</p>}
           {m.status === 'todo' && (
             <>
@@ -180,7 +199,18 @@ export default function Missions() {
 
   return (
     <>
-      <PageHeader back title="Missões do dia" subtitle="Pequenas ações para a rede crescer junto" />
+      <PageHeader back title="Missões do dia" subtitle="Ações dentro do app que fazem a rede crescer" />
+      {data.token && (
+        <Link to="/carteira" className="mx-4 mb-3 flex min-h-14 items-center gap-3 rounded-3xl bg-brand-600 px-4 py-3 text-white">
+          <Icon name="coin" className="h-7 w-7" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-2xl font-extrabold tabular-nums leading-tight">
+              {data.token.balance} {data.token.symbol}
+            </span>
+            <span className="block text-sm text-brand-100">+{data.token.earned_today} hoje com missões · ver carteira</span>
+          </span>
+        </Link>
+      )}
       <Collective c={data.collective} />
 
       {data.enabled ? (
@@ -190,7 +220,7 @@ export default function Missions() {
           </p>
           <ul className="grid gap-3">
             {data.missions.map((m) => (
-              <MissionCard key={m.id} m={m} onSkip={skip} onInvite={invite} invite={newInvite} />
+              <MissionCard key={m.id} m={m} onSkip={skip} onInvite={invite} invite={newInvite} symbol={data.token?.symbol ?? 'NWC'} />
             ))}
           </ul>
         </section>

@@ -23,6 +23,7 @@ const settingsSchema = z
     session_limit: z.number().int().min(5).max(200).optional(),
     hide_metrics: z.boolean().optional(),
     missions_enabled: z.boolean().optional(),
+    count_time: z.boolean().optional(),
   })
   .strict();
 

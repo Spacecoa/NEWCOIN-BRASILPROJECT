@@ -1,19 +1,22 @@
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { api } from '../lib/api.js';
+import { useState } from 'react';
 import { fullDate, relativeTime } from '../lib/time.js';
+import { useToken } from '../lib/token.js';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
 import RichText from './RichText.jsx';
 import WhyPanel from './WhyPanel.jsx';
 
 // Ação minimalista: ícone em traço, contador só quando > 0, alvo de toque de 44 px.
-function ActionButton({ label, icon, active = false, count, onClick, hideCount = false }) {
+function ActionButton({ label, icon, active = false, count, onClick, hideCount = false, disabled = false }) {
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={active}
+      disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
@@ -35,6 +38,8 @@ function ActionButton({ label, icon, active = false, count, onClick, hideCount =
 export default function PostCard({ post, store, onChange, onDelete, highlight = false, hideMetrics = false }) {
   const { user: me } = useAuth();
   const navigate = useNavigate();
+  const token = useToken();
+  const [tipError, setTipError] = useState(null);
   const repostRef = post.referenced_posts.find((r) => r.type === 'reposted');
   const shown = repostRef ? store.posts[repostRef.id] : post;
   if (!shown) return null; // original apagado
@@ -47,6 +52,17 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
   async function act(path, active) {
     if (!me) return navigate('/login');
     onChange?.(await api(`/api/posts/${shown.id}/${path}`, { method: active ? 'DELETE' : 'POST' }));
+  }
+
+  async function tip() {
+    if (!me) return navigate('/login');
+    if (shown.viewer.tipped) return;
+    setTipError(null);
+    try {
+      onChange?.(await api(`/api/posts/${shown.id}/recompensa`, { method: 'POST' }));
+    } catch (err) {
+      setTipError(err.message);
+    }
   }
 
   async function remove() {
@@ -108,12 +124,28 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
               active={shown.viewer.liked}
               onClick={() => act('like', shown.viewer.liked)}
             />
+            {!(me && shown.author_id === me.id) && (
+              <ActionButton
+                label={shown.viewer.tipped ? `Você recompensou com 1 ${token.symbol}` : `Recompensar com 1 ${token.symbol}`}
+                icon="coin"
+                count={shown.public_metrics.tip_count}
+                hideCount={hideMetrics}
+                active={shown.viewer.tipped}
+                onClick={tip}
+              />
+            )}
             {me && post.author_id === me.id && !repostRef ? (
               <ActionButton label="Apagar" icon="trash" onClick={remove} />
             ) : (
               <span className="w-11" />
             )}
           </footer>
+          {tipError && (
+            <p role="alert" className="text-xs text-rose-600" onClick={(e) => e.stopPropagation()}>
+              {tipError}{' '}
+              <Link to="/missoes" className="underline">Ver missões</Link>
+            </p>
+          )}
           {post.ranking && <WhyPanel post={post} onHide={onDelete} />}
         </div>
       </div>

@@ -54,7 +54,7 @@ Uma resposta prevista vale 27 curtidas, e uma conversa com o autor vale 150. Iss
 | **Inserção automática de conteúdo novo** | Vários apps | Desloca a leitura e cria urgência | Aviso "Mostrar N posts novos" na aba Seguindo; a pessoa decide quando ver |
 | **Presença e leitura** ("digitando…", "visto por último", confirmação de leitura) | Telegram | Pressão social para responder na hora | Não implementado |
 | **Recomendação opaca** | X ("Para você"); Telegram ("canais similares", desde 2023) | A pessoa não sabe por que vê algo nem como mudar | **Cada post explica sua posição** com números, e a pessoa ajusta tudo |
-| **Sequências e metas** ("streaks") | Apps em geral | Medo de perder a sequência (FOMO) | Não existe |
+| **Sequências e metas** ("streaks") | Apps em geral | Medo de perder a sequência (FOMO) | Sequências não existem. As missões diárias rendem um token interno de valor fixo (ver [`09-token-interno.md`](09-token-interno.md)), sem acúmulo por dias seguidos |
 | **Autoplay de vídeo** | X | Consumo passivo contínuo | Sem mídia no protótipo; se houver, autoplay desligado por padrão |
 
 O Telegram, vale notar, **não tem feed algorítmico**: canais e grupos são cronológicos. Os gatilhos dele estão na **mensageria** (contadores, notificações, presença), e não no ranqueamento.
@@ -66,7 +66,7 @@ O Telegram, vale notar, **não tem feed algorítmico**: canais e grupos são cro
 ### 2.1 Princípios
 
 1. **Declarado > inferido.** O que a pessoa escolhe nas preferências domina. O aprendido vale **no máximo metade** de um peso declarado.
-2. **Só sinais explícitos ensinam.** Curtir, descurtir, repostar, responder, "Mais disto" e "Menos disto". **Nunca** tempo de tela, rolagem, visualizações, localização ou contatos.
+2. **Só sinais explícitos ensinam.** Curtir, descurtir, repostar, responder, "Mais disto" e "Menos disto". **Nunca** tempo de tela, rolagem, visualizações, localização ou contatos. (Os minutos ativos medidos para a missão de tempo ficam fora do ranking, ver [`09-token-interno.md`](09-token-interno.md).)
 3. **Popularidade não é qualidade.** Peso padrão zero. Quem quiser pode aumentar.
 4. **Explicável item por item.** Cada post traz a conta que o colocou ali.
 5. **Tem fim.** Limite por sessão e sem rolagem automática.

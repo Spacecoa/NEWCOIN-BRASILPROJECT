@@ -2,7 +2,9 @@ import { config } from '../config.js';
 import { query } from '../db.js';
 import { notFound } from '../lib/errors.js';
 import { CATALOG, PRINCIPLES, selectMissions } from '../lib/missions.js';
+import { minutesToday } from './activity.js';
 import { getSettings } from './interests.js';
+import { getBalance, rewardMission, TOKEN } from './tokens.js';
 
 // Cada missão tem:
 //  suggest(): alvos concretos (pessoas, perguntas, grupos). Lista vazia = missão não se aplica hoje.
@@ -14,7 +16,67 @@ const TODAY = (col) => `(${col} AT TIME ZONE $2)::date = (now() AT TIME ZONE $2)
 const NEW_USER = `u.created_at > now() - interval '7 days'`;
 const exists = async (sql, params) => (await query(`SELECT EXISTS (${sql}) AS ok`, params)).rows[0].ok;
 
+const count = async (sql, params) => (await query(sql, params)).rows[0];
+
+// Missões de engajamento: metas numéricas com progresso. progress() devolve { current, target }.
+const ENGAGEMENT = {
+  curtir: {
+    always: true,
+    progress: async (p) => {
+      const r = await count(
+        `SELECT count(*)::int AS n, count(DISTINCT po.author_id)::int AS authors FROM likes l JOIN posts po ON po.id = l.post_id
+         WHERE l.user_id = $1 AND po.author_id <> $1 AND ${TODAY('l.created_at')}`,
+        p,
+      );
+      // Só fecha com 3 autores diferentes: curtir 5 posts da mesma pessoa não conta.
+      return { current: r.n, target: CATALOG.curtir.target, extra: { authors: r.authors, authors_needed: 3 }, ok: r.n >= 5 && r.authors >= 3 };
+    },
+  },
+  republicar: {
+    always: true,
+    progress: async (p) => {
+      const r = await count(
+        `SELECT count(*)::int AS n FROM posts r JOIN posts o ON o.id = r.repost_of_id
+         WHERE r.author_id = $1 AND o.author_id <> $1 AND ${TODAY('r.created_at')}`,
+        p,
+      );
+      return { current: r.n, target: CATALOG.republicar.target };
+    },
+  },
+  comentar: {
+    always: true,
+    progress: async (p) => {
+      const r = await count(
+        `SELECT count(*)::int AS n FROM posts c JOIN posts t ON t.id = c.reply_to_id
+         WHERE c.author_id = $1 AND t.author_id <> $1 AND char_length(c.text) >= 15 AND ${TODAY('c.created_at')}`,
+        p,
+      );
+      return { current: r.n, target: CATALOG.comentar.target };
+    },
+  },
+  recompensar: {
+    always: true,
+    progress: async (p) => {
+      const r = await count(`SELECT count(*)::int AS n FROM tips WHERE user_id = $1 AND ${TODAY('created_at')}`, p);
+      return { current: r.n, target: CATALOG.recompensar.target };
+    },
+  },
+  tempo_no_app: {
+    always: true,
+    requiresTimeCounting: true,
+    progress: async ([userId]) => ({ current: await minutesToday(userId), target: CATALOG.tempo_no_app.target }),
+  },
+};
+for (const def of Object.values(ENGAGEMENT)) {
+  def.suggest = async () => [];
+  def.done = async (p) => {
+    const pr = await def.progress(p);
+    return pr.ok ?? pr.current >= pr.target;
+  };
+}
+
 const DEFS = {
+  ...ENGAGEMENT,
   apresentar: {
     onlyNewUsers: true,
     always: true,
@@ -185,6 +247,7 @@ export async function getMissions(userId) {
   const applicable = [];
   for (const [id, def] of Object.entries(DEFS)) {
     if (def.onlyNewUsers && !isNewUser) continue;
+    if (def.requiresTimeCounting && !settings.count_time) continue;
     if (def.applies && !(await def.applies([userId, tz]))) continue;
     suggestions[id] = await def.suggest([userId]);
     if (def.always || suggestions[id].length) applicable.push(id);
@@ -194,19 +257,30 @@ export async function getMissions(userId) {
   const skipped = new Set(skipRows.map((r) => r.mission));
 
   const missions = [];
+  let earnedNow = 0;
   for (const id of chosen) {
-    const done = await DEFS[id].done([userId, tz]);
+    const params = [userId, tz];
+    const progress = DEFS[id].progress ? await DEFS[id].progress(params) : null;
+    const done = await DEFS[id].done(params);
+    // Crédito automático e idempotente: o banco garante uma recompensa por missão por dia.
+    if (done && (await rewardMission(userId, day, id, CATALOG[id].reward))) earnedNow += CATALOG[id].reward;
     missions.push({
       id,
       ...CATALOG[id],
       status: done ? 'done' : skipped.has(id) ? 'skipped' : 'todo',
+      progress: progress && { current: Math.min(progress.current, progress.target), target: progress.target, ...(progress.extra ?? {}) },
       suggestions: done ? [] : suggestions[id],
     });
   }
+  const { rows: rewardRows } = await query(
+    'SELECT COALESCE(sum(amount), 0)::int AS total FROM mission_rewards WHERE user_id = $1 AND day = $2',
+    [userId, day],
+  );
   return {
     enabled: true,
     day,
     timezone: tz,
+    token: { name: TOKEN.name, symbol: TOKEN.symbol, balance: await getBalance(userId), earned_today: rewardRows[0].total, earned_now: earnedNow },
     summary: { done: missions.filter((m) => m.status === 'done').length, total: missions.length },
     missions,
     collective: coll,
@@ -225,4 +299,5 @@ export async function skipMission(userId, missionId) {
 export const __test = {
   done: (id, who) => DEFS[id].done([who.user.id, config.missionTimezone]),
   suggest: (id, who) => DEFS[id].suggest([who.user.id]),
+  progress: (id, who) => DEFS[id].progress([who.user.id, config.missionTimezone]),
 };

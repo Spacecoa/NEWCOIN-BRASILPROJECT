@@ -86,10 +86,10 @@ export default function Interests() {
   async function save() {
     setError(null);
     try {
-      const { muted_topics, keywords, weights, topics, session_limit, diversity, half_life_hours, hide_metrics, missions_enabled } = draft;
+      const { muted_topics, keywords, weights, topics, session_limit, diversity, half_life_hours, hide_metrics, missions_enabled, count_time } = draft;
       const r = await api('/api/feed/preferencias', {
         method: 'PUT',
-        body: { muted_topics, keywords, weights, topics, session_limit, diversity, half_life_hours, hide_metrics, missions_enabled },
+        body: { muted_topics, keywords, weights, topics, session_limit, diversity, half_life_hours, hide_metrics, missions_enabled, count_time },
       });
       setDraft(r.settings);
       setStatus('Preferências salvas. O feed Para você já usa os novos pesos.');
@@ -221,9 +221,16 @@ export default function Interests() {
         <label className="flex min-h-11 items-center justify-between gap-3 py-2">
           <span>
             <span className="block font-semibold">Missões diárias</span>
-            <span className="block text-xs text-zinc-500">Até 3 sugestões por dia de ações que ajudam a rede. Sem pontos nem sequências.</span>
+            <span className="block text-xs text-zinc-500">Até 4 por dia, com recompensa em token interno. Sem sequências nem ranking.</span>
           </span>
           <input type="checkbox" checked={draft.missions_enabled} onChange={(e) => set({ missions_enabled: e.target.checked })} className="h-5 w-5 accent-brand-600" />
+        </label>
+        <label className="flex min-h-11 items-center justify-between gap-3 py-2">
+          <span>
+            <span className="block font-semibold">Contar meu tempo no app</span>
+            <span className="block text-xs text-zinc-500">Só minutos ativos por dia, para a missão de tempo. Nunca entra no ranking do feed.</span>
+          </span>
+          <input type="checkbox" checked={draft.count_time} onChange={(e) => set({ count_time: e.target.checked })} className="h-5 w-5 accent-brand-600" />
         </label>
       </Section>
 

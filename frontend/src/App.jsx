@@ -12,6 +12,7 @@ import Missions from './pages/Missions.jsx';
 import Profile from './pages/Profile.jsx';
 import Register from './pages/Register.jsx';
 import Thread from './pages/Thread.jsx';
+import Wallet from './pages/Wallet.jsx';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="mencoes" element={<Mentions />} />
         <Route path="interesses" element={<Interests />} />
         <Route path="missoes" element={<Missions />} />
+        <Route path="carteira" element={<Wallet />} />
         <Route path="u/:username" element={<Profile />} />
         <Route path="post/:id" element={<Thread />} />
         <Route path="canais" element={<Channels />} />

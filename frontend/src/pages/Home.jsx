@@ -78,7 +78,8 @@ export default function Home() {
           <span className="min-w-0 flex-1">
             <span className="block font-extrabold text-brand-700 dark:text-brand-100">Missões do dia</span>
             <span className="block truncate text-zinc-600 dark:text-zinc-300">
-              {missions.summary.done} de {missions.summary.total} · {missions.missions.find((m) => m.status === 'todo')?.title ?? 'Tudo feito por hoje'}
+              {missions.summary.done} de {missions.summary.total} · +{missions.token.earned_today} {missions.token.symbol} hoje ·{' '}
+              {missions.missions.find((m) => m.status === 'todo')?.title ?? 'Tudo feito por hoje'}
             </span>
           </span>
         </Link>

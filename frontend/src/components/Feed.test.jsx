@@ -52,8 +52,9 @@ describe('<Feed>', () => {
     await screen.findByText('mais novo');
     await userEvent.click(screen.getByRole('button', { name: 'Carregar mais' }));
     expect(await screen.findByText('mais antigo')).toBeInTheDocument();
-    expect(calls[1].url).toContain(`until_id=${first.id}`);
-    expect(calls[1].url).toContain('max_results=20');
+    const page2 = calls.find((c) => c.url.includes('until_id='));
+    expect(page2.url).toContain(`until_id=${first.id}`);
+    expect(page2.url).toContain('max_results=20');
     // última página (sem next_token) => sem botão
     expect(screen.queryByRole('button', { name: 'Carregar mais' })).not.toBeInTheDocument();
   });
@@ -108,7 +109,37 @@ describe('<Feed>', () => {
     expect(screen.queryByText(/Você está em dia/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Carregar mais' }));
     expect(await screen.findByText('Você está em dia (2)')).toBeInTheDocument();
-    expect(calls[1].url).toContain('next_token=1');
-    expect(calls[1].url).not.toContain('until_id');
+    const page2 = calls.find((c) => c.url.includes('next_token='));
+    expect(page2.url).toContain('next_token=1');
+    expect(page2.url).not.toContain('until_id');
+  });
+
+  it('recompensar: transfere 1 token e mostra o erro de saldo com atalho para as missões', async () => {
+    localStorage.setItem('agora.token', 'token-de-teste');
+    const p = makePost({ text: 'post do bruno', author_id: '2' });
+    const p2 = makePost({ text: 'outro do bruno', author_id: '2' });
+    mockFetch([
+      [/\/api\/auth\/me$/, { user: users.ana }],
+      [/\/api\/token$/, { name: 'NewCoin', symbol: 'NWC', tip_amount: 1 }],
+      [new RegExp(`/api/posts/${p.id}/recompensa$`), { data: { ...p, public_metrics: { ...p.public_metrics, tip_count: 1 }, viewer: { liked: false, reposted: false, tipped: true } }, includes: { users: [users.bruno], posts: [] } }],
+      [/\/api\/posts\?/, page([p, p2])],
+    ]);
+    // o segundo post responde com saldo insuficiente
+    const original = fetch;
+    globalThis.fetch = vi.fn(async (url, init) =>
+      url === `/api/posts/${p2.id}/recompensa`
+        ? { ok: false, status: 409, json: async () => ({ error: 'Saldo insuficiente de NWC. Conclua missões para ganhar mais.' }) }
+        : original(url, init),
+    );
+    renderFeed();
+    await screen.findByText('post do bruno');
+    const [first, second] = await screen.findAllByRole('button', { name: /Recompensar com 1 NWC/ });
+    await userEvent.click(first);
+    const done = await screen.findByRole('button', { name: 'Você recompensou com 1 NWC' });
+    expect(done).toHaveAttribute('aria-pressed', 'true');
+    expect(done).toHaveTextContent('1');
+    await userEvent.click(second);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Saldo insuficiente de NWC');
+    expect(screen.getByRole('link', { name: 'Ver missões' })).toHaveAttribute('href', '/missoes');
   });
 });

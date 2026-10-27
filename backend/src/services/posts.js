@@ -33,8 +33,9 @@ function formatPost(row) {
       like_count: row.like_count,
       reply_count: row.reply_count,
       repost_count: row.repost_count,
+      tip_count: row.tip_count ?? 0,
     },
-    viewer: { liked: row.liked ?? false, reposted: row.reposted ?? false },
+    viewer: { liked: row.liked ?? false, reposted: row.reposted ?? false, tipped: row.tipped ?? false },
   };
 }
 
@@ -43,7 +44,8 @@ async function fetchPostRows(ids, viewerId) {
   const { rows } = await query(
     `SELECT p.*,
        EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $2) AS liked,
-       EXISTS (SELECT 1 FROM posts r WHERE r.repost_of_id = p.id AND r.author_id = $2) AS reposted
+       EXISTS (SELECT 1 FROM posts r WHERE r.repost_of_id = p.id AND r.author_id = $2) AS reposted,
+       EXISTS (SELECT 1 FROM tips t WHERE t.post_id = p.id AND t.user_id = $2) AS tipped
      FROM posts p WHERE p.id = ANY($1::bigint[])`,
     [ids, viewerId ?? null],
   );

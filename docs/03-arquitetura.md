@@ -265,6 +265,10 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | GET | `/api/missoes` | ✔ | Missões do dia, verificadas pelas ações reais, e painel coletivo |
 | POST | `/api/missoes/:id/pular` | ✔ | Pular uma missão hoje |
 | GET/POST | `/api/convites` | ✔ | Listar / gerar convites de uso único |
+| GET | `/api/token` | — | Regras públicas do token interno |
+| GET | `/api/carteira` | ✔ | Saldo e extrato |
+| POST | `/api/posts/:id/recompensa` | ✔ | Transfere 1 NWC ao autor do post |
+| POST | `/api/atividade` | ✔ | Sinal de minuto ativo (missão de tempo) |
 | GET | `/.well-known/webfinger?resource=acct:u@dominio` | — | Descoberta federada |
 | GET | `/federation/users/:u` · `/outbox` | — | Ator e últimos posts (ActivityStreams) |
 

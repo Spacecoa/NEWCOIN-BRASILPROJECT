@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   session_limit: 40, // depois disso: "Você está em dia"
   hide_metrics: false, // esconder contadores no feed de interesses
   missions_enabled: true, // mostrar as missões diárias (ver lib/missions.js)
+  count_time: true, // contar minutos ativos no app para a missão de tempo (nunca usado no ranking)
 });
 
 export const LEARNING = Object.freeze({

@@ -166,3 +166,55 @@ CREATE TABLE IF NOT EXISTS invites (
   used_at    TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS invites_inviter_idx ON invites (inviter_id);
+
+-- ---------------------------------------------------------------------------
+-- Token interno (NewCoin) — ver src/services/tokens.js e docs/09-token-interno.md
+-- Sem valor monetário, sem conversão, sem saída do app. Só nasce de missões
+-- concluídas; recompensas entre pessoas apenas TRANSFEREM saldo existente.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS token_balances (
+  user_id    BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  balance    INTEGER NOT NULL DEFAULT 0 CHECK (balance >= 0),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Extrato imutável: o saldo é sempre a soma do extrato (verificado nos testes).
+CREATE TABLE IF NOT EXISTS token_ledger (
+  id         BIGINT PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount     INTEGER NOT NULL CHECK (amount <> 0),
+  kind       TEXT NOT NULL CHECK (kind IN ('grant', 'mission', 'tip_sent', 'tip_received')),
+  ref        TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS token_ledger_user_idx ON token_ledger (user_id, id DESC);
+
+-- Uma recompensa por missão, por pessoa, por dia (idempotência garantida pelo banco).
+CREATE TABLE IF NOT EXISTS mission_rewards (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day        DATE   NOT NULL,
+  mission    TEXT   NOT NULL,
+  amount     INTEGER NOT NULL CHECK (amount > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, day, mission)
+);
+
+-- Recompensa entre pessoas: como um like, uma por post por pessoa.
+CREATE TABLE IF NOT EXISTS tips (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id    BIGINT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  amount     INTEGER NOT NULL DEFAULT 1 CHECK (amount > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, post_id)
+);
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS tip_count INTEGER NOT NULL DEFAULT 0;
+
+-- Tempo ativo no app (só minutos agregados por dia; nunca usado no ranking).
+CREATE TABLE IF NOT EXISTS activity_days (
+  user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day          DATE   NOT NULL,
+  minutes      INTEGER NOT NULL DEFAULT 0 CHECK (minutes BETWEEN 0 AND 1440),
+  last_beat_at TIMESTAMPTZ,
+  PRIMARY KEY (user_id, day)
+);

@@ -10,11 +10,13 @@ const payload = (over = {}) => ({
   day: '2026-10-27',
   summary: { done: 1, total: 3 },
   collective: { novos_membros_semana: 4, recebidos_semana: 3, perguntas_respondidas_hoje: 2, grupos_ativos_hoje: 1, convites_aceitos_semana: 5 },
-  principles: ['Sem pontos, sem sequências e sem ranking individual.'],
+  token: { name: 'NewCoin', symbol: 'NWC', balance: 7, earned_today: 2, earned_now: 0 },
+  principles: ['Sem sequências e sem ranking individual. Pular não tem custo.'],
   missions: [
-    { id: 'boas_vindas', title: 'Dê boas-vindas', description: 'Responda alguém novo.', why: 'A primeira resposta decide se alguém fica.', status: 'todo', suggestions: [{ type: 'user', username: 'nina_nova', display_name: 'Nina Barros' }] },
-    { id: 'convidar', title: 'Traga alguém de confiança', description: 'Gere um convite.', why: 'Confiança.', status: 'todo', suggestions: [] },
-    { id: 'ponte', title: 'Construa uma ponte', description: 'Siga alguém novo.', why: 'Fora da bolha.', status: 'done', suggestions: [] },
+    { id: 'curtir', family: 'engajamento', reward: 2, target: 5, title: 'Curta 5 posts', description: 'Curta 5 posts de pelo menos 3 pessoas diferentes.', why: 'Curtir mostra a quem escreveu que alguém leu.', status: 'todo', progress: { current: 3, target: 5, authors: 2, authors_needed: 3 }, suggestions: [] },
+    { id: 'boas_vindas', family: 'rede', reward: 3, title: 'Dê boas-vindas', description: 'Responda alguém novo.', why: 'A primeira resposta decide se alguém fica.', status: 'todo', suggestions: [{ type: 'user', username: 'nina_nova', display_name: 'Nina Barros' }] },
+    { id: 'convidar', family: 'rede', reward: 4, title: 'Traga alguém de confiança', description: 'Gere um convite.', why: 'Confiança.', status: 'todo', suggestions: [] },
+    { id: 'ponte', family: 'engajamento', reward: 2, title: 'Construa uma ponte', description: 'Siga alguém novo.', why: 'Fora da bolha.', status: 'done', suggestions: [] },
   ],
   ...over,
 });
@@ -22,15 +24,19 @@ const payload = (over = {}) => ({
 const renderPage = () => render(<MemoryRouter><Missions /></MemoryRouter>);
 
 describe('<Missions>', () => {
-  it('mostra a meta coletiva, as missões com alvos concretos e nenhum ponto', async () => {
+  it('mostra saldo, meta coletiva, recompensa e progresso das missões, sem sequências', async () => {
     mockFetch([[/\/api\/missoes$/, payload()], [/\/api\/convites$/, { data: [] }]]);
     renderPage();
     expect(await screen.findByText('3 de 4 pessoas novas desta semana já foram recebidas')).toBeInTheDocument();
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '75');
+    expect(screen.getAllByRole('progressbar')[0]).toHaveAttribute('aria-valuenow', '75');
     expect(screen.getByText('1 de 3 hoje. Renovam à meia-noite.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Nina Barros/ })).toHaveAttribute('href', '/u/nina_nova');
-    expect(screen.getByText('Feito. Obrigado por cuidar da rede.')).toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/\d+\s*(pontos|xp|dias seguidos)/i);
+    expect(screen.getByText('Feito. 2 NWC creditados na sua carteira.')).toBeInTheDocument();
+    expect(screen.getByText('7 NWC')).toBeInTheDocument();
+    expect(screen.getByText('+3 NWC')).toBeInTheDocument();
+    expect(screen.getByText('3 de 5 · 2 de 3 pessoas diferentes')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Progresso: Curta 5 posts' })).toHaveAttribute('aria-valuenow', '3');
+    expect(document.body.textContent).not.toMatch(/dias seguidos|sequência de \d/i);
   });
 
   it('pular chama a API e recarrega', async () => {

@@ -8,7 +8,7 @@
 - **Mensageria no estilo Telegram:** canais (broadcast) e grupos em tempo real, com `pts` por canal para detectar e recuperar lacunas, reações com emoji e papéis owner/admin/member.
 - **Federável:** handles `usuario@instancia`, WebFinger e um outbox ActivityStreams somente leitura.
 - **Algoritmo aberto:** aba "Para você" ordenada pelos interesses que a pessoa declara, com explicação em cada post, controles completos, aprendizado só por ações explícitas e um fim de sessão ("Você está em dia"). Popularidade vale zero por padrão.
-- **Missões diárias de organização popular:** até 3 ações por dia que ajudam a rede a crescer de forma orgânica (receber quem chegou, responder perguntas, abrir grupos, convidar alguém de confiança), verificadas pelas ações reais. Sem pontos, sem sequências, sem ranking. Convites de uso único.
+- **Missões diárias e token interno:** até 4 missões por dia feitas dentro do app (curtir, republicar, comentar, recompensar, tempo ativo, receber quem chegou, responder perguntas, abrir grupos, convidar), verificadas pelas ações reais. Cada uma rende **NewCoin (NWC)**, um token interno que só serve, por enquanto, para recompensar posts de outras pessoas (transferência de 1 NWC, como um like). Sem sequências nem ranking. Convites de uso único.
 
 | Início (celular) | Novo post | Canal em tempo real |
 |---|---|---|
@@ -28,8 +28,9 @@ Visual mobile first e minimalista, com fonte arredondada (Nunito). No desktop, a
 | 6 | Metodologia com Claude Code | [`docs/06-metodologia-claude-code.md`](docs/06-metodologia-claude-code.md) |
 | 7 | **Atenção e algoritmo aberto** (gatilhos de recompensa nas redes e o feed "Para você" controlado pelo usuário) | [`docs/07-atencao-e-algoritmo-aberto.md`](docs/07-atencao-e-algoritmo-aberto.md) |
 | 8 | **Missões diárias de organização popular** (crescimento orgânico, sem pontos nem sequências) e convites | [`docs/08-missoes-organizacao-popular.md`](docs/08-missoes-organizacao-popular.md) |
-| 9 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
-| 10 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
+| 9 | **Token interno NewCoin** (recompensa entre pessoas, emissão só por missões, utilidade nula no início) | [`docs/09-token-interno.md`](docs/09-token-interno.md) |
+| 10 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
+| 11 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
 
 ## Stack
 
@@ -69,8 +70,8 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 ### Testes
 
 ```bash
-cd backend  && npm test   # 90 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
-cd frontend && npm test   # 28 testes: lógica e componentes (jsdom)
+cd backend  && npm test   # 106 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd frontend && npm test   # 30 testes: lógica e componentes (jsdom)
 ```
 
 Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL`. Os testes de integração **apagam** o banco de teste e o banco 1 do Redis.

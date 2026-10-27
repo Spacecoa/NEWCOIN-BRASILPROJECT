@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Avatar from '../components/Avatar.jsx';
 import Feed from '../components/Feed.jsx';
@@ -44,6 +44,11 @@ export default function Profile() {
   return (
     <>
       <PageHeader back={!isMe} title={profile.display_name} subtitle={`${m.post_count} posts`}>
+        {isMe && (
+          <Link to="/carteira" aria-label="Carteira" className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 md:hidden dark:hover:bg-zinc-900">
+            <Icon name="wallet" />
+          </Link>
+        )}
         {isMe && (
           <button onClick={logout} aria-label="Sair" className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 md:hidden dark:hover:bg-zinc-900">
             <Icon name="logout" />

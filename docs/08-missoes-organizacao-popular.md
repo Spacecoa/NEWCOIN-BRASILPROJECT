@@ -1,6 +1,8 @@
 # Missões diárias de organização popular
 
-As missões fazem a rede crescer **de forma orgânica**: por acolhimento, conversa e confiança entre pessoas, e não por anúncios, notificações insistentes ou recompensas. Todo dia, cada pessoa recebe até três sugestões de ações pequenas e concretas que beneficiam **outra pessoa ou a rede inteira**: receber quem chegou, responder quem perguntou, abrir um espaço para um tema ou bairro, trazer alguém de confiança.
+> **Atualização:** as missões agora rendem o token interno **NewCoin (NWC)**, e entraram missões de **engajamento dentro do app** (curtir, republicar, comentar, recompensar, tempo ativo). São 4 por dia: 2 de rede e 2 de engajamento. Regras do token e das novas missões em [`09-token-interno.md`](09-token-interno.md). Continuam de fora: sequências, ranking individual, notificações cobrando e qualquer missão física ou fora do app.
+
+As missões fazem a rede crescer **de forma orgânica**: por acolhimento, conversa e confiança entre pessoas, e não por anúncios, notificações insistentes ou recompensas. Todo dia, cada pessoa recebe até quatro sugestões de ações pequenas e concretas que beneficiam **outra pessoa ou a rede inteira**: receber quem chegou, responder quem perguntou, abrir um espaço para um tema ou bairro, trazer alguém de confiança.
 
 ## 1. Por que não é gamificação
 
@@ -8,7 +10,7 @@ Missões diárias costumam vir com pontos, sequências ("streaks"), níveis e ra
 
 | Mecanismo comum | Problema | No Ágora |
 |---|---|---|
-| Pontos e níveis | Recompensas externas esperadas reduzem a motivação intrínseca (efeito de superjustificação: meta-análise de Deci, Koestner e Ryan, 1999) | **Não existem.** A missão concluída mostra "Feito. Obrigado por cuidar da rede." |
+| Pontos e níveis | Recompensas externas esperadas reduzem a motivação intrínseca (efeito de superjustificação: meta-análise de Deci, Koestner e Ryan, 1999) | **Por decisão do projeto, há um token (NWC) com valor fixo por missão.** Para reduzir o efeito: não há níveis, o valor é previsível (sem sorteio de prêmio) e o token só serve para reconhecer outras pessoas |
 | Sequências de dias | Exploram a aversão à perda: a pessoa volta para não "quebrar" a sequência, não porque quer | **Não existem.** Nada acumula de um dia para o outro |
 | Ranking individual | Comparação social e competição entre membros da mesma comunidade | **Só números coletivos**, nunca de pessoas |
 | Notificações cobrando | Interrupções e culpa | **Nenhuma.** As missões só aparecem quando a pessoa abre o app |
@@ -18,11 +20,11 @@ Missões diárias costumam vir com pontos, sequências ("streaks"), níveis e ra
 
 ## 2. Princípios
 
-1. Sem pontos, sem sequências e sem ranking individual.
+1. Recompensa fixa em NWC por missão concluída, creditada uma vez por dia. Sem sequências e sem ranking individual.
 2. Cada missão beneficia outra pessoa ou a rede inteira.
 3. A conclusão é **verificada pelo que aconteceu de fato** (posts, follows, mensagens, convites), nunca por autodeclaração.
 4. Pular não tem custo, e nenhuma notificação cobra missões.
-5. No máximo três por dia. Elas renovam à meia-noite no fuso da instância (padrão `America/Sao_Paulo`, configurável em `MISSION_TZ`).
+5. No máximo quatro por dia (2 de rede e 2 de engajamento). Elas renovam à meia-noite no fuso da instância (padrão `America/Sao_Paulo`, configurável em `MISSION_TZ`).
 6. A pessoa pode esconder as missões quando quiser, na tela "Meu algoritmo" ou na própria página de missões.
 
 ## 3. Catálogo

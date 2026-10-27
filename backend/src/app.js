@@ -7,6 +7,7 @@ import channelRoutes from './routes/channels.js';
 import federationRoutes from './routes/federation.js';
 import feedRoutes from './routes/feed.js';
 import missionRoutes from './routes/missions.js';
+import tokenRoutes from './routes/tokens.js';
 import postRoutes from './routes/posts.js';
 import timelineRoutes from './routes/timeline.js';
 import userRoutes from './routes/users.js';
@@ -25,6 +26,7 @@ export function createApp() {
   app.use('/api/channels', channelRoutes);
   app.use('/api/feed', feedRoutes);
   app.use('/api', missionRoutes);
+  app.use('/api', tokenRoutes);
   app.use(federationRoutes);
 
   app.use((_req, res) => res.status(404).json({ error: 'Rota não encontrada' }));

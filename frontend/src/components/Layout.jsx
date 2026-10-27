@@ -2,11 +2,13 @@ import { NavLink, Outlet } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
+import { useActivityBeat } from '../lib/useActivityBeat.js';
 
 // Mobile first: no celular, barra de abas fixa no rodapé (zona do polegar).
 // A partir de md, a mesma navegação vira coluna lateral.
 export default function Layout() {
   const { user, logout } = useAuth();
+  useActivityBeat(Boolean(user));
   const items = [
     ['/', 'home', 'Início'],
     ['/explorar', 'search', 'Explorar'],
@@ -18,7 +20,7 @@ export default function Layout() {
     <div className="mx-auto flex min-h-dvh max-w-5xl">
       <nav aria-label="Principal" className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col gap-1 px-3 py-6 md:flex">
         <p className="mb-6 px-3 text-2xl font-extrabold tracking-tight text-brand-600">ágora</p>
-        {[...items.slice(0, 4), ['/missoes', 'sprout', 'Missões'], items[4]].map(([to, icon, label]) => (
+        {[...items.slice(0, 4), ['/missoes', 'sprout', 'Missões'], ['/carteira', 'wallet', 'Carteira'], items[4]].map(([to, icon, label]) => (
           <NavLink
             key={to}
             to={to}

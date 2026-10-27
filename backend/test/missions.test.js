@@ -16,14 +16,16 @@ describe('missões diárias', () => {
     await age(bruno);
   });
 
-  it('exige login, devolve no máximo 3 missões, painel coletivo e princípios', async () => {
+  it('exige login, devolve no máximo 4 missões (2 de rede + 2 de engajamento), painel coletivo e princípios', async () => {
     expect((await api().get('/api/missoes')).status).toBe(401);
     const body = await missions(ana);
     expect(body.enabled).toBe(true);
     expect(body.missions.length).toBeGreaterThan(0);
-    expect(body.missions.length).toBeLessThanOrEqual(3);
+    expect(body.missions.length).toBeLessThanOrEqual(4);
+    expect(body.missions.filter((m) => m.family === 'engajamento')).toHaveLength(2);
+    expect(body.token).toMatchObject({ symbol: 'NWC', balance: 3 });
     expect(body.collective).toMatchObject({ novos_membros_semana: 0, convites_aceitos_semana: 0 });
-    expect(body.principles[0]).toMatch(/Sem pontos/);
+    expect(body.principles.join(' ')).toMatch(/Sem sequências e sem ranking individual/);
     for (const m of body.missions) expect(m).toEqual(expect.objectContaining({ title: expect.any(String), why: expect.any(String), status: 'todo' }));
     expect(await missions(ana)).toEqual(body); // determinístico no mesmo dia
   });

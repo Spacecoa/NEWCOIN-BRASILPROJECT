@@ -29,11 +29,24 @@ describe('seleção das missões do dia', () => {
     for (let i = 0; i < 20; i++) expect(selectMissions(String(i), '2026-10-27', all)).not.toContain('apresentar');
   });
 
-  it('catálogo explica o porquê de cada missão e não fala em pontos', () => {
-    for (const m of Object.values(CATALOG)) {
+  it('catálogo: toda missão tem recompensa fixa, porquê e é feita dentro do app', async () => {
+    const { MAX_DAILY_REWARD } = await import('../../src/lib/missions.js');
+    for (const [id, m] of Object.entries(CATALOG)) {
+      expect(m.reward, id).toBeGreaterThan(0);
+      expect(['engajamento', 'rede']).toContain(m.family);
       expect(m.why.length).toBeGreaterThan(20);
-      expect(`${m.title} ${m.description}`).not.toMatch(/pontos?|xp|sequência/i);
+      expect(`${m.title} ${m.description}`).not.toMatch(/visite|vá até|encontre pessoalmente|compre|foto de|endereço|caminhe/i);
+      if (m.family === 'engajamento') expect(m.target).toBeGreaterThan(0);
     }
-    expect(PRINCIPLES.join(' ')).toMatch(/Sem pontos, sem sequências e sem ranking/);
+    expect(MAX_DAILY_REWARD).toBe(13); // 2 de engajamento (3 + 2) + 2 de rede (4 + 4)
+    expect(PRINCIPLES.join(' ')).toMatch(/Sem sequências e sem ranking individual/);
+  });
+
+  it('sempre 2 de engajamento e 2 de rede quando há opções suficientes', () => {
+    for (let i = 0; i < 20; i++) {
+      const r = selectMissions(String(i), '2026-10-27', MISSION_IDS);
+      expect(r.filter((id) => CATALOG[id].family === 'engajamento')).toHaveLength(2);
+      expect(r.filter((id) => CATALOG[id].family === 'rede')).toHaveLength(2);
+    }
   });
 });
