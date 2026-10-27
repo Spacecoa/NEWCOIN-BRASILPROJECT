@@ -26,7 +26,9 @@ Uma página única que roda no navegador, sem servidor, com os mesmos dados fict
 
 ![Demo no desktop, tema escuro, com o painel Bastidores](docs/img/demo-desktop.png)
 
-A demo está publicada em https://claude.ai/artifact/1KYADm2kxRoJqg8rsX6H9d (link privado: só abre para quem recebeu acesso).
+**Como abrir:** baixe ou clone o repositório e abra [`demo/index.html`](demo/index.html) no navegador. Não precisa instalar nada nem rodar backend, e funciona sem internet (só a fonte Nunito vem do Google Fonts; sem conexão, a página usa a fonte arredondada do sistema). O GitHub mostra o código do arquivo, não a página. A demo é uma cópia estática para apresentação; o app de verdade está em `backend/` e `frontend/`.
+
+Também há uma versão publicada em https://claude.ai/artifact/1KYADm2kxRoJqg8rsX6H9d (link privado: só abre para quem recebeu acesso).
 
 ## Entregáveis
 
@@ -118,6 +120,7 @@ A tabela completa de rotas e eventos de tempo real está em [`docs/03-arquitetur
 
 ```
 backend/    API Express, serviços de domínio, Socket.io, schema SQL, seed, testes
+demo/       demo interativa em uma página HTML (sem servidor)
 frontend/   SPA React (Feed, PostCard, Composer, Thread, Perfil, Canais)
 docs/       análises, arquitetura (Mermaid), relatório comparativo, suposições
 ```

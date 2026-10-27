@@ -1,0 +1,1432 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--
+  Demo interativa do Ágora: página única, roda no navegador sem servidor.
+  Simula o app (feed Seguindo e Para você, Meu algoritmo, threads, canal em tempo real,
+  missões do dia e carteira NWC) com dados fictícios do seed. O painel "Bastidores"
+  mostra o que o backend real faria a cada ação. Abra este arquivo direto no navegador.
+  Cópia estática: o app de verdade está em backend/ e frontend/.
+-->
+<style>
+  :root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body { margin: 0; font: 14px system-ui, sans-serif; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+</style>
+<title>Ágora em ação</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap">
+<style>
+/* Layout: mobile first. Base = celular (abas no rodapé, botão flutuante, Bastidores em gaveta).
+   ≥768px: navegação lateral. ≥1100px: Bastidores vira coluna fixa à direita. */
+:root {
+  --bg: #ffffff;
+  --soft: #f3f6f4;
+  --ink: #151a17;
+  --muted: #69736d;
+  --faint: #a4aca7;
+  --line: #eceff0;
+  --accent: #10864a;
+  --accent-soft: #e8f6ee;
+  --accent-ink: #ffffff;
+  --overlay: rgba(10, 14, 12, .32);
+  --t-http: #0e7a49; --t-sql: #2f5fc4; --t-redis: #9a6500; --t-ws: #c0306a;
+  --av0-bg: #d9f4e5; --av0-fg: #0d5e36;
+  --av1-bg: #dbeafe; --av1-fg: #1e4f9c;
+  --av2-bg: #fdf0c7; --av2-fg: #85560a;
+  --av3-bg: #fde0e7; --av3-fg: #9b1f45;
+  --av4-bg: #ebe2fd; --av4-fg: #5631a6;
+  --av5-bg: #d4f3ef; --av5-fg: #0e5e57;
+  --font: "Nunito", ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0d0c; --soft: #161a18; --ink: #eef2ef; --muted: #9aa39e; --faint: #5d6661; --line: #1b201e;
+    --accent: #3cc488; --accent-soft: #11261b; --accent-ink: #04130b; --overlay: rgba(0, 0, 0, .55);
+    --t-http: #6fd3a4; --t-sql: #8fb8ff; --t-redis: #ffcf5c; --t-ws: #ff8fb0;
+    --av0-bg: #123b27; --av0-fg: #a6ebc6; --av1-bg: #172d4f; --av1-fg: #b6d2fb; --av2-bg: #3a2c0c; --av2-fg: #f6d784;
+    --av3-bg: #44162a; --av3-fg: #f9b6c8; --av4-bg: #2a1f4a; --av4-fg: #d3c2fb; --av5-bg: #0f3833; --av5-fg: #a3e9df;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b0d0c; --soft: #161a18; --ink: #eef2ef; --muted: #9aa39e; --faint: #5d6661; --line: #1b201e;
+  --accent: #3cc488; --accent-soft: #11261b; --accent-ink: #04130b; --overlay: rgba(0, 0, 0, .55);
+  --t-http: #6fd3a4; --t-sql: #8fb8ff; --t-redis: #ffcf5c; --t-ws: #ff8fb0;
+  --av0-bg: #123b27; --av0-fg: #a6ebc6; --av1-bg: #172d4f; --av1-fg: #b6d2fb; --av2-bg: #3a2c0c; --av2-fg: #f6d784;
+  --av3-bg: #44162a; --av3-fg: #f9b6c8; --av4-bg: #2a1f4a; --av4-fg: #d3c2fb; --av5-bg: #0f3833; --av5-fg: #a3e9df;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px calc(96px + env(safe-area-inset-bottom, 0px));
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+button:focus-visible, textarea:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 12px; }
+svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+svg.i.sm { width: 18px; height: 18px; }
+svg.i.fill { fill: currentColor; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.intro { max-width: 1180px; margin: 0 auto 12px; display: grid; gap: 4px; }
+.intro h1 { font-weight: 800; font-size: 26px; line-height: 1.1; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+.intro h1 span { color: var(--accent); }
+.intro p { margin: 0; color: var(--muted); font-size: 15px; max-width: 60ch; }
+
+.app { max-width: 1180px; margin: 0 auto; }
+nav.side { display: none; }
+main { min-width: 0; }
+
+/* Barra de abas (celular) */
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+  padding: 4px max(8px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(8px, env(safe-area-inset-left, 0px));
+  display: flex; justify-content: space-around;
+}
+.tab { min-height: 56px; min-width: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; color: var(--faint); position: relative; }
+.tab[aria-current="page"] { color: var(--ink); font-weight: 800; }
+.dot { position: absolute; top: 8px; right: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+.fab {
+  position: fixed; z-index: 20; width: 56px; height: 56px; border-radius: 50%;
+  right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  background: var(--accent); color: var(--accent-ink); display: grid; place-items: center;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+body:not([data-view="home"]) .fab { display: none; }
+body[data-view="channel"] .logpill { bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+.logpill {
+  position: fixed; z-index: 20; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  min-height: 40px; padding: 0 14px; border-radius: 999px; background: var(--ink); color: var(--bg);
+  font-size: 13px; font-weight: 800; display: flex; align-items: center; gap: 8px;
+}
+.logpill b { background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 0 7px; font-size: 12px; }
+
+/* Cabeçalho de cada tela */
+.head { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(12px); padding: 10px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.head .titles { min-width: 0; flex: 1; }
+.head h2 { font-weight: 800; font-size: 21px; margin: 0; letter-spacing: -0.01em; }
+.head .sub { color: var(--muted); font-size: 13px; }
+.iconbtn { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; }
+.iconbtn:hover { background: var(--soft); }
+.chip { min-height: 36px; padding: 0 14px; border-radius: 999px; background: var(--soft); font-size: 13px; font-weight: 800; color: var(--ink); }
+.chip:hover { background: var(--accent-soft); color: var(--accent); }
+.chip:disabled { opacity: .45; cursor: default; }
+
+/* Composer */
+.composer { display: grid; gap: 8px; padding: 4px 0 12px; }
+.composer textarea { width: 100%; min-height: 84px; resize: none; border: 0; border-radius: 20px; background: var(--soft); color: var(--ink); font: inherit; font-size: 17px; padding: 12px 16px; outline: none; }
+.composer textarea:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+.composer .row { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
+.counter { font-size: 13px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.counter.warn { color: var(--t-redis); } .counter.over { color: var(--t-ws); }
+.primary { min-height: 44px; background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 0 20px; font-weight: 800; }
+.primary:disabled { opacity: .4; cursor: default; }
+.primary.quiet { background: var(--soft); color: var(--ink); }
+.inline-compose { display: none; }
+
+.banner { display: block; margin: 6px auto 10px; min-height: 40px; padding: 0 18px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 14px; animation: drop .25s ease-out; }
+@keyframes drop { from { transform: translateY(-6px); opacity: .4; } to { transform: none; opacity: 1; } }
+
+/* Post */
+.post { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 0 12px; padding: 12px 8px; margin: 0 -8px; border-radius: 18px; cursor: pointer; }
+.post:hover { background: var(--soft); }
+.post.focal { cursor: default; background: none; padding-block: 16px; border-block: 1px solid var(--line); border-radius: 0; }
+.post.fresh { animation: fresh 1.6s ease-out; }
+@keyframes fresh { from { background: var(--accent-soft); } to { background: transparent; } }
+.repost-line { grid-column: 2; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 4px; margin-bottom: 2px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; flex-shrink: 0; }
+.avatar.sm { width: 32px; height: 32px; font-size: 12px; }
+.avatar.lg { width: 72px; height: 72px; font-size: 26px; }
+.av0 { background: var(--av0-bg); color: var(--av0-fg); } .av1 { background: var(--av1-bg); color: var(--av1-fg); }
+.av2 { background: var(--av2-bg); color: var(--av2-fg); } .av3 { background: var(--av3-bg); color: var(--av3-fg); }
+.av4 { background: var(--av4-bg); color: var(--av4-fg); } .av5 { background: var(--av5-bg); color: var(--av5-fg); }
+.meta { display: flex; flex-wrap: wrap; gap: 0 6px; align-items: baseline; }
+.name { font-weight: 800; }
+.name:hover { text-decoration: underline; }
+.handle, .when { color: var(--faint); font-size: 14px; }
+.replyto { font-size: 12px; color: var(--faint); }
+.text { margin: 1px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.post.focal .text { font-size: 21px; line-height: 1.4; margin-top: 8px; }
+.mention { color: var(--accent); }
+.mention:hover { text-decoration: underline; }
+.idline { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 8px; overflow-wrap: anywhere; }
+.actions { display: flex; margin: 2px 0 -6px -10px; max-width: 360px; justify-content: space-between; }
+.act { min-width: 44px; min-height: 44px; border-radius: 999px; padding: 0 10px; color: var(--faint); font-size: 14px; display: flex; gap: 6px; align-items: center; font-variant-numeric: tabular-nums; }
+.act:hover, .act[aria-pressed="true"] { color: var(--accent); }
+
+.more { padding: 12px; text-align: center; }
+.end { padding: 16px; text-align: center; color: var(--faint); font-size: 13px; }
+.empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+.children { margin-left: 18px; padding-left: 8px; border-left: 1px solid var(--line); }
+
+/* Perfil */
+.profile { padding: 4px 0 16px; display: grid; gap: 4px; }
+.profile .top { display: flex; justify-content: space-between; align-items: start; }
+.profile h3 { font-size: 24px; font-weight: 800; margin: 8px 0 0; }
+.profile .fedi { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+.stats { display: flex; gap: 18px; font-size: 15px; color: var(--muted); }
+.stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.follows-you { font-size: 12px; background: var(--soft); padding: 1px 8px; border-radius: 999px; margin-left: 6px; }
+
+.who { display: grid; gap: 4px; padding-bottom: 12px; }
+.who h3 { margin: 4px 0; font-size: 13px; color: var(--muted); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.who-row { display: flex; align-items: center; gap: 10px; min-height: 52px; }
+.who-row .info { min-width: 0; flex: 1; font-size: 15px; line-height: 1.25; }
+.who-row .info small { color: var(--faint); display: block; }
+
+/* Canal */
+.chat { padding: 8px 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: min(560px, 60vh); }
+.msg { display: flex; gap: 8px; align-items: flex-end; max-width: 88%; }
+.msg.mine { align-self: flex-end; flex-direction: row-reverse; }
+.bubble { background: var(--soft); border-radius: 22px 22px 22px 8px; padding: 8px 14px; min-width: 0; }
+.msg.mine .bubble { background: var(--accent); color: var(--accent-ink); border-radius: 22px 22px 8px 22px; }
+.msg.recovered .bubble { box-shadow: 0 0 0 2px var(--t-redis); }
+.bubble .who-n { font-size: 12px; font-weight: 800; color: var(--muted); }
+.bubble p { margin: 0; overflow-wrap: anywhere; }
+.bubble .foot { font-size: 11px; opacity: .65; text-align: right; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.reacts { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+.react { min-height: 28px; background: var(--bg); color: var(--ink); border-radius: 999px; font-size: 12px; padding: 0 8px; }
+.react[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px var(--accent); }
+details.pick { position: relative; }
+details.pick summary { list-style: none; min-height: 28px; min-width: 28px; display: grid; place-items: center; border-radius: 999px; opacity: .6; cursor: pointer; }
+details.pick summary::-webkit-details-marker { display: none; }
+details.pick .opts { position: absolute; z-index: 3; bottom: 32px; left: 0; display: flex; gap: 2px; background: var(--bg); border-radius: 999px; padding: 4px; box-shadow: 0 6px 24px var(--overlay); }
+details.pick .opts button { min-width: 36px; min-height: 36px; border-radius: 50%; font-size: 18px; }
+.msg.mine details.pick .opts { left: auto; right: 0; }
+.gapnote { align-self: center; font-size: 12px; font-weight: 800; color: var(--t-redis); background: var(--soft); padding: 4px 12px; border-radius: 999px; text-align: center; }
+.gapnote.old { color: var(--faint); font-weight: 600; }
+.chatbar { padding: 8px 0; display: flex; gap: 8px; }
+.chatbar input { flex: 1; min-width: 0; min-height: 44px; border: 0; background: var(--soft); color: var(--ink); border-radius: 999px; padding: 0 16px; font: inherit; outline: none; }
+.chatbar input:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+.status { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.status.off { background: var(--soft); color: var(--t-redis); }
+
+/* Folha de novo post (celular) */
+.sheet { position: fixed; inset: 0; z-index: 30; }
+.sheet .scrim { position: absolute; inset: 0; background: var(--overlay); width: 100%; }
+.sheet .panel { position: absolute; left: 0; right: 0; bottom: 0; background: var(--bg); border-radius: 26px 26px 0 0; padding: 8px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); animation: up .22s ease-out; }
+.sheet .grab { display: flex; align-items: center; justify-content: space-between; }
+.sheet .grab span { width: 40px; height: 4px; border-radius: 4px; background: var(--line); }
+@keyframes up { from { transform: translateY(100%); } to { transform: none; } }
+
+/* Bastidores: gaveta no celular, coluna no desktop */
+aside.log {
+  position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; height: 72vh;
+  background: var(--soft); border-radius: 26px 26px 0 0; display: flex; flex-direction: column;
+  transform: translateY(105%); transition: transform .25s ease-out; box-shadow: 0 -12px 40px var(--overlay);
+  padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+}
+aside.log.open { transform: none; }
+.log-head { padding: 16px 16px 8px; display: flex; gap: 8px; align-items: start; }
+.log-head .t { flex: 1; min-width: 0; }
+.log-head h2 { font-weight: 800; font-size: 19px; margin: 0; }
+.log-head p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; font-family: var(--mono); font-size: 11px; font-weight: 600; }
+.log-close { margin: -6px -6px 0 0; }
+.log-list { list-style: none; margin: 0; padding: 0 0 calc(16px + env(safe-area-inset-bottom, 0px)); overflow-y: auto; flex: 1; font-family: var(--mono); font-size: 12px; }
+.log-list li { padding: 7px 16px; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
+.log-list li.new { animation: lognew 1.2s ease-out; }
+@keyframes lognew { from { background: var(--accent-soft); } to { background: transparent; } }
+.tag { font-weight: 600; font-size: 10.5px; letter-spacing: .04em; }
+.tag.http { color: var(--t-http); } .tag.sql { color: var(--t-sql); } .tag.redis { color: var(--t-redis); } .tag.ws { color: var(--t-ws); } .tag.note { color: var(--muted); }
+.log-list .line { overflow-wrap: anywhere; }
+.log-list .det { color: var(--muted); display: block; margin-top: 2px; }
+
+/* Token, missões e carteira */
+.toast { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); top: calc(12px + env(safe-area-inset-top, 0px)); max-width: min(92vw, 420px); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-weight: 800; font-size: 14px; text-align: center; box-shadow: 0 8px 28px var(--overlay); animation: drop .25s ease-out; }
+.coinbanner { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--accent); color: var(--accent-ink); border-radius: 26px; padding: 14px 18px; margin: 4px 0 12px; }
+.coinbanner b { display: block; font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.coinbanner small { opacity: .85; font-size: 13px; }
+.totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.totals p { margin: 0; padding: 8px 4px; text-align: center; border-radius: 16px; background: color-mix(in srgb, var(--accent-ink) 14%, transparent); font-size: 12px; }
+.totals b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+.panel { background: var(--soft); border-radius: 26px; padding: 16px; margin-bottom: 12px; }
+.panel h2 { margin: 0 0 4px; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.panel p { margin: 4px 0; }
+.nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-top: 12px; }
+.nums b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+.nums span { font-size: 12px; color: var(--muted); }
+.bar { height: 6px; border-radius: 6px; background: var(--line); overflow: hidden; margin-top: 6px; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+.panel .bar { background: color-mix(in srgb, var(--ink) 12%, transparent); height: 8px; }
+.missions { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.mc { background: var(--soft); border-radius: 26px; padding: 16px; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 0 12px; }
+.mc.done { background: var(--accent-soft); }
+.mc.skipped { opacity: .5; }
+.mc .check { color: var(--faint); margin-top: 1px; }
+.mc.done .check { color: var(--accent); }
+.mc .top { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+.mc h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.mc p { margin: 2px 0 0; font-size: 14px; }
+.mc .why { color: var(--muted); }
+.mc .fam { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); }
+.reward { background: var(--bg); color: var(--accent); border-radius: 999px; font-size: 12px; font-weight: 800; padding: 2px 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mc.done .reward { background: var(--accent); color: var(--accent-ink); }
+.mc .prog { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.suggest { display: grid; gap: 8px; margin-top: 10px; }
+.suggest button { text-align: left; min-height: 44px; padding: 8px 12px; background: var(--bg); border-radius: 16px; font-size: 14px; overflow-wrap: anywhere; }
+.suggest button:hover { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.mc .row2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.skip { min-height: 44px; padding: 0 4px; color: var(--muted); font-size: 14px; }
+.skip:hover { color: var(--ink); }
+.principles { color: var(--muted); font-size: 14px; padding: 8px 0 0; }
+.principles h2 { color: var(--ink); font-size: 15px; font-weight: 800; margin: 0 0 4px; text-transform: none; letter-spacing: 0; }
+.principles ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.misshome { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; min-height: 52px; padding: 10px 16px; margin-bottom: 12px; border-radius: 24px; background: var(--accent-soft); color: var(--accent); }
+.misshome .tx { min-width: 0; flex: 1; }
+.misshome b { display: block; font-weight: 800; }
+.misshome small { display: block; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.ledger { list-style: none; margin: 0; padding: 0; }
+.ledger li { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 4px 0; }
+.ledger .t { flex: 1; min-width: 0; text-align: left; }
+.ledger .t small { display: block; color: var(--faint); font-size: 12px; }
+.ledger button.t:hover { text-decoration: underline; }
+.amt { font-weight: 800; font-variant-numeric: tabular-nums; }
+.amt.pos { color: var(--accent); } .amt.neg { color: var(--muted); }
+.howto { font-size: 14px; color: var(--muted); }
+.howto ul { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 4px; }
+.howto h2 { margin: 0; font-size: 16px; color: var(--ink); font-weight: 800; }
+span.act { pointer-events: none; }
+
+/* Algoritmo "Para você" */
+.tabsw { display: grid; grid-template-columns: 1fr 1fr; background: var(--soft); border-radius: 999px; padding: 4px; margin-bottom: 8px; }
+.tabsw button { min-height: 40px; border-radius: 999px; font-size: 14px; color: var(--muted); }
+.tabsw button[aria-selected="true"] { background: var(--bg); color: var(--ink); font-weight: 800; box-shadow: 0 1px 3px var(--overlay); }
+.nudge { display: block; width: 100%; text-align: left; background: var(--accent-soft); border-radius: 24px; padding: 14px 16px; margin: 4px 0 8px; font-size: 14px; color: var(--muted); }
+.nudge b { display: block; color: var(--accent); font-weight: 800; font-size: 15px; }
+.endcard { background: var(--soft); border-radius: 26px; padding: 22px 18px; margin: 16px 0; text-align: center; }
+.endcard b { display: block; font-size: 18px; font-weight: 800; }
+.endcard p { color: var(--muted); font-size: 14px; margin: 4px 0 12px; }
+.endcard .btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.whybtn { min-height: 36px; padding: 0 2px; margin-left: -2px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.whybtn:hover { color: var(--accent); }
+.why { background: var(--soft); border-radius: 20px; padding: 12px; margin: 2px 0 6px; font-size: 14px; }
+.why .score { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+.why .fac { margin-bottom: 8px; }
+.why .fh { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 700; }
+.why .fh span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.why .fd { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.why .fb { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+.why .fb button { min-height: 36px; padding: 0 14px; border-radius: 999px; background: var(--bg); font-size: 12px; font-weight: 800; }
+.why .ok { font-size: 12px; font-weight: 800; color: var(--accent); }
+.sec { padding: 12px 0; }
+.sec h2 { margin: 0; font-size: 16px; font-weight: 800; }
+.sec > p.hint { margin: 2px 0 8px; color: var(--muted); font-size: 14px; }
+.sl { padding: 6px 0; }
+.sl.off { opacity: .4; }
+.sl-h { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.sl-h label { font-weight: 700; }
+.sl-h span { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.sl small { display: block; color: var(--muted); font-size: 12px; }
+.sl input[type=range], .rg { width: 100%; min-height: 40px; accent-color: var(--accent); }
+.toprow { display: flex; align-items: flex-end; gap: 10px; }
+.toprow .sl { flex: 1; min-width: 0; }
+.mute { min-height: 36px; margin-bottom: 8px; padding: 0 12px; border-radius: 999px; background: var(--soft); font-size: 12px; font-weight: 800; }
+.mute[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.kwform { display: flex; gap: 8px; }
+.kwform input[type=text] { flex: 1; min-width: 0; min-height: 44px; border: 0; background: var(--soft); color: var(--ink); border-radius: 999px; padding: 0 16px; font: inherit; outline: none; }
+.kws { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.kws button { min-height: 36px; padding: 0 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 700; }
+.sel { width: 100%; min-height: 44px; border: 0; background: var(--soft); color: var(--ink); border-radius: 16px; padding: 0 14px; font: inherit; }
+.chk { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; }
+.chk small { display: block; color: var(--muted); font-size: 12px; }
+.chk input { width: 20px; height: 20px; accent-color: var(--accent); }
+.lbar { padding: 6px 0; }
+.lbar .lh { display: flex; justify-content: space-between; font-size: 14px; }
+.lbar .lh span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.lbar .lt { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; height: 6px; margin-top: 4px; background: var(--line); border-radius: 6px; overflow: hidden; }
+.lbar .lt i { display: block; height: 100%; border-radius: 6px; }
+.lbar .neg { background: var(--faint); justify-self: end; } .lbar .pos { background: var(--accent); }
+.specbox { background: var(--soft); border-radius: 20px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
+.specbox code { font-family: var(--mono); font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
+
+@media (max-width: 520px) { .head.has-extra .titles { flex-basis: 100%; } }
+
+@media (min-width: 768px) {
+  body { padding-block: 24px 32px; }
+  .intro h1 { font-size: 32px; }
+  .app { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 32px; }
+  nav.side { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 16px; align-self: start; }
+  .brand { font-weight: 800; font-size: 24px; color: var(--accent); padding: 0 12px 14px; letter-spacing: -0.02em; }
+  .navbtn { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; min-height: 46px; border-radius: 999px; padding: 0 12px; font-size: 17px; color: var(--muted); position: relative; }
+  .navbtn:hover { background: var(--soft); }
+  .navbtn[aria-current="page"] { font-weight: 800; color: var(--ink); }
+  .navbtn .dot { position: static; margin-left: auto; }
+  .me { margin-top: 24px; display: flex; gap: 10px; align-items: center; padding: 0 8px; font-size: 14px; line-height: 1.25; }
+  .me small { color: var(--faint); display: block; }
+  nav.tabs, .fab, .sheet, body[data-view="home"] .fab { display: none; }
+  .inline-compose { display: block; }
+  body { padding-bottom: 32px; }
+}
+@media (min-width: 1100px) {
+  .app { grid-template-columns: 190px minmax(0, 1fr) 340px; }
+  .logpill, .log-close { display: none; }
+  aside.log { position: sticky; top: 16px; z-index: 1; height: calc(100vh - 32px); max-height: 820px; transform: none; box-shadow: none; border-radius: 22px; transition: none; padding: 0; }
+}
+</style>
+</head>
+<body>
+<header class="intro">
+  <h1>Ágora <span>em ação</span></h1>
+  <p>Demonstração interativa com dados fictícios. Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste, recompense posts com o token NWC, cumpra as missões do dia e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
+</header>
+
+<div class="app">
+  <nav class="side" aria-label="Principal">
+    <div class="brand">ágora</div>
+    <div id="side-items"></div>
+    <div class="me" id="me-card"></div>
+  </nav>
+  <main id="main" aria-live="polite"></main>
+  <aside class="log" id="logpanel" aria-label="Bastidores">
+    <div class="log-head">
+      <div class="t">
+        <h2>Bastidores</h2>
+        <p>Requisições, consultas e eventos de cada ação.</p>
+        <div class="legend"><span class="tag http">HTTP</span><span class="tag sql">SQL</span><span class="tag redis">REDIS</span><span class="tag ws">WS</span></div>
+      </div>
+      <button class="iconbtn log-close" data-closelog aria-label="Fechar bastidores"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <ol class="log-list" id="log"></ol>
+  </aside>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<nav class="tabs" aria-label="Principal (celular)" id="tab-items"></nav>
+<button class="logpill" data-openlog>Bastidores <b id="log-unseen" hidden>0</b></button>
+<button class="fab" data-opensheet aria-label="Novo post"><svg class="i" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M12 5v14M5 12h14"/></svg></button>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-label="Novo post">
+  <button class="scrim" data-closesheet aria-label="Fechar"></button>
+  <div class="panel">
+    <div class="grab"><button class="iconbtn" data-closesheet aria-label="Cancelar"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button><span></span><span style="width:44px;background:none"></span></div>
+    <form class="composer" data-compose="compose-sheet">
+      <label for="compose-sheet" hidden>Novo post</label>
+      <textarea id="compose-sheet" placeholder="O que está acontecendo?" maxlength="400"></textarea>
+      <div class="row"><span class="counter" id="compose-sheet-count">280</span><button class="primary" type="submit" disabled>Postar</button></div>
+    </form>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- Snowflake (mesmo layout do backend: 41 bits ms | 10 worker | 12 sequência) ----------
+  const EPOCH = 1704067200000n;
+  let lastMs = 0n, seq = 0n;
+  function snowflake(ms) {
+    let t = BigInt(Math.floor(ms));
+    if (t <= lastMs) { t = lastMs; seq = (seq + 1n) & 0xfffn; } else { seq = 0n; }
+    lastMs = t;
+    return (((t - EPOCH) << 22n) | (1n << 12n) | seq).toString();
+  }
+  const NOW = Date.now();
+  const short = (id) => '…' + id.slice(-6);
+
+  // ---------- Dados fictícios (os mesmos do script de seed) ----------
+  const USERS = {};
+  [
+    ['ana_dev', 'Ana Souza', 'Engenheira de backend. Café e Postgres.'],
+    ['bruno_pesquisa', 'Bruno Lima', 'Pesquisador de sistemas distribuídos.'],
+    ['carla_ux', 'Carla Mendes', 'Designer de interfaces acessíveis.'],
+    ['diego_ops', 'Diego Rocha', 'SRE. Se não tem métrica, não existe.'],
+    ['elisa_dados', 'Elisa Martins', 'Cientista de dados e ciclista.'],
+    ['fabio_sec', 'Fábio Nunes', 'Segurança da informação, criptografia aplicada.'],
+    ['gabi_front', 'Gabriela Alves', 'React, CSS e acessibilidade.'],
+    ['heitor_net', 'Heitor Costa', 'Protocolos de rede e P2P.'],
+    ['iris_prof', 'Íris Carvalho', 'Professora de computação.'],
+    ['joao_mobile', 'João Pereira', 'Desenvolvedor mobile.'],
+    ['karen_ml', 'Karen Ribeiro', 'Aprendizado de máquina responsável.'],
+    ['leo_infra', 'Leonardo Dias', 'Kubernetes de dia, violão à noite.'],
+    ['nina_nova', 'Nina Barros', 'Estudo redes comunitárias e rádios livres.'],
+    ['otavio_recife', 'Otávio Lins', 'Dados abertos e mapeamento de bairro em Recife.'],
+  ].forEach(([u, n, b], i) => {
+    USERS[u] = { username: u, name: n, bio: b, tone: 'av' + (i % 6), id: snowflake(NOW - (30 - i) * 86400000), since: new Date(NOW - (30 - i) * 86400000) };
+  });
+  const ME = 'ana_dev';
+  const NEWCOMERS = ['nina_nova', 'otavio_recife'];
+  NEWCOMERS.forEach((u) => { USERS[u].newcomer = true; USERS[u].since = new Date(NOW - 20 * 3600000); });
+  // Grafo de follows (quem cada pessoa segue)
+  const following = {
+    ana_dev: new Set(['bruno_pesquisa', 'karen_ml', 'diego_ops', 'heitor_net', 'iris_prof', 'carla_ux', 'leo_infra', 'gabi_front']),
+    bruno_pesquisa: new Set(['ana_dev', 'karen_ml', 'heitor_net']), karen_ml: new Set(['ana_dev', 'bruno_pesquisa']),
+    diego_ops: new Set(['ana_dev', 'leo_infra']), heitor_net: new Set(['ana_dev', 'bruno_pesquisa']),
+    iris_prof: new Set(['ana_dev', 'carla_ux', 'gabi_front']), carla_ux: new Set(['gabi_front', 'ana_dev']),
+    leo_infra: new Set(['diego_ops', 'ana_dev']), gabi_front: new Set(['carla_ux']), elisa_dados: new Set(['karen_ml']),
+    fabio_sec: new Set(['heitor_net']), joao_mobile: new Set(['gabi_front']),
+    nina_nova: new Set(['ana_dev']), otavio_recife: new Set(),
+  };
+  const followersOf = (u) => Object.keys(following).filter((k) => following[k].has(u));
+
+  const posts = new Map(); // id -> post
+  const keyToId = {};
+  const SEED = [
+    { k: 'p1', a: 'bruno_pesquisa', t: 'Fan-out na escrita é ótimo até alguém com 10 milhões de seguidores postar. Aí vira fan-out na leitura.', m: 610, likes: 5 },
+    { k: 'p2', a: 'karen_ml', t: '@bruno_pesquisa e como fica a consistência quando o cache expira no meio da rolagem?', m: 570, r: 'p1', likes: 2 },
+    { k: 'p3', a: 'bruno_pesquisa', t: '@karen_ml O cursor until_id resolve: a página seguinte começa abaixo do último ID visto, com ou sem cache.', m: 545, r: 'p2', likes: 4 },
+    { k: 'p4', a: 'diego_ops', t: 'Alguém já mediu a latência do LRANGE numa lista de 800 itens? Spoiler: microssegundos.', m: 480, likes: 3 },
+    { k: 'p5', a: 'ana_dev', t: 'Snowflake IDs: tempo + máquina + sequência. Ordenáveis e sem coordenação central entre instâncias.', m: 420, likes: 6 },
+    { k: 'p6', a: 'carla_ux', t: 'Reescrevi o componente de feed com IntersectionObserver. Rolagem infinita sem biblioteca nenhuma.', m: 365, likes: 2 },
+    { k: 'p7', a: 'diego_ops', repost: 'p5', m: 330 },
+    { k: 'p8', a: 'heitor_net', t: 'O pts do MTProto é uma ideia simples e genial para detectar lacunas de atualização.', m: 300, likes: 7 },
+    { k: 'p9', a: 'ana_dev', t: '@heitor_net Fiz igual nos canais: se chega o pts 20 e eu estava no 17, peço /difference?pts=17 e preencho o buraco.', m: 282, r: 'p8', likes: 3 },
+    { k: 'p10', a: 'iris_prof', t: 'Lembrete para a turma: rate limit não é só proteção, é contrato com o cliente. Leiam os cabeçalhos x-rate-limit-*.', m: 200, likes: 4 },
+    { k: 'p11', a: 'gabi_front', t: 'Hoje aprendi que a API v2 do X usa until_id e não max_id. Detalhes importam.', m: 150, likes: 1 },
+    { k: 'p12', a: 'karen_ml', t: 'Feed cronológico tem uma vantagem pouco comentada: dá para explicar por que cada post está ali.', m: 92, likes: 5 },
+    { k: 'p13', a: 'leo_infra', t: 'Postgres + Redis continua sendo a dupla mais subestimada da engenharia. @ana_dev concorda?', m: 46, likes: 2 },
+    { k: 'p14', a: 'bruno_pesquisa', repost: 'p12', m: 21 },
+    { k: 'p15', a: 'elisa_dados', t: 'Bom dia, rede! Café pronto e testes verdes ☕', m: 8, likes: 1 },
+    { k: 'p16', a: 'fabio_sec', t: 'Quem guarda JWT no localStorage precisa pensar em XSS. Cookie HttpOnly existe por um motivo.', m: 130, likes: 3 },
+    { k: 'n1', a: 'nina_nova', t: 'Oi! Cheguei agora pelo convite da @ana_dev. Alguém recomenda grupos para quem estuda redes comunitárias?', m: 70 },
+    { k: 'n2', a: 'otavio_recife', t: 'Primeiro post: trabalho com dados abertos em Recife e quero conectar quem mapeia o próprio bairro.', m: 40 },
+  ].sort((x, y) => y.m - x.m);
+  const others = Object.keys(USERS).filter((u) => u !== ME);
+  SEED.forEach((s, i) => {
+    const id = snowflake(NOW - s.m * 60000);
+    keyToId[s.k] = id;
+    const parent = s.r ? posts.get(keyToId[s.r]) : null;
+    const orig = s.repost ? posts.get(keyToId[s.repost]) : null;
+    const likes = new Set(others.filter((u) => u !== s.a).slice(i % 4, (i % 4) + (s.likes || 0)));
+    if (s.k === 'p8' || s.k === 'p13') likes.add(ME);
+    posts.set(id, { id, author: s.a, text: s.t || '', replyTo: parent ? parent.id : null, repostOf: orig ? orig.id : null, conv: parent ? parent.conv : (orig ? orig.conv : id), likes, tips: new Set(s.repost || NEWCOMERS.includes(s.a) ? [] : others.filter((u) => u !== s.a).slice(i % 5, (i % 5) + (i % 3))), created: new Date(NOW - s.m * 60000) });
+  });
+
+  // ---------- Canal Café (grupo) ----------
+  const channel = { slug: 'cafe', title: 'Café', kind: 'group', pts: 0, members: 7, connected: true, localPts: 0, messages: [] };
+  const CHAT_SEED = [
+    ['heitor_net', 'Alguém já leu a doc de updates do Telegram? A parte de getChannelDifference é ótima.', { '🔥': 2 }],
+    ['karen_ml', 'Li ontem. O channelDifferenceTooLong resolve o caso de quem ficou dias offline.', {}],
+    ['bruno_pesquisa', 'É por isso que o Ágora corta em 100 mensagens e manda recarregar o histórico.', { '👍': 3 }],
+    ['ana_dev', 'E com o UNIQUE(channel_id, pts) o banco garante que nunca repete número.', { '❤️': 1 }],
+    ['diego_ops', 'Testaram com envio concorrente?', {}],
+    ['ana_dev', 'Sim: 20 mensagens em paralelo, pts de 1 a 20 sem buraco.', { '🔥': 2, '👍': 1 }],
+    ['iris_prof', 'Vou usar isso como exemplo na aula de sexta 😄', { '😂': 1 }],
+  ];
+  CHAT_SEED.forEach(([a, t, r], i) => {
+    channel.pts++;
+    const created = new Date(NOW - (90 - i * 11) * 60000);
+    channel.messages.push({ id: snowflake(created.getTime()), author: a, text: t, pts: channel.pts, created, reactions: Object.fromEntries(Object.entries(r).map(([e, n]) => [e, new Set(others.slice(0, n))])) });
+  });
+  channel.pts += 9; // histórico mais antigo não carregado
+  channel.messages.forEach((m) => (m.pts += 9));
+  channel.localPts = channel.pts;
+
+  // ---------- Estado da UI ----------
+  const PAGE = 6;
+  const state = { view: 'home', tab: 'seguindo', shownFy: PAGE, why: new Set(), fb: {}, stack: [], focal: null, profile: null, shown: PAGE, hidden: new Set(), fresh: new Set(), cacheWarm: true, draft: '', pendingQueue: [
+    { a: 'bruno_pesquisa', t: 'Publiquei os slides da aula sobre timelines. Tem diagrama de fan-out e tudo.' },
+    { a: 'karen_ml', t: 'Pergunta séria: quem topa testar federação entre duas instâncias Ágora na semana que vem? @ana_dev' },
+    { a: 'heitor_net', t: 'WebFinger funcionando entre duas máquinas da rede do laboratório. Próximo passo: inbox assinado.' },
+  ], mentionsUnread: 0, gapNote: null };
+
+  // ---------- Utilidades ----------
+  const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const initials = (n) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const avatar = (u, cls = '') => `<button class="avatar ${USERS[u].tone} ${cls}" data-profile="${u}" aria-label="Perfil de ${esc(USERS[u].name)}">${initials(USERS[u].name)}</button>`;
+  function rel(d) {
+    const s = Math.round((Date.now() - d) / 1000);
+    if (s < 45) return 'agora';
+    const m = Math.round(s / 60); if (m < 60) return `${m} min`;
+    const h = Math.round(m / 60); if (h < 24) return `${h} h`;
+    return `${Math.round(h / 24)} d`;
+  }
+  const full = (d) => d.toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' });
+  const richText = (t) => esc(t).replace(/(^|[^\w@])@([A-Za-z0-9_]{3,20})/g, (all, pre, u) => USERS[u] ? `${pre}<button class="mention" data-profile="${u}">@${u}</button>` : all);
+  const replyCount = (id) => [...posts.values()].filter((p) => p.replyTo === id).length;
+  const repostCount = (id) => [...posts.values()].filter((p) => p.repostOf === id).length;
+  const reposted = (id) => [...posts.values()].some((p) => p.repostOf === id && p.author === ME);
+  const byIdDesc = (a, b) => (BigInt(b.id) > BigInt(a.id) ? 1 : -1);
+
+  // ---------- Bastidores ----------
+  const logEl = document.getElementById('log');
+  const logPanel = document.getElementById('logpanel');
+  let unseen = 0;
+  function log(tag, line, det) {
+    const li = document.createElement('li');
+    li.className = 'new';
+    li.innerHTML = `<span class="tag ${tag}">${tag.toUpperCase()}</span><span class="line">${esc(line)}${det ? `<span class="det">${esc(det)}</span>` : ''}</span>`;
+    logEl.prepend(li);
+    while (logEl.children.length > 60) logEl.lastChild.remove();
+    if (!logPanel.classList.contains('open')) {
+      unseen++;
+      const b = document.getElementById('log-unseen');
+      b.hidden = false; b.textContent = unseen;
+    }
+  }
+
+  // ---------- Token interno (NewCoin) e missões ----------
+  const TOKEN = { name: 'NewCoin', symbol: 'NWC' };
+  const wallet = { balance: 0, from_missions: 0, received: 0, given: 0, ledger: [] };
+  let ledgerSeq = 0;
+  function credit(amount, kind, label, extra = {}) {
+    wallet.balance += amount;
+    wallet.ledger.unshift({ id: ++ledgerSeq, amount, kind, label, at: new Date(), ...extra });
+    if (kind === 'mission') wallet.from_missions += amount;
+    if (kind === 'tip_received') wallet.received += amount;
+    if (kind === 'tip_sent') wallet.given += -amount;
+  }
+  credit(3, 'grant', 'Saldo de boas-vindas');
+
+  const toastEl = document.getElementById('toast');
+  let toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, 3200);
+  }
+
+  const MISSIONS = {
+    curtir: { family: 'engajamento', always: true, reward: 2, target: 5, title: 'Curta 5 posts', description: 'Curta 5 posts de pelo menos 3 pessoas diferentes.', why: 'Curtir mostra a quem escreveu que alguém leu.' },
+    republicar: { family: 'engajamento', always: true, reward: 2, target: 2, title: 'Republique 2 posts', description: 'Reposte 2 posts de outras pessoas.', why: 'Republicar leva boas ideias para quem ainda não viu.' },
+    comentar: { family: 'engajamento', always: true, reward: 3, target: 3, title: 'Comente 3 posts', description: 'Responda 3 posts de outras pessoas com pelo menos 15 caracteres.', why: 'Comentários de verdade transformam posts em conversa.' },
+    recompensar: { family: 'engajamento', always: true, reward: 1, target: 1, title: 'Recompense alguém', description: 'Dê 1 token a um post de outra pessoa que valeu sua leitura.', why: 'O token circula quando quem lê reconhece quem escreve.' },
+    tempo_no_app: { family: 'engajamento', always: true, reward: 1, target: 10, title: 'Fique 10 minutos ativo', description: 'Use o app por 10 minutos hoje (só conta com a tela aberta e uso recente).', why: 'Tempo de leitura e conversa dentro da rede.' },
+    boas_vindas: { family: 'rede', reward: 3, title: 'Dê boas-vindas', description: 'Responda ou mencione alguém que entrou nesta semana.', why: 'A primeira resposta decide se alguém fica. Ninguém deveria falar sozinho no primeiro dia.' },
+    responder_pergunta: { family: 'rede', reward: 3, title: 'Responda quem perguntou', description: 'Seja a primeira resposta de uma pergunta que ainda não teve nenhuma.', why: 'Pergunta sem resposta é o sinal mais claro de uma rede que não escuta.' },
+    ponte: { family: 'rede', reward: 2, title: 'Construa uma ponte', description: 'Siga alguém que ninguém do seu círculo segue ainda.', why: 'Conexões fora da bolha espalham ideias e evitam câmaras de eco.' },
+    amplificar: { family: 'rede', reward: 2, title: 'Amplifique uma voz pequena', description: 'Reposte algo bom de quem tem menos de 5 seguidores.', why: 'Distribuir atenção, em vez de concentrá-la, é o que faz a rede crescer por inteiro.' },
+    conversa_coletiva: { family: 'rede', always: true, reward: 2, title: 'Participe de uma conversa coletiva', description: 'Mande uma mensagem em um grupo.', why: 'Grupos são onde a rede se organiza para além do feed.' },
+  };
+  const FIRST_STEP = { curtir: 'home', republicar: 'home', comentar: 'home', recompensar: 'home' };
+
+  const newDay = (n) => ({ n, key: `2026-10-${26 + n}`, likes: [], reposts: [], comments: [], tips: [], minutes: 0, greeted: new Set(), firstAnswers: 0, bridges: new Set(), groupMsgs: 0, rewarded: new Set(), skipped: new Set(), chosen: [] });
+  let day = newDay(1);
+
+  function hash(str) { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h; }
+  const shuffled = (ids) => ids.map((id) => ({ id, k: hash(`${USERS[ME].id}:${day.key}:${id}`) })).sort((a, b) => a.k - b.k).map((x) => x.id);
+  const smallVoice = (u) => followersOf(u).filter((f) => f !== ME).length < 5;
+  const allPosts = () => [...posts.values()];
+  const greetedEver = (u) => allPosts().some((p) => p.author === ME && (posts.get(p.replyTo)?.author === u || p.text.includes('@' + u)));
+
+  // Alvos concretos de cada missão de rede
+  const SUGG = {
+    boas_vindas: () => NEWCOMERS.filter((u) => !greetedEver(u)).map((u) => ({ type: 'user', username: u })),
+    responder_pergunta: () => allPosts().filter((p) => !p.repostOf && p.author !== ME && p.text.includes('?') && replyCount(p.id) === 0).sort(byIdDesc).slice(0, 3).map((p) => ({ type: 'post', id: p.id, username: p.author, text: p.text })),
+    ponte: () => Object.keys(USERS).filter((u) => u !== ME && !following[ME].has(u) && followersOf(u).every((f) => !following[ME].has(f)) && allPosts().some((p) => p.author === u)).slice(0, 3).map((u) => ({ type: 'user', username: u })),
+    amplificar: () => allPosts().filter((p) => !p.repostOf && p.author !== ME && smallVoice(p.author) && !reposted(p.id)).sort(byIdDesc).slice(0, 3).map((p) => ({ type: 'post', id: p.id, username: p.author, text: p.text })),
+    conversa_coletiva: () => [{ type: 'channel', slug: 'cafe', title: 'Café' }],
+  };
+
+  // Progresso e conclusão, calculados a partir das ações reais do dia
+  const PROGRESS = {
+    curtir: () => { const cur = day.likes.length; const authors = new Set(day.likes.map((l) => l.author)).size; return { current: cur, target: 5, authors, authors_needed: 3, ok: cur >= 5 && authors >= 3 }; },
+    republicar: () => { const cur = day.reposts.length; return { current: cur, target: 2, ok: cur >= 2 }; },
+    comentar: () => { const cur = day.comments.length; return { current: cur, target: 3, ok: cur >= 3 }; },
+    recompensar: () => { const cur = day.tips.length; return { current: cur, target: 1, ok: cur >= 1 }; },
+    tempo_no_app: () => ({ current: day.minutes, target: 10, ok: day.minutes >= 10 }),
+    boas_vindas: () => ({ ok: day.greeted.size >= 1 }),
+    responder_pergunta: () => ({ ok: day.firstAnswers >= 1 }),
+    ponte: () => ({ ok: day.bridges.size >= 1 }),
+    amplificar: () => ({ ok: day.reposts.some((r) => smallVoice(r.author)) }),
+    conversa_coletiva: () => ({ ok: day.groupMsgs >= 1 }),
+  };
+
+  // Seleção do dia: 2 de rede + 2 de engajamento, fixada na primeira consulta (como no backend)
+  function startDay() {
+    const applicable = Object.keys(MISSIONS).filter((id) => MISSIONS[id].always || SUGG[id]().length);
+    const pick = (family) => shuffled(applicable.filter((id) => MISSIONS[id].family === family)).slice(0, 2);
+    day.chosen = [...pick('rede'), ...pick('engajamento')];
+    log('sql', `INSERT INTO daily_missions (user, ${day.key}, {${day.chosen.join(',')}}) ON CONFLICT DO NOTHING`, 'seleção fixa durante o dia: missão concluída não some');
+  }
+
+  // Crédito automático e idempotente (o banco garante 1 recompensa por missão por dia)
+  function evaluate() {
+    for (const id of day.chosen) {
+      if (!PROGRESS[id]().ok || day.rewarded.has(id)) continue;
+      day.rewarded.add(id);
+      const m = MISSIONS[id];
+      credit(m.reward, 'mission', `Missão: ${m.title}`, { mission: id });
+      log('sql', `INSERT INTO mission_rewards (user, ${day.key}, ${id}, ${m.reward}) ON CONFLICT DO NOTHING → 1 linha`, `UPDATE token_balances +${m.reward} · INSERT token_ledger (mission) · saldo ${wallet.balance} ${TOKEN.symbol}`);
+      toast(`+${m.reward} ${TOKEN.symbol} · ${m.title}`);
+    }
+  }
+  const earnedToday = () => [...day.rewarded].reduce((sum, id) => sum + MISSIONS[id].reward, 0);
+
+  function tip(id) {
+    const p = posts.get(id);
+    const target = p.repostOf ? posts.get(p.repostOf) : p;
+    if (!target || target.author === ME || target.tips.has(ME)) return;
+    const url = `POST /api/posts/${short(target.id)}/recompensa`;
+    if (day.tips.length >= 20) { log('http', `${url} → 409`, 'Limite de 20 recompensas por dia'); toast('Limite de 20 recompensas por dia'); return; }
+    if (wallet.balance < 1) {
+      log('http', `${url} → 409`, `Saldo insuficiente de ${TOKEN.symbol}: nada foi registrado`);
+      toast(`Saldo insuficiente de ${TOKEN.symbol}. Conclua missões para ganhar mais.`);
+      return;
+    }
+    target.tips.add(ME);
+    day.tips.push(target.id);
+    credit(-1, 'tip_sent', `Você recompensou @${target.author}`, { post: target.id });
+    log('http', `${url} → 200`, `public_metrics.tip_count = ${target.tips.size} · viewer.tipped = true`);
+    log('sql', `BEGIN · saldo você −1 · saldo @${target.author} +1 · INSERT token_ledger ×2 · INSERT tips · UPDATE posts SET tip_count + 1 · COMMIT`, 'transferência: nenhum token novo foi criado');
+    log('ws', `notification {type:"tip"} → user:${target.author}`);
+    render();
+  }
+
+  function simulateReceivedTip() {
+    const mine = allPosts().filter((p) => p.author === ME && !p.repostOf).sort(byIdDesc);
+    for (const p of mine) {
+      const tipper = Object.keys(USERS).find((u) => u !== ME && !p.tips.has(u));
+      if (!tipper) continue;
+      p.tips.add(tipper);
+      credit(1, 'tip_received', `@${tipper} recompensou seu post`, { post: p.id });
+      log('http', `(@${tipper}) POST /api/posts/${short(p.id)}/recompensa → 200`);
+      log('sql', `BEGIN · saldo @${tipper} −1 · saldo você +1 · INSERT token_ledger ×2 · INSERT tips · COMMIT`);
+      log('ws', 'notification {type:"tip"} → user:ana_dev');
+      toast(`@${tipper} recompensou seu post: +1 ${TOKEN.symbol}`);
+      render();
+      return;
+    }
+    toast('Nenhum post seu pode receber recompensa agora.');
+  }
+
+  function collectiveStats() {
+    const welcomed = NEWCOMERS.filter((u) => allPosts().some((p) => !p.repostOf && !NEWCOMERS.includes(p.author) && (posts.get(p.replyTo)?.author === u || p.text.includes('@' + u)))).length;
+    const today = new Date().toDateString();
+    return { welcomed, newcomers: NEWCOMERS.length, answered: day.firstAnswers, groups: channel.messages.some((m) => m.created.toDateString() === today) ? 1 : 0, invites: 1 };
+  }
+
+  let lastInteraction = Date.now();
+  ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { lastInteraction = Date.now(); }, { passive: true }));
+  function beat(count = 1, simulated = false) {
+    day.minutes = Math.min(120, day.minutes + count);
+    log('http', `POST /api/atividade → 200${simulated ? ' (simulado ×' + count + ')' : ''}`, `{ counted: true, minutes: ${day.minutes} }  · só 1 minuto a cada 55 s, teto de 120/dia`);
+    if (['missions', 'home'].includes(state.view)) render();
+  }
+  setInterval(() => { if (document.visibilityState === 'visible' && Date.now() - lastInteraction < 120000) beat(1); }, 60000);
+
+  // ---------- Algoritmo "Para você" (porta de backend/src/lib/ranking.js) ----------
+  const TOPICS = {
+    backend: { label: 'Backend e APIs', kw: ['backend', 'api', 'endpoint', 'express', 'node', 'rest', 'http'] },
+    bancos: { label: 'Bancos de dados', kw: ['postgres', 'sql', 'banco de dados', 'redis', 'indice', 'transac', 'cache', 'lrange'] },
+    distribuidos: { label: 'Sistemas distribuídos', kw: ['distribuid', 'fan-out', 'fanout', 'consistencia', 'snowflake', 'escala', 'fila', 'kafka', 'cursor', 'paginac'] },
+    redes: { label: 'Redes e protocolos', kw: ['protocolo', 'p2p', 'mtproto', 'websocket', 'tcp', 'pts'] },
+    federacao: { label: 'Federação', kw: ['federa', 'webfinger', 'activitypub', 'mastodon', 'instancia', 'outbox', 'inbox'] },
+    seguranca: { label: 'Segurança', kw: ['seguranc', 'cripto', 'jwt', 'xss', 'senha', '2fa', 'autentica', 'rate limit'] },
+    frontend: { label: 'Frontend e design', kw: ['react', 'css', 'frontend', 'componente', 'interface', 'acessib', 'tailwind', 'intersectionobserver', 'rolagem', 'design'] },
+    dados: { label: 'Dados e IA', kw: ['ciencia de dados', 'cientista de dados', 'analise de dados', 'machine learning', 'aprendizado de maquina', 'modelo', 'estatistic', 'algoritmo'] },
+    infra: { label: 'Infraestrutura', kw: ['kubernetes', 'sre', 'infra', 'deploy', 'servidor', 'disco', 'metrica', 'latencia', 'alerta'] },
+    ensino: { label: 'Ensino', kw: ['aula', 'turma', 'professor', 'estud', 'slides', 'curso'] },
+    cotidiano: { label: 'Cotidiano', kw: ['cafe', 'bom dia', 'violao', 'ciclis', 'bicicleta'] },
+  };
+  const TOPIC_IDS = Object.keys(TOPICS);
+  const FACTOR_LABEL = { interesse: 'Seus interesses', pessoas: 'Pessoas', recencia: 'Recência', descoberta: 'Descoberta', popularidade: 'Popularidade' };
+  const FACTOR_DESC = {
+    interesse: 'Combina com seus tópicos e palavras-chave',
+    pessoas: 'Vem de quem você segue ou com quem interage',
+    recencia: 'É recente',
+    descoberta: 'Pessoa nova, mas no seu tema',
+    popularidade: 'Muitas curtidas e reposts',
+  };
+  const SIGNALS = { like: 0.15, unlike: -0.15, repost: 0.25, reply: 0.3, more: 0.3, less: -0.5 };
+  const LEARNED_SHARE = 0.5, LEARN_HALF_LIFE_DAYS = 14;
+  const DEFAULT_ALGO = () => ({
+    weights: { interesse: 0.45, pessoas: 0.25, recencia: 0.2, descoberta: 0.1, popularidade: 0 },
+    topics: {}, muted: [], keywords: [], half_life: 24, diversity: 0.5, session_limit: 40, hide_metrics: false,
+  });
+  const algo = DEFAULT_ALGO();
+  const learned = { topics: {}, authors: {} }; // { chave: { v, at } }
+  const hiddenFy = new Set();
+
+  const norm = (t) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  const kwRe = (kw) => new RegExp('(^|[^a-z0-9])' + norm(kw).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const TOPIC_RE = Object.fromEntries(TOPIC_IDS.map((t) => [t, TOPICS[t].kw.map(kwRe)]));
+  const extractTopics = (text) => { const n = norm(text); return TOPIC_IDS.filter((t) => TOPIC_RE[t].some((re) => re.test(n))); };
+  const matchKeywords = (text, kws) => { const n = norm(text); return kws.filter((k) => k.trim() && kwRe(k.trim()).test(n)); };
+  const clamp = (x, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, x));
+  const round3 = (x) => Math.round(x * 1000) / 1000;
+  const decayedVal = (e) => (e ? e.v * 0.5 ** (Math.max(0, Date.now() - e.at) / 86400000 / LEARN_HALF_LIFE_DAYS) : 0);
+  const learnedTopic = (t) => decayedVal(learned.topics[t]);
+  const effTopicWeight = (t) => clamp((algo.topics[t] ?? 0) + LEARNED_SHARE * learnedTopic(t));
+
+  function learnFrom(post, signal) {
+    const base = post.repostOf ? posts.get(post.repostOf) : post;
+    if (!base || base.author === ME) return;
+    const bump = (map, key) => { map[key] = { v: clamp(decayedVal(map[key]) + SIGNALS[signal], -1, 1), at: Date.now() }; };
+    extractTopics(base.text).forEach((t) => bump(learned.topics, t));
+    bump(learned.authors, base.author);
+    log('sql', `INSERT INTO learned_topics / learned_authors (${signal}: ${SIGNALS[signal] > 0 ? '+' : ''}${SIGNALS[signal]}) ON CONFLICT DO UPDATE`, `tópicos do post: ${extractTopics(base.text).join(', ') || '—'} · autor @${base.author}`);
+  }
+
+  function scoreFy(post, now) {
+    const topics = extractTopics(post.text);
+    if (topics.some((t) => algo.muted.includes(t))) return null;
+    const hits = matchKeywords(post.text, algo.keywords);
+    const ts = topics.map((t) => ({ t, w: effTopicWeight(t) }));
+    const best = ts.reduce((a, b) => (b.w > (a?.w ?? -1) ? b : a), null);
+    const interesse = hits.length ? 1 : best?.w ?? 0;
+    const follows = following[ME].has(post.author);
+    const aff = clamp(decayedVal(learned.authors[post.author]));
+    const pessoas = follows ? 1 : 0.6 * aff;
+    const ageH = Math.max(0, (now - post.created.getTime()) / 3600000);
+    const recencia = 0.5 ** (ageH / algo.half_life);
+    const descoberta = !follows && aff === 0 && interesse >= 0.3 ? 1 : 0;
+    const eng = post.likes.size + repostCount(post.id);
+    const popularidade = clamp(Math.log1p(eng) / Math.log1p(50));
+    const f = { interesse, pessoas, recencia, descoberta, popularidade };
+    const total = Object.values(algo.weights).reduce((a, b) => a + b, 0) || 1;
+    const detail = {
+      interesse: hits.length ? `Sua palavra-chave: ${hits.map((k) => '"' + k + '"').join(', ')}` : best ? `Tópico ${TOPICS[best.t].label} (peso ${Math.round(best.w * 100)}%)` : 'Sem tópicos ou palavras-chave suas',
+      pessoas: follows ? 'Você segue esta pessoa' : aff > 0 ? 'Você já interagiu com esta pessoa' : 'Você não segue esta pessoa',
+      recencia: ageH < 1 ? 'Publicado há menos de 1 h' : `Publicado há ${Math.round(ageH)} h`,
+      descoberta: descoberta ? 'Pessoa nova falando de algo que você curte' : 'Não se aplica',
+      popularidade: `${eng} curtidas e reposts`,
+    };
+    const reasons = Object.keys(f).map((k) => ({ fator: k, valor: round3(f[k]), peso: round3(algo.weights[k] / total), contribuicao: round3((algo.weights[k] * f[k]) / total), detalhe: detail[k] }));
+    const score = round3(reasons.reduce((sum, r) => sum + (algo.weights[r.fator] * f[r.fator]) / total, 0));
+    return { post, score, topics, keywords: hits, reasons: reasons.sort((a, b) => b.contribuicao - a.contribuicao) };
+  }
+  const similarity = (a, b) => {
+    if (a.post.author === b.post.author) return 1;
+    const A = new Set(a.topics), B = new Set(b.topics);
+    if (!A.size || !B.size) return 0;
+    const inter = [...A].filter((t) => B.has(t)).length;
+    return inter / (A.size + B.size - inter);
+  };
+  function diversifyFy(items, lambda) {
+    const pool = [...items], out = [];
+    while (pool.length) {
+      let best = 0, bestVal = -Infinity;
+      const recent = out.slice(-5);
+      for (let i = 0; i < pool.length; i++) {
+        const pen = recent.length ? Math.max(...recent.map((r) => similarity(pool[i], r))) : 0;
+        const val = pool[i].score - lambda * pen;
+        if (val > bestVal || (val === bestVal && BigInt(pool[i].post.id) > BigInt(pool[best].post.id))) { best = i; bestVal = val; }
+      }
+      out.push(pool.splice(best, 1)[0]);
+    }
+    return out;
+  }
+  function computeRanking() {
+    const now = Date.now();
+    const cands = [...posts.values()].filter((p) => !p.repostOf && p.author !== ME && !hiddenFy.has(p.id) && now - p.created.getTime() < 7 * 86400000).sort((a, b) => (BigInt(b.id) > BigInt(a.id) ? 1 : -1)).slice(0, 500);
+    const scored = cands.map((p) => scoreFy(p, now)).filter(Boolean);
+    scored.sort((a, b) => b.score - a.score || (BigInt(b.post.id) > BigInt(a.post.id) ? 1 : -1));
+    const ranked = diversifyFy(scored, algo.diversity).slice(0, algo.session_limit);
+    ranked.forEach((r, i) => (r.position = i + 1));
+    return { ranked, candidates: cands.length, kept: scored.length };
+  }
+  const isPersonalized = () => Object.values(algo.topics).some((v) => v > 0) || algo.keywords.length > 0 || Object.values(learned.topics).some((e) => decayedVal(e) > 0);
+
+  // ---------- Fontes de posts ----------
+  const homeIds = () => [...posts.values()].filter((p) => p.author === ME || following[ME].has(p.author)).sort(byIdDesc).map((p) => p.id);
+  function sourceFor(view) {
+    if (view === 'home') return homeIds().filter((id) => !state.hidden.has(id));
+    if (view === 'explore') return [...posts.values()].filter((p) => !p.repostOf).sort(byIdDesc).map((p) => p.id);
+    if (view === 'mentions') return [...posts.values()].filter((p) => p.author !== ME && p.text.includes('@' + ME)).sort(byIdDesc).map((p) => p.id);
+    if (view === 'profile') return [...posts.values()].filter((p) => p.author === state.profile).sort(byIdDesc).map((p) => p.id);
+    return [];
+  }
+
+  // ---------- Renderização ----------
+  const PATHS = {
+    home: 'M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z',
+    search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zm9 3-4.3-4.3',
+    at: 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0zm0 0v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1',
+    channels: 'M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5z',
+    user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8.5c.8-3.4 3.6-5.5 7-5.5s6.2 2.1 7 5.5',
+    reply: 'M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z',
+    repost: 'M7 7h10.5a2.5 2.5 0 0 1 2.5 2.5V12M17 17H6.5A2.5 2.5 0 0 1 4 14.5V12m12-8 3 3-3 3M8 20l-3-3 3-3',
+    heart: 'M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z',
+    back: 'M15 5l-7 7 7 7',
+    smile: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm-3.5-7a4.5 4.5 0 0 0 7 0M9 9.5h.01M15 9.5h.01',
+    sprout: 'M12 21v-9m0 0C12 8 9.5 5.5 5 5.5 5 9.5 7.5 12 12 12zm0 0c0-3.2 2.1-5.8 6.5-5.8 0 3.2-2.1 5.8-6.5 5.8',
+    coin: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm0-13v8m-2.5-6.2c.5-.9 1.4-1.3 2.5-1.3 1.6 0 2.5.8 2.5 1.8 0 2.4-5 1.4-5 4 0 1 1 1.8 2.5 1.8 1.1 0 2-.4 2.5-1.3',
+    wallet: 'M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3M4 7.5V17a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1H6.5A2.5 2.5 0 0 1 4 7.5zM16 14h.01',
+    check: 'M5 12.5 10 17l9-10',
+    sliders: 'M4 7h9m4 0h3M4 17h3m4 0h9M15 5v4M9 15v4',
+    circle: 'M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
+  };
+  const svgI = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${PATHS[name]}"/></svg>`;
+  const NAV = [['home', 'home', 'Início'], ['explore', 'search', 'Explorar'], ['mentions', 'at', 'Menções'], ['channel', 'channels', 'Canal'], ['missions', 'sprout', 'Missões'], ['me', 'user', 'Perfil']];
+  const SIDE_NAV = [...NAV.slice(0, 5), ['wallet', 'wallet', 'Carteira'], NAV[5]];
+
+  const n = (x) => (x > 0 ? `<span>${x}</span>` : '');
+  function whyHTML(p, r) {
+    const open = state.why.has(p.id);
+    let html = `<button class="whybtn" data-why="${p.id}" aria-expanded="${open}">${open ? 'Ocultar explicação' : `Por que este post? · nº ${r.position}`}</button>`;
+    if (!open) return html;
+    const fb = state.fb[p.id];
+    html += `<div class="why" role="region" aria-label="Explicação do ranking"><p class="score">Nota ${Math.round(r.score * 100)} de 100${r.topics.length ? ' · tópicos: ' + r.topics.map((t) => TOPICS[t].label).join(', ') : ''}</p>`
+      + r.reasons.map((x) => `<div class="fac"><div class="fh"><span>${FACTOR_LABEL[x.fator]}</span><span>+${Math.round(x.contribuicao * 100)}</span></div><div class="bar"><i style="width:${Math.round(x.contribuicao * 100)}%"></i></div><div class="fd">${esc(x.detalhe)}</div></div>`).join('')
+      + `<div class="fb">${fb ? `<span class="ok">${fb === 'more' ? 'Anotado: mais posts assim.' : 'Anotado: menos posts assim.'}</span>` : `<button data-feedback="more" data-id="${p.id}">Mais disto</button><button data-feedback="less" data-id="${p.id}">Menos disto</button>`}</div></div>`;
+    return html;
+  }
+
+  function postHTML(p, { focal = false, rank = null } = {}) {
+    const hm = Boolean(rank && algo.hide_metrics);
+    const shown = p.repostOf ? posts.get(p.repostOf) : p;
+    if (!shown) return '';
+    const u = USERS[shown.author];
+    const parent = shown.replyTo ? posts.get(shown.replyTo) : null;
+    const liked = shown.likes.has(ME);
+    const rp = reposted(shown.id);
+    return `<article class="post ${focal ? 'focal' : ''} ${state.fresh.has(p.id) ? 'fresh' : ''}" data-open="${shown.id}">
+      ${p.repostOf ? `<div class="repost-line">${svgI('repost', 'sm')} ${p.author === ME ? 'Você repostou' : esc(USERS[p.author].name) + ' repostou'}</div>` : ''}
+      ${avatar(shown.author)}
+      <div style="min-width:0">
+        <div class="meta"><button class="name" data-profile="${u.username}">${esc(u.name)}</button><span class="handle">@${u.username}</span><span class="when" title="${full(shown.created)}">· ${rel(shown.created)}</span></div>
+        ${parent ? `<div class="replyto">Em resposta a <button class="mention" data-profile="${parent.author}">@${parent.author}</button></div>` : ''}
+        <p class="text">${richText(shown.text)}</p>
+        ${focal ? `<div class="idline">id ${shown.id} · conversation_id ${shown.conv} · ${full(shown.created)}</div>` : ''}
+        <div class="actions">
+          <button class="act" data-reply="${shown.id}" aria-label="Responder">${svgI('reply', 'sm')}${hm ? '' : n(replyCount(shown.id))}</button>
+          <button class="act" data-repost="${shown.id}" aria-pressed="${rp}" aria-label="${rp ? 'Desfazer repost' : 'Repostar'}">${svgI('repost', 'sm')}${hm ? '' : n(repostCount(shown.id))}</button>
+          <button class="act" data-like="${shown.id}" aria-pressed="${liked}" aria-label="${liked ? 'Descurtir' : 'Curtir'}">${svgI('heart', liked ? 'sm fill' : 'sm')}${hm ? '' : n(shown.likes.size)}</button>
+          ${shown.author !== ME
+            ? `<button class="act" data-tip="${shown.id}" aria-pressed="${shown.tips.has(ME)}" aria-label="${shown.tips.has(ME) ? 'Você recompensou com 1 ' + TOKEN.symbol : 'Recompensar com 1 ' + TOKEN.symbol}">${svgI('coin', 'sm')}${hm ? '' : n(shown.tips.size)}</button>`
+            : shown.tips.size && !hm ? `<span class="act" role="img" aria-label="${shown.tips.size} recompensas recebidas">${svgI('coin', 'sm')}<span>${shown.tips.size}</span></span>` : ''}
+        </div>
+        ${rank ? whyHTML(shown, rank) : ''}
+      </div>
+    </article>`;
+  }
+
+  const composerHTML = (id, placeholder, label) => `<form class="composer" data-compose="${id}">
+      <label for="${id}" hidden>${label}</label>
+      <textarea id="${id}" placeholder="${placeholder}" maxlength="400">${esc(state.draft)}</textarea>
+      <div class="row"><span class="counter" id="${id}-count">280</span><button class="primary" type="submit" disabled>${label}</button></div>
+    </form>`;
+
+  function header(title, sub, extra = '', back = false) {
+    return `<div class="head ${extra ? 'has-extra' : ''}">${back ? `<button class="iconbtn" data-back aria-label="Voltar">${svgI('back')}</button>` : ''}<div class="titles"><h2>${title}</h2><div class="sub">${sub}</div></div>${extra}</div>`;
+  }
+
+  function renderFeed(view) {
+    const ids = sourceFor(view);
+    const list = ids.slice(0, state.shown);
+    let html = '';
+    if (view === 'home') {
+      const next = state.pendingQueue[0];
+      html += header('Início', 'Quem você segue, do mais novo ao mais antigo', `<button class="chip" data-nav="wallet" aria-label="Carteira: ${wallet.balance} ${TOKEN.symbol}">${wallet.balance} ${TOKEN.symbol}</button><button class="iconbtn" data-nav="algo" aria-label="Ajustar meu algoritmo">${svgI('sliders')}</button><button class="chip" data-sim-post ${next ? '' : 'disabled'}>${next ? 'Simular post de ' + esc(USERS[next.a].name.split(' ')[0]) : 'Sem mais simulações'}</button>`);
+      const doneN = day.chosen.filter((id) => PROGRESS[id]().ok).length;
+      const nextTodo = day.chosen.find((id) => !PROGRESS[id]().ok && !day.skipped.has(id));
+      html += `<button class="misshome" data-nav="missions">${svgI('sprout')}<span class="tx"><b>Missões do dia</b><small>${doneN} de ${day.chosen.length} · +${earnedToday()} ${TOKEN.symbol} hoje · ${nextTodo ? esc(MISSIONS[nextTodo].title) : 'Tudo feito por hoje'}</small></span></button>`;
+      html += `<div class="tabsw" role="tablist" aria-label="Tipo de feed"><button role="tab" aria-selected="${state.tab === 'seguindo'}" data-tab="seguindo">Seguindo</button><button role="tab" aria-selected="${state.tab === 'interesses'}" data-tab="interesses">Para você</button></div>`;
+      if (state.tab === 'interesses') return html + renderForYou();
+      html += `<div class="inline-compose">${composerHTML('compose-home', 'O que está acontecendo?', 'Postar')}</div>`;
+      if (state.hidden.size) html += `<button class="banner" data-reveal>Mostrar ${state.hidden.size} ${state.hidden.size === 1 ? 'post novo' : 'posts novos'}</button>`;
+    } else if (view === 'explore') {
+      html += header('Explorar', 'Timeline pública desta instância (sem reposts)');
+      const sugg = Object.keys(USERS).filter((u) => u !== ME && !following[ME].has(u));
+      if (sugg.length) html += `<section class="who"><h3>Quem seguir</h3>${sugg.map((u) => `<div class="who-row">${avatar(u, 'sm')}<div class="info"><b>${esc(USERS[u].name)}</b><small>@${u}</small></div><button class="primary" data-follow="${u}">Seguir</button></div>`).join('')}</section>`;
+    } else if (view === 'mentions') {
+      html += header('Menções', 'Posts que citam @ana_dev');
+    }
+    html += list.map((id) => postHTML(posts.get(id))).join('');
+    if (!list.length) html += `<div class="empty">Nada por aqui ainda.</div>`;
+    if (ids.length > list.length) html += `<div class="more"><button class="chip" data-more>Carregar mais</button></div>`;
+    else if (list.length) html += `<div class="end">Fim da timeline · sem next_token</div>`;
+    return html;
+  }
+
+  function renderForYou() {
+    const { ranked } = computeRanking();
+    const shown = ranked.slice(0, state.shownFy);
+    let html = '';
+    if (!isPersonalized()) html += `<button class="nudge" data-nav="algo"><b>Diga ao Ágora do que você gosta</b>Você ainda não escolheu tópicos nem palavras-chave, então este feed está quase em ordem de chegada. Toque para escolher.</button>`;
+    html += shown.map((r) => postHTML(r.post, { rank: r })).join('');
+    if (!ranked.length) html += `<div class="empty">Nada novo nos seus interesses. Ajuste seus tópicos ou siga mais pessoas.</div>`;
+    else if (shown.length < ranked.length) html += `<div class="more"><button class="chip" data-more-fy>Carregar mais</button></div>`;
+    else html += `<div class="endcard"><b>Você está em dia</b><p>Estes foram os ${ranked.length} posts mais relevantes para você agora. O feed termina aqui de propósito.</p><div class="btns"><button class="chip" data-tab="seguindo">Ver Seguindo</button><button class="chip" data-nav="algo">Ajustar interesses</button></div></div>`;
+    return html;
+  }
+
+  function logForYou(extra = '') {
+    const { ranked, candidates, kept } = computeRanking();
+    log('sql', `SELECT … FROM posts WHERE repost_of_id IS NULL AND author_id <> me AND created_at > now() − 7 dias AND NOT EXISTS hidden_posts → ${candidates} candidatos`);
+    log('note', `rank(): ${kept} pontuados (silenciados removidos) → MMR λ=${algo.diversity} → corte em ${algo.session_limit}`, `${ranked.length} itens, cada um com a explicação por fator`);
+    log('http', `GET /api/feed/interesses?max_results=${PAGE}${extra} → 200`, `meta: { caught_up: ${state.shownFy >= ranked.length}, personalized: ${isPersonalized()}, algorithm: "interesses-v1" }`);
+  }
+
+  const shareOf = (k) => { const t = Object.values(algo.weights).reduce((a, b) => a + b, 0) || 1; return Math.round((algo.weights[k] / t) * 100); };
+  const slider = (id, attrs, label, hint, value, valText, disabled = false) => `<div class="sl ${disabled ? 'off' : ''}"><div class="sl-h"><label for="${id}">${label}</label><span id="${id}-v">${valText}</span></div>${hint ? `<small>${hint}</small>` : ''}<input id="${id}" type="range" min="0" max="100" step="5" value="${Math.round(value * 100)}" ${attrs} ${disabled ? 'disabled' : ''}></div>`;
+  const lbar = (label, v) => `<li class="lbar"><div class="lh"><span>${esc(label)}</span><span>${v >= 0 ? '+' : ''}${Math.round(v * 100)}</span></div><div class="lt"><div>${v < 0 ? `<i class="neg" style="width:${Math.round(-v * 100)}%"></i>` : ''}</div><div>${v > 0 ? `<i class="pos" style="width:${Math.round(v * 100)}%"></i>` : ''}</div></div></li>`;
+
+  function renderAlgo() {
+    const lt = Object.entries(learned.topics).map(([t, e]) => [TOPICS[t].label, decayedVal(e)]).filter(([, v]) => Math.abs(v) >= 0.01).sort((a, b) => b[1] - a[1]);
+    const la = Object.entries(learned.authors).map(([u, e]) => ['@' + u, decayedVal(e)]).filter(([, v]) => Math.abs(v) >= 0.01).sort((a, b) => b[1] - a[1]);
+    return header('Meu algoritmo', 'Aberto, explicável e sob seu controle', '', true)
+      + `<section class="sec"><h2>Como o feed Para você é montado</h2><p class="hint">Cada post recebe uma nota de 0 a 100. Estes pesos dizem quanto cada fator conta. Popularidade começa em zero: o feed não premia o que viraliza.</p>`
+      + Object.keys(FACTOR_DESC).map((k) => slider(`w-${k}`, `data-algo="w" data-key="${k}"`, `${FACTOR_DESC[k]} · <span data-share="${k}">${shareOf(k)}%</span> da nota`, '', algo.weights[k], `${Math.round(algo.weights[k] * 100)}%`)).join('')
+      + `</section><section class="sec"><h2>Seus tópicos</h2><p class="hint">Quanto cada assunto importa para você. Silenciar remove o tópico do feed Para você.</p>`
+      + TOPIC_IDS.map((t) => `<div class="toprow">${slider(`t-${t}`, `data-algo="t" data-key="${t}"`, TOPICS[t].label, '', algo.topics[t] ?? 0, `${Math.round((algo.topics[t] ?? 0) * 100)}%`, algo.muted.includes(t))}<button class="mute" data-mute="${t}" aria-pressed="${algo.muted.includes(t)}">${algo.muted.includes(t) ? 'Silenciado' : 'Silenciar'}</button></div>`).join('')
+      + `</section><section class="sec"><h2>Suas linhas de interesse</h2><p class="hint">Palavras livres. Um post que contenha qualquer uma delas ganha interesse máximo.</p>
+          <form class="kwform" data-kwform><label for="kw" hidden>Nova palavra-chave</label><input id="kw" type="text" maxlength="40" placeholder="ex.: webfinger, ciclovia" autocomplete="off"><button class="chip">Adicionar</button></form>
+          <ul class="kws">${algo.keywords.length ? algo.keywords.map((k) => `<li><button data-kwdel="${esc(k)}" aria-label="Remover ${esc(k)}">${esc(k)} ×</button></li>`).join('') : '<li class="handle">Nenhuma ainda.</li>'}</ul></section>`
+      + `<section class="sec"><h2>Limites saudáveis</h2><p class="hint">O feed Para você tem fim. Você decide onde.</p>
+          <div class="sl"><div class="sl-h"><label for="limit">Posts por sessão</label><span id="limit-v">${algo.session_limit}</span></div><input id="limit" class="rg" type="range" min="5" max="40" step="1" value="${algo.session_limit}" data-algo="limit"></div>`
+      + slider('div', 'data-algo="div"', 'Variedade', 'Evita vários posts seguidos do mesmo autor ou assunto.', algo.diversity, `${Math.round(algo.diversity * 100)}%`)
+      + `<div class="sl"><label for="half" style="font-weight:700">Quanto tempo um post continua “novo”</label><select id="half" class="sel" data-algo="half">${[[6, 'Pouco: metade do valor a cada 6 h'], [24, 'Normal: metade a cada 24 h'], [72, 'Bastante: metade a cada 3 dias']].map(([v, t]) => `<option value="${v}" ${algo.half_life === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+          <label class="chk"><span>Esconder contadores<small>Sem números de curtidas e reposts no feed Para você.</small></span><input type="checkbox" data-algo="hide" ${algo.hide_metrics ? 'checked' : ''}></label></section>`
+      + `<section class="sec"><h2>O que o algoritmo aprendeu</h2><p class="hint">Aprende só com curtidas, reposts, respostas e “mais/menos disto”. Nunca com tempo de tela. Cada aprendizado perde metade da força a cada 14 dias.</p>`
+      + (lt.length + la.length ? `<ul style="list-style:none;margin:0;padding:0">${lt.map(([l, v]) => lbar(l, v)).join('')}${la.map(([l, v]) => lbar(l, v)).join('')}</ul><button class="chip" data-reset-learn style="margin-top:10px">Apagar aprendizado</button>` : '<p class="handle">Nada ainda. Curta, reposte ou responda posts e volte aqui.</p>')
+      + `</section><section class="sec"><div class="specbox"><b style="color:var(--ink)">A conta, aberta</b><br>nota = Σ (peso × fator) ÷ Σ pesos, depois diversidade (MMR): nota − variedade × similaridade com os 5 últimos.<br>Declarado vale mais que aprendido: o aprendido conta no máximo metade de um peso declarado.<br>O algoritmo <b>não usa</b>: tempo de tela, rolagem, visualizações, localização nem contatos.<br><code>backend/src/lib/ranking.js</code> · <code>GET /api/feed/algoritmo</code></div></section>`;
+  }
+
+  function renderThread() {
+    const focal = posts.get(state.focal);
+    const all = [...posts.values()].filter((p) => p.conv === focal.conv && !p.repostOf).sort((a, b) => -byIdDesc(a, b));
+    const ancestors = [];
+    for (let cur = posts.get(focal.replyTo); cur; cur = posts.get(cur.replyTo)) ancestors.unshift(cur);
+    const kids = (id) => all.filter((p) => p.replyTo === id);
+    const tree = (id) => kids(id).map((p) => `${postHTML(p)}${kids(p.id).length ? `<div class="children">${tree(p.id)}</div>` : ''}`).join('');
+    state.draft = state.draft || '';
+    return header('Thread', `${all.length} ${all.length === 1 ? 'post' : 'posts'} nesta conversa`, '', true)
+      + ancestors.map((p) => postHTML(p)).join('')
+      + postHTML(focal, { focal: true })
+      + composerHTML('compose-reply', `Responder a @${focal.author}`, 'Responder')
+      + tree(focal.id);
+  }
+
+  function renderProfile() {
+    const u = USERS[state.profile];
+    const isMe = u.username === ME;
+    const iFollow = following[ME].has(u.username);
+    const followsMe = following[u.username]?.has(ME);
+    const count = [...posts.values()].filter((p) => p.author === u.username).length;
+    return header(esc(u.name), `${count} posts`, '', state.stack.length > 0)
+      + `<section class="profile">
+          <div class="top">${avatar(u.username, 'lg')}${isMe ? '' : `<button class="primary ${iFollow ? 'quiet' : ''}" data-follow="${u.username}">${iFollow ? 'Seguindo' : 'Seguir'}</button>`}</div>
+          <h3>${esc(u.name)}</h3>
+          <div class="handle">@${u.username}${followsMe && !isMe ? '<span class="follows-you">Segue você</span>' : ''}</div>
+          <div class="fedi" title="Handle federado, resolvido via WebFinger">${u.username}@agora.local</div>
+          <p style="margin:4px 0">${esc(u.bio)}</p>
+          <div class="stats"><span><b>${following[u.username]?.size ?? 0}</b> Seguindo</span><span><b>${followersOf(u.username).length}</b> Seguidores</span></div>
+        </section>`
+      + (sourceFor('profile').map((id) => postHTML(posts.get(id))).join('') || '<div class="empty">Sem posts ainda.</div>');
+  }
+
+  const tagFor = (c) => (c.mission ? MISSIONS[c.mission]?.title : '');
+  function missionCard(id) {
+    const m = MISSIONS[id];
+    const pr = PROGRESS[id]();
+    const done = pr.ok;
+    const skipped = !done && day.skipped.has(id);
+    const hasBar = pr.target !== undefined && !done;
+    const sugg = !done && !skipped ? SUGG[id]?.() ?? [] : [];
+    const suggHtml = sugg.map((x) => x.type === 'user'
+      ? `<button data-profile="${x.username}"><b>${esc(USERS[x.username].name)}</b> <span class="handle">@${x.username}</span></button>`
+      : x.type === 'post'
+        ? `<button data-open="${x.id}"><span class="handle">@${x.username}: </span>${esc(x.text.length > 96 ? x.text.slice(0, 96) + '…' : x.text)}</button>`
+        : `<button data-nav="channel"><b>${esc(x.title)}</b> <span class="handle">grupo</span></button>`).join('');
+    return `<li class="mc ${done ? 'done' : ''} ${skipped ? 'skipped' : ''}">
+      <span class="check">${svgI(done ? 'check' : 'circle')}</span>
+      <div style="min-width:0">
+        <div class="top"><div><span class="fam">${m.family === 'rede' ? 'Rede' : 'Engajamento'}</span><h3>${esc(m.title)}</h3></div><span class="reward">+${m.reward} ${TOKEN.symbol}</span></div>
+        <p>${esc(m.description)}</p>
+        <p class="why">${esc(m.why)}</p>
+        ${hasBar ? `<div class="prog">${Math.min(pr.current, pr.target)} de ${pr.target}${id === 'tempo_no_app' ? ' min' : ''}${pr.authors_needed ? ` · ${pr.authors} de ${pr.authors_needed} pessoas diferentes` : ''}</div><div class="bar" role="progressbar" aria-label="Progresso: ${esc(m.title)}" aria-valuenow="${Math.min(pr.current, pr.target)}" aria-valuemin="0" aria-valuemax="${pr.target}"><i style="width:${Math.round((Math.min(pr.current, pr.target) / pr.target) * 100)}%"></i></div>` : ''}
+        ${done ? `<p style="color:var(--accent);font-weight:800;margin-top:8px">Feito. ${m.reward} ${TOKEN.symbol} creditados na sua carteira.</p>` : ''}
+        ${skipped ? '<p class="why" style="margin-top:8px">Pulada hoje.</p>' : ''}
+        ${suggHtml ? `<div class="suggest">${suggHtml}</div>` : ''}
+        ${!done && !skipped ? `<div class="row2">${FIRST_STEP[id] ? `<button class="chip" data-nav="${FIRST_STEP[id]}">Ir para o Início</button>` : ''}<button class="skip" data-skip="${id}">Pular hoje</button></div>` : ''}
+      </div></li>`;
+  }
+
+  function renderMissions() {
+    const c = collectiveStats();
+    const doneN = day.chosen.filter((id) => PROGRESS[id]().ok).length;
+    const pct = Math.round((c.welcomed / c.newcomers) * 100);
+    return header('Missões do dia', `Dia ${day.n} · ações dentro do app que fazem a rede crescer`, `<button class="chip" data-sim-minutes>+5 min de uso</button><button class="chip" data-sim-day>Novo dia</button>`)
+      + `<button class="coinbanner" data-nav="wallet">${svgI('coin')}<span><b>${wallet.balance} ${TOKEN.symbol}</b><small>+${earnedToday()} hoje com missões · ver carteira</small></span></button>`
+      + `<section class="panel" aria-label="A rede hoje"><h2>A rede, junta</h2>
+          <p><b>${c.welcomed} de ${c.newcomers} pessoas novas desta semana já foram recebidas</b></p>
+          <p style="color:var(--muted);font-size:14px">Meta coletiva: nenhuma pessoa nova sem resposta.</p>
+          <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
+          <div class="nums"><p><b>${c.answered}</b><span>perguntas respondidas hoje</span></p><p><b>${c.groups}</b><span>grupos com conversa hoje</span></p><p><b>${c.invites}</b><span>convites aceitos na semana</span></p></div>
+        </section>`
+      + `<p style="color:var(--muted);font-size:14px;margin:4px 0 10px">${doneN} de ${day.chosen.length} hoje. Renovam à meia-noite.</p>`
+      + `<ul class="missions">${day.chosen.map(missionCard).join('')}</ul>`
+      + `<section class="principles"><h2>Como funcionam</h2><ul>
+          <li>Cada missão concluída rende uma quantia fixa de token interno, creditada uma vez por dia.</li>
+          <li>Todas são feitas dentro do app: curtir, republicar, comentar, recompensar, conversar e convidar.</li>
+          <li>Sem sequências e sem ranking individual. Pular não tem custo.</li>
+          <li>Conclusão verificada pelas ações reais, com regras de qualidade para evitar spam.</li>
+          <li>Até 4 missões por dia, 2 de rede e 2 de engajamento. Renovam à meia-noite.</li>
+          <li>Esta demo mostra 10 das 13 missões do app (faltam “Apresente-se”, “Abra um espaço” e “Traga alguém de confiança”).</li></ul></section>`;
+  }
+
+  function renderWallet() {
+    const label = (e) => e.kind === 'mission' ? e.label : e.label;
+    return header('Carteira', `${TOKEN.name} (${TOKEN.symbol}), o token interno do Ágora`, `<button class="chip" data-sim-tip>Simular recompensa recebida</button>`, state.stack.length > 0)
+      + `<section class="coinbanner" style="display:block" aria-label="Saldo"><small>Seu saldo</small><b style="font-size:38px">${wallet.balance} <span style="font-size:22px">${TOKEN.symbol}</span></b>
+          <div class="totals"><p><b>${wallet.from_missions}</b>de missões</p><p><b>${wallet.received}</b>recebidos</p><p><b>${wallet.given}</b>dados</p></div></section>`
+      + `<section class="howto"><h2>Como funciona</h2><ul>
+          <li>Você ganha ${TOKEN.symbol} concluindo <button class="mention" data-nav="missions">missões</button>.</li>
+          <li>Use para recompensar posts de outras pessoas: o botão de moeda transfere 1 ${TOKEN.symbol} seu para quem escreveu. Como um like, uma vez por post.</li>
+          <li>Por enquanto, essa é a única utilidade. O ${TOKEN.name} não é dinheiro nem criptomoeda, e não pode ser comprado, vendido ou sacado.</li></ul></section>`
+      + `<section style="padding-top:16px"><h2 style="margin:0;font-size:16px;font-weight:800">Extrato</h2><ul class="ledger">`
+      + wallet.ledger.map((e) => `<li>${e.post ? `<button class="t" data-open="${e.post}">${esc(label(e))}<small>${rel(e.at)}</small></button>` : `<span class="t">${esc(label(e))}<small>${rel(e.at)}</small></span>`}<span class="amt ${e.amount > 0 ? 'pos' : 'neg'}">${e.amount > 0 ? '+' : ''}${e.amount}</span></li>`).join('')
+      + `</ul></section>`;
+  }
+
+  const REACTION_SET = ['👍', '❤️', '🔥', '😂'];
+  function renderChannel() {
+    const status = channel.connected ? `<span class="status">conectado · pts ${channel.localPts}</span>` : `<span class="status off">offline · último pts ${channel.localPts}</span>`;
+    const sim = channel.connected
+      ? `<button class="chip" data-drop>Simular queda</button>`
+      : `<button class="chip" data-reconnect>Reconectar</button>`;
+    let html = header('Café', `Grupo · ${channel.members} membros`, status + sim);
+    html += `<div class="chat" id="chat">`;
+    html += `<div class="gapnote old">histórico anterior (pts 1–9) não carregado</div>`;
+    for (const m of channel.messages) {
+      if (state.gapNote && state.gapNote.before === m.id) html += `<div class="gapnote">${esc(state.gapNote.text)}</div>`;
+      const mine = m.author === ME;
+      const reacts = Object.entries(m.reactions).filter(([, s]) => s.size).map(([e, s]) => `<button class="react" data-react="${m.id}" data-emoji="${e}" aria-pressed="${s.has(ME)}">${e} ${s.size}</button>`).join('');
+      const add = `<details class="pick"><summary aria-label="Reagir">${svgI('smile', 'sm')}</summary><div class="opts">${REACTION_SET.map((e) => `<button data-react="${m.id}" data-emoji="${e}" aria-label="Reagir com ${e}">${e}</button>`).join('')}</div></details>`;
+      html += `<div class="msg ${mine ? 'mine' : ''} ${m.recovered ? 'recovered' : ''}">${avatar(m.author, 'sm')}<div class="bubble">
+        ${mine ? '' : `<div class="who-n">${esc(USERS[m.author].name)}</div>`}
+        <p>${esc(m.text)}</p><div class="foot">${rel(m.created)} · pts ${m.pts}</div>
+        <div class="reacts">${reacts}${add}</div></div></div>`;
+    }
+    html += `</div><form class="chatbar" data-chat><label for="chat-input" hidden>Mensagem</label><input id="chat-input" placeholder="Mensagem para o Café" maxlength="4096" autocomplete="off"><button class="primary" type="submit">Enviar</button></form>`;
+    return html;
+  }
+
+  const mainEl = document.getElementById('main');
+  function render() {
+    evaluate();
+    document.body.dataset.view = state.view;
+    let html;
+    if (state.view === 'algo') html = renderAlgo();
+    else if (state.view === 'missions') html = renderMissions();
+    else if (state.view === 'wallet') html = renderWallet();
+    else if (state.view === 'thread') html = renderThread();
+    else if (state.view === 'profile') html = renderProfile();
+    else if (state.view === 'channel') html = renderChannel();
+    else html = renderFeed(state.view);
+    mainEl.innerHTML = html;
+    state.fresh.clear();
+    const navKey = state.view === 'profile' && state.profile === ME ? 'me' : state.view === 'algo' ? 'home' : state.view;
+    const item = (cls) => ([key, icon, label]) => `<button class="${cls}" data-nav="${key}" ${key === navKey ? 'aria-current="page"' : ''}>${svgI(icon, key === navKey && !['explore', 'mentions', 'missions'].includes(key) ? 'fill' : '')}${label}${key === 'mentions' && state.mentionsUnread ? '<span class="dot" aria-label="menções novas"></span>' : ''}</button>`;
+    document.getElementById('side-items').innerHTML = SIDE_NAV.map(item('navbtn')).join('');
+    document.getElementById('tab-items').innerHTML = NAV.map(item('tab')).join('');
+    const chat = document.getElementById('chat');
+    if (chat) chat.scrollTop = chat.scrollHeight;
+    const ta = mainEl.querySelector('textarea');
+    if (ta) updateCounter(ta);
+  }
+
+  function updateCounter(ta) {
+    const left = 280 - ta.value.length;
+    const c = document.getElementById(ta.id + '-count');
+    c.textContent = left;
+    c.className = 'counter' + (left < 0 ? ' over' : left < 20 ? ' warn' : '');
+    ta.form.querySelector('button[type=submit]').disabled = !ta.value.trim() || left < 0;
+  }
+
+  document.getElementById('me-card').innerHTML = `${avatar(ME, 'sm')}<div><b>${USERS[ME].name}</b><small>@${ME}</small></div>`;
+
+  // ---------- Ações ----------
+  function readTimeline(extra = '') {
+    const key = `tl:home:${short(USERS[ME].id)}`;
+    if (!state.cacheWarm) {
+      log('redis', `LRANGE ${key} 0 -1 → (vazia)`, 'cache invalidado: reconstrução preguiçosa');
+      log('sql', 'SELECT id FROM posts WHERE author_id = me OR author_id IN (seguidos) ORDER BY id DESC LIMIT 801');
+      log('redis', `DEL + RPUSH ${key} (${homeIds().length} ids + sentinela "0") · EXPIRE 3600`);
+      state.cacheWarm = true;
+    } else {
+      log('redis', `LRANGE ${key} 0 -1 → ${homeIds().length + 1} itens`, 'sentinela presente: o cache cobre todo o histórico');
+    }
+    log('sql', 'SELECT … FROM posts WHERE id = ANY($1) · hidratação + includes.users');
+    const ids = sourceFor('home').slice(0, state.shown);
+    log('http', `GET /api/timeline?max_results=${PAGE}${extra} → 200`, `meta: { result_count: ${Math.min(PAGE, ids.length)}, newest_id: ${short(ids[0] || '0')}, oldest_id: ${short(ids.at(-1) || '0')} }`);
+  }
+
+  function go(view, opts = {}) {
+    if (opts.push !== false && (view === 'thread' || view === 'profile' || view === 'algo')) state.stack.push({ view: state.view, focal: state.focal, profile: state.profile });
+    if (!['thread', 'profile', 'algo'].includes(view)) state.stack = [];
+    state.view = view;
+    state.draft = '';
+    if (view !== 'thread' && view !== 'profile' && view !== 'algo') { state.shown = PAGE; state.shownFy = PAGE; }
+    if (view === 'home' && opts.log !== false) { if (state.tab === 'interesses') logForYou(); else readTimeline(); }
+    if (view === 'algo') log('http', 'GET /api/feed/preferencias → 200', '{ settings, learned: { topics, authors }, topics, factors }');
+    if (view === 'explore') log('http', `GET /api/posts?max_results=${PAGE} → 200`, 'timeline pública: posts sem repost, por id DESC');
+    if (view === 'mentions') { log('http', 'GET /api/mentions → 200', 'SELECT post_id FROM mentions WHERE user_id = me ORDER BY post_id DESC'); state.mentionsUnread = 0; }
+    if (view === 'missions') log('http', 'GET /api/missoes → 200', `{ missions: ${day.chosen.length}, token: { balance: ${wallet.balance}, earned_today: ${earnedToday()} } }`);
+    if (view === 'wallet') log('http', 'GET /api/carteira → 200', `saldo ${wallet.balance} = soma do extrato (${wallet.ledger.length} lançamentos)`);
+    if (view === 'channel') {
+      log('http', 'GET /api/channels/cafe/messages?max_results=50 → 200', `meta: { pts: ${channel.pts} }`);
+      log('ws', 'emit channel:subscribe {slug:"cafe"} → ack {ok:true, pts:' + channel.pts + '}');
+    }
+    render();
+    window.scrollTo?.({ top: Math.max(0, document.querySelector('.app').offsetTop - 8), behavior: 'smooth' });
+  }
+
+  function openThread(id) {
+    state.focal = id;
+    log('http', `GET /api/posts/${short(id)}/thread → 200`, `todos os posts com conversation_id = ${short(posts.get(id).conv)}, em ordem crescente`);
+    go('thread');
+  }
+  function openProfile(u) {
+    state.profile = u;
+    log('http', `GET /api/users/${u} → 200`, 'perfil + public_metrics + relationship {following, followed_by}');
+    log('http', `GET /api/users/${u}/posts → 200`);
+    go('profile', { push: state.view !== 'profile' || state.profile !== u });
+  }
+
+  function createPost(author, text, replyTo = null) {
+    const created = new Date();
+    const id = snowflake(created.getTime());
+    const parent = replyTo ? posts.get(replyTo) : null;
+    const answeredBefore = parent ? replyCount(parent.id) : 0;
+    posts.set(id, { id, author, text, replyTo, repostOf: null, conv: parent ? parent.conv : id, likes: new Set(), tips: new Set(), created });
+    const audience = followersOf(author).length + 1;
+    log('http', `POST /api/posts → 201${author === ME ? '' : '  (como @' + author + ')'}`, JSON.stringify(replyTo ? { text: text.slice(0, 28) + '…', reply_to_id: short(replyTo) } : { text: text.slice(0, 36) + '…' }));
+    log('sql', `BEGIN · ${parent ? 'SELECT pai FOR UPDATE · reply_count+1 · ' : ''}INSERT posts (id ${short(id)}) · INSERT mentions · COMMIT`);
+    log('redis', `pipeline: LPUSHX + LTRIM 0 799 em ${audience} timelines`, 'autor + seguidores; listas inexistentes são ignoradas');
+    log('ws', `timeline:new → ${audience} salas user:…`);
+    if (author === ME) {
+      if (parent && parent.author !== ME && text.length >= 15) day.comments.push(id);
+      if (parent && parent.author !== ME) learnFrom(parent, 'reply');
+      const mentioned = [...text.matchAll(/@([A-Za-z0-9_]{3,20})/g)].map((m) => m[1]);
+      const welcomed = [parent?.author, ...mentioned].filter((u) => u && USERS[u]?.newcomer);
+      welcomed.forEach((u) => day.greeted.add(u));
+      if (parent && parent.author !== ME && !parent.repostOf && parent.text.includes('?') && answeredBefore === 0) day.firstAnswers++;
+    }
+    return id;
+  }
+
+  function simulatePost() {
+    const next = state.pendingQueue.shift();
+    if (!next) return;
+    const id = createPost(next.a, next.t);
+    if (next.t.includes('@' + ME)) { state.mentionsUnread++; log('ws', 'notification {type:"mention"} → user:ana_dev'); }
+    if (following[ME].has(next.a)) state.hidden.add(id);
+    render();
+  }
+
+  function revealPending() {
+    const newest = sourceFor('home')[0];
+    log('http', `GET /api/timeline?since_id=${short(newest)} → 200`, `${state.hidden.size} post(s) novos; inseridos no topo só agora, sem deslocar a leitura`);
+    state.hidden.forEach((id) => state.fresh.add(id));
+    state.shown += state.hidden.size;
+    state.hidden.clear();
+    render();
+  }
+
+  function toggleLike(id) {
+    const p = posts.get(id);
+    const on = !p.likes.has(ME);
+    on ? p.likes.add(ME) : p.likes.delete(ME);
+    if (p.author !== ME) day.likes = on ? [...day.likes, { id, author: p.author }] : day.likes.filter((l) => l.id !== id);
+    learnFrom(p, on ? 'like' : 'unlike');
+    log('http', `${on ? 'POST' : 'DELETE'} /api/posts/${short(id)}/like → 200`, `public_metrics.like_count = ${p.likes.size} · viewer.liked = ${on}`);
+    log('sql', `${on ? 'INSERT INTO likes … ON CONFLICT DO NOTHING' : 'DELETE FROM likes'} · UPDATE posts SET like_count = like_count ${on ? '+' : '-'} 1`);
+    render();
+  }
+
+  function toggleRepost(id) {
+    const existing = [...posts.values()].find((p) => p.repostOf === id && p.author === ME);
+    if (existing) {
+      posts.delete(existing.id);
+      day.reposts = day.reposts.filter((r) => r.id !== id);
+      log('http', `DELETE /api/posts/${short(id)}/repost → 200`, `repost_count = ${repostCount(id)}`);
+    } else {
+      const created = new Date();
+      const rid = snowflake(created.getTime());
+      if (posts.get(id).author !== ME) day.reposts.push({ id, author: posts.get(id).author });
+      learnFrom(posts.get(id), 'repost');
+      posts.set(rid, { id: rid, author: ME, text: '', replyTo: null, repostOf: id, conv: posts.get(id).conv, likes: new Set(), tips: new Set(), created });
+      log('http', `POST /api/posts/${short(id)}/repost → 200`, `novo post ${short(rid)} com referenced_posts [{type:"reposted"}] · repost_count = ${repostCount(id)}`);
+      log('redis', `LPUSHX em ${followersOf(ME).length + 1} timelines (repost entra como post)`);
+      if (state.view === 'home') state.shown++;
+    }
+    render();
+  }
+
+  function toggleFollow(u) {
+    const on = !following[ME].has(u);
+    if (on && followersOf(u).every((f) => !following[ME].has(f))) day.bridges.add(u); // fora do seu círculo
+    if (!on) day.bridges.delete(u);
+    on ? following[ME].add(u) : following[ME].delete(u);
+    log('http', `${on ? 'POST' : 'DELETE'} /api/users/${u}/follow → 200`);
+    log('redis', `DEL tl:home:${short(USERS[ME].id)}`, 'a timeline materializada ficou incompleta; reconstrói na próxima leitura');
+    state.cacheWarm = false;
+    render();
+  }
+
+  // ---------- Canal: envio, reações, queda e recuperação por pts ----------
+  function serverMessage(author, text) {
+    channel.pts++;
+    const created = new Date();
+    const m = { id: snowflake(created.getTime()), author, text, pts: channel.pts, created, reactions: {} };
+    log('sql', `UPDATE channels SET pts = pts + 1 RETURNING pts → ${channel.pts} · INSERT messages`);
+    return m;
+  }
+  function deliver(m) {
+    if (!channel.connected) { log('ws', `message:new pts ${m.pts} → perdida (cliente offline)`); channel.offlineMissed.push(m); return; }
+    log('ws', `message:new pts ${m.pts} → sala channel:cafe`, m.pts === channel.localPts + 1 ? `local ${channel.localPts} + 1 = ${m.pts} → anexa` : 'duplicata, ignora');
+    if (m.pts === channel.localPts + 1) { channel.messages.push(m); channel.localPts = m.pts; }
+  }
+  const REPLIES = [
+    ['bruno_pesquisa', 'Boa! Chegou aqui em tempo real.'],
+    ['karen_ml', 'Recebido 👍'],
+    ['heitor_net', 'Confirmo, pts sequencial por aqui também.'],
+  ];
+  let replyIdx = 0;
+  function sendChat(text) {
+    const m = serverMessage(ME, text);
+    log('http', `POST /api/channels/cafe/messages → 201`, `{ data: { pts: ${m.pts} } }`);
+    channel.messages.push(m); channel.localPts = m.pts;
+    day.groupMsgs++;
+    log('ws', `message:new pts ${m.pts} → sala channel:cafe`, 'chegou também pelo WebSocket: pts ≤ local → duplicata, ignora');
+    render();
+    const [a, t] = REPLIES[replyIdx++ % REPLIES.length];
+    setTimeout(() => { deliver(serverMessage(a, t)); if (state.view === 'channel') render(); }, 1400);
+  }
+  function toggleReaction(id, emoji) {
+    const m = channel.messages.find((x) => x.id === id);
+    const set = (m.reactions[emoji] ||= new Set());
+    const on = !set.has(ME);
+    on ? set.add(ME) : set.delete(ME);
+    log('http', `${on ? 'POST' : 'DELETE'} /api/channels/cafe/messages/${short(id)}/reactions${on ? '' : '/' + emoji} → 200`, `{ emoji: "${emoji}", count: ${set.size}, reacted: ${on} }`);
+    log('ws', 'message:reactions → sala channel:cafe', 'payload sem "reacted": cada cliente mantém a própria marcação');
+    render();
+  }
+  channel.offlineMissed = [];
+  function dropConnection() {
+    channel.connected = false;
+    state.gapNote = null;
+    log('ws', 'disconnect (simulado)', `último pts aplicado: ${channel.localPts}`);
+    render();
+    const burst = [['diego_ops', 'Alguém viu o alerta de disco no servidor de testes?'], ['leo_infra', 'Vi, já limpei os artefatos de build.'], ['iris_prof', 'Obrigada! A aula de amanhã depende dele 🙏']];
+    burst.forEach(([a, t], i) => setTimeout(() => { deliver(serverMessage(a, t)); if (state.view === 'channel') render(); }, 500 + i * 650));
+  }
+  function reconnect() {
+    channel.connected = true;
+    log('ws', `connect → channel:subscribe → ack {ok:true, pts:${channel.pts}}`);
+    if (channel.pts > channel.localPts) {
+      log('note', `lacuna detectada: local ${channel.localPts} < servidor ${channel.pts}`);
+      const missing = channel.offlineMissed.filter((m) => m.pts > channel.localPts);
+      log('http', `GET /api/channels/cafe/difference?pts=${channel.localPts} → 200`, `{ data: ${missing.length} mensagens, meta: { pts: ${channel.pts}, too_long: false } }`);
+      if (missing.length) state.gapNote = { before: missing[0].id, text: `recuperadas via /difference: pts ${missing[0].pts}–${missing.at(-1).pts}` };
+      missing.forEach((m) => { m.recovered = true; channel.messages.push(m); });
+      channel.localPts = channel.pts;
+    } else {
+      log('note', 'sem lacuna: nada a buscar');
+    }
+    channel.offlineMissed = [];
+    render();
+  }
+
+  // ---------- Eventos ----------
+  const sheet = document.getElementById('sheet');
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('button, article');
+    if (!t) return;
+    const d = t.dataset;
+    if (d.openlog !== undefined) { logPanel.classList.add('open'); unseen = 0; document.getElementById('log-unseen').hidden = true; return; }
+    if (d.closelog !== undefined) { logPanel.classList.remove('open'); return; }
+    if (d.opensheet !== undefined) { state.tab = 'seguindo'; if (state.view !== 'home') go('home'); else render(); sheet.hidden = false; setTimeout(() => document.getElementById('compose-sheet').focus(), 50); return; }
+    if (d.closesheet !== undefined) { sheet.hidden = true; return; }
+    if (d.tab) { state.tab = d.tab; state.shownFy = PAGE; if (d.tab === 'interesses') logForYou(); else readTimeline(); render(); return; }
+    if (d.why) { state.why.has(d.why) ? state.why.delete(d.why) : state.why.add(d.why); render(); return; }
+    if (d.feedback) {
+      const id = d.id, kind = d.feedback;
+      state.fb[id] = kind;
+      learnFrom(posts.get(id), kind);
+      log('http', `POST /api/posts/${short(id)}/feedback → 200`, `{ kind: "${kind}" }${kind === 'less' ? ' · INSERT hidden_posts: o post some do seu feed' : ''}`);
+      if (kind === 'less') hiddenFy.add(id);
+      toast(kind === 'more' ? 'Anotado: mais posts assim.' : 'Anotado: menos posts assim.');
+      render(); return;
+    }
+    if (d.moreFy !== undefined) { state.shownFy += PAGE; logForYou(`&next_token=${state.shownFy - PAGE}`); render(); return; }
+    if (d.mute) { const i = algo.muted.indexOf(d.mute); i >= 0 ? algo.muted.splice(i, 1) : algo.muted.push(d.mute); log('http', 'PUT /api/feed/preferencias → 200', `muted_topics: [${algo.muted.join(', ')}]`); render(); return; }
+    if (d.kwdel) { algo.keywords = algo.keywords.filter((k) => k !== d.kwdel); log('http', 'PUT /api/feed/preferencias → 200', `keywords: [${algo.keywords.join(', ')}]`); render(); return; }
+    if (d.resetLearn !== undefined) { learned.topics = {}; learned.authors = {}; hiddenFy.clear(); state.fb = {}; log('http', 'DELETE /api/feed/aprendizado → 200', 'apaga learned_topics, learned_authors e hidden_posts'); toast('Aprendizado apagado.'); render(); return; }
+    if (d.tip) return tip(d.tip);
+    if (d.skip) { day.skipped.add(d.skip); log('http', `POST /api/missoes/${d.skip}/pular → 200`, 'pular não tem custo'); render(); return; }
+    if (d.simMinutes !== undefined) return beat(5, true);
+    if (d.simTip !== undefined) return simulateReceivedTip();
+    if (d.simDay !== undefined) { day = newDay(day.n + 1); startDay(); toast(`Dia ${day.n}: missões renovadas`); render(); return; }
+    if (d.nav) { if (d.nav === 'me') { state.stack = []; openProfile(ME); } else go(d.nav); return; }
+    if (d.profile) { e.stopPropagation(); openProfile(d.profile); return; }
+    if (d.like) return toggleLike(d.like);
+    if (d.repost) return toggleRepost(d.repost);
+    if (d.reply) { openThread(d.reply); setTimeout(() => document.getElementById('compose-reply')?.focus(), 50); return; }
+    if (d.follow) return toggleFollow(d.follow);
+    if (d.more !== undefined) {
+      const ids = sourceFor(state.view).slice(0, state.shown);
+      state.shown += PAGE;
+      if (state.view === 'home') log('http', `GET /api/timeline?max_results=${PAGE}&until_id=${short(ids.at(-1))} → 200`, 'cursor exclusivo: só IDs menores que o último exibido, sem duplicar');
+      else log('http', `GET …?max_results=${PAGE}&until_id=${short(ids.at(-1))} → 200`);
+      render(); return;
+    }
+    if (d.simPost !== undefined) return simulatePost();
+    if (d.reveal !== undefined) return revealPending();
+    if (d.back !== undefined) { const prev = state.stack.pop(); if (prev) { Object.assign(state, prev); render(); } else go('home'); return; }
+    if (d.react) return toggleReaction(d.react, d.emoji);
+    if (d.drop !== undefined) return dropConnection();
+    if (d.reconnect !== undefined) return reconnect();
+    if (d.open && !(state.view === 'thread' && state.focal === d.open)) openThread(d.open);
+  });
+  const putPrefs = (detail) => log('http', 'PUT /api/feed/preferencias → 200', detail);
+  document.addEventListener('input', (e) => {
+    const el = e.target, a = el.dataset.algo;
+    if (el.type === 'range' && a) {
+      const v = Number(el.value);
+      if (a === 'w') { algo.weights[el.dataset.key] = v / 100; document.getElementById(el.id + '-v').textContent = v + '%'; document.querySelectorAll('[data-share]').forEach((sp) => { sp.textContent = shareOf(sp.dataset.share) + '%'; }); }
+      else if (a === 't') { algo.topics[el.dataset.key] = v / 100; document.getElementById(el.id + '-v').textContent = v + '%'; }
+      else if (a === 'div') { algo.diversity = v / 100; document.getElementById('div-v').textContent = v + '%'; }
+      else if (a === 'limit') { algo.session_limit = v; document.getElementById('limit-v').textContent = v; }
+      return;
+    }
+    if (e.target.tagName !== 'TEXTAREA') return;
+    if (e.target.id !== 'compose-sheet') state.draft = e.target.value;
+    updateCounter(e.target);
+  });
+  document.addEventListener('change', (e) => {
+    const el = e.target, a = el.dataset.algo;
+    if (!a) return;
+    if (a === 'half') algo.half_life = Number(el.value);
+    if (a === 'hide') algo.hide_metrics = el.checked;
+    putPrefs(a === 'w' ? `weights.${el.dataset.key} = ${algo.weights[el.dataset.key]}` : a === 't' ? `topics.${el.dataset.key} = ${algo.topics[el.dataset.key]}` : a === 'div' ? `diversity = ${algo.diversity}` : a === 'limit' ? `session_limit = ${algo.session_limit}` : a === 'half' ? `half_life_hours = ${algo.half_life}` : `hide_metrics = ${algo.hide_metrics}`);
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { sheet.hidden = true; logPanel.classList.remove('open'); } });
+  document.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target;
+    if (f.dataset.kwform !== undefined) {
+      const k = f.querySelector('input').value.trim().toLowerCase();
+      if (k.length >= 2 && !algo.keywords.includes(k) && algo.keywords.length < 20) { algo.keywords.push(k); putPrefs(`keywords: [${algo.keywords.join(', ')}]`); }
+      render(); return;
+    }
+    if (f.dataset.chat !== undefined) {
+      const input = f.querySelector('input');
+      const text = input.value.trim();
+      if (!text) return;
+      if (!channel.connected) { log('note', 'offline: reconecte para enviar'); return; }
+      sendChat(text); return;
+    }
+    const ta = f.querySelector('textarea');
+    const text = ta.value.trim();
+    if (!text || text.length > 280) return;
+    state.draft = '';
+    if (f.dataset.compose === 'compose-sheet') { const id = createPost(ME, text); state.fresh.add(id); state.shown++; ta.value = ''; updateCounter(ta); sheet.hidden = true; }
+    else if (f.dataset.compose === 'compose-reply') { const id = createPost(ME, text, state.focal); state.fresh.add(id); }
+    else { const id = createPost(ME, text); state.fresh.add(id); state.shown++; }
+    render();
+  });
+
+  // Estado inicial: login + primeira página
+  log('http', 'POST /api/auth/login → 200', '{ login: "ana_dev" } → { token: "eyJhbGciOi…", user }');
+  log('ws', 'connect (auth.token = JWT) → entra na sala user:ana_dev');
+  startDay();
+  go('home');
+})();
+</script>
+</body>
+</html>
