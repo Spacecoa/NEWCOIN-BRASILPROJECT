@@ -33,7 +33,10 @@ router.get('/algoritmo', (_req, res) => {
   res.json(describeAlgorithm());
 });
 
-router.get('/interesses', requireAuth, async (req, res) => {
+// Cada página recalcula o ranking (CPU). Uma sessão normal usa 2–3 pedidos; o limite protege o
+// servidor de uma única conta pedindo sem parar (ver docs/10-seguranca-e-dos.md, achado C1).
+const interestsLimiter = rateLimit({ name: 'feed:interests', limit: 120, windowSec: 15 * 60 });
+router.get('/interesses', requireAuth, interestsLimiter, async (req, res) => {
   const { next_token: token, max_results: limit } = parse(
     z.object({ next_token: z.coerce.number().int().min(0).optional(), max_results: z.coerce.number().int().min(1).max(50).default(20) }),
     req.query,

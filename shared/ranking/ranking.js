@@ -153,23 +153,42 @@ export function similarity(a, b) {
 /**
  * Reordena por relevância com penalidade de redundância (Maximal Marginal Relevance):
  * a cada passo escolhe o item que maximiza score − λ · (similaridade máxima com os 5 últimos escolhidos).
+ *
+ * Desempenho: para em `limit` itens (o limite da sessão), em vez de ordenar todos os candidatos,
+ * e prepara os conjuntos de tópicos e os IDs uma única vez. Custo O(n · limit · janela) em vez de
+ * O(n² · janela). O resultado é idêntico ao da versão completa cortada em `limit` (ver testes).
  */
-export function diversify(items, lambda, window = 5) {
-  const pool = [...items];
+export function diversify(items, lambda, window = 5, limit = Infinity) {
+  const pool = items.map((it) => ({ it, id: BigInt(it.post.id), author: it.post.author_id, topics: new Set(it.topics) }));
+  const sim = (a, b) => {
+    if (a.author === b.author) return 1;
+    if (!a.topics.size || !b.topics.size) return 0;
+    let inter = 0;
+    for (const t of a.topics) if (b.topics.has(t)) inter++;
+    return inter / (a.topics.size + b.topics.size - inter);
+  };
   const out = [];
-  while (pool.length) {
+  const picked = [];
+  const max = Math.min(limit, pool.length);
+  while (out.length < max) {
     let best = 0;
     let bestVal = -Infinity;
-    const recent = out.slice(-window);
+    const recent = picked.slice(-window);
     for (let i = 0; i < pool.length; i++) {
-      const penalty = recent.length ? Math.max(...recent.map((r) => similarity(pool[i], r))) : 0;
-      const val = pool[i].score - lambda * penalty;
-      if (val > bestVal || (val === bestVal && BigInt(pool[i].post.id) > BigInt(pool[best].post.id))) {
+      let penalty = 0;
+      for (const r of recent) {
+        const v = sim(pool[i], r);
+        if (v > penalty) penalty = v;
+      }
+      const val = pool[i].it.score - lambda * penalty;
+      if (val > bestVal || (val === bestVal && pool[i].id > pool[best].id)) {
         best = i;
         bestVal = val;
       }
     }
-    out.push(pool.splice(best, 1)[0]);
+    const [chosen] = pool.splice(best, 1);
+    picked.push(chosen);
+    out.push(chosen.it);
   }
   return out;
 }
@@ -182,7 +201,7 @@ export function rank(posts, ctx) {
     if (r) scored.push({ post, ...r });
   }
   scored.sort((a, b) => b.score - a.score || (BigInt(b.post.id) > BigInt(a.post.id) ? 1 : -1));
-  return diversify(scored, ctx.settings.diversity).slice(0, ctx.settings.session_limit);
+  return diversify(scored, ctx.settings.diversity, 5, ctx.settings.session_limit);
 }
 
 /** Descrição pública do algoritmo (servida em GET /api/feed/algoritmo). */
