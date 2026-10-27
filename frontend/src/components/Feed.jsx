@@ -124,7 +124,7 @@ export default function Feed({ endpoint, live = false, emptyText = 'Nada por aqu
         <button
           type="button"
           onClick={showPending}
-          className="w-full border-b border-zinc-200 py-3 text-sm font-semibold text-brand-600 hover:bg-brand-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+          className="mx-auto my-2 flex min-h-11 items-center rounded-full bg-brand-50 px-5 text-sm font-extrabold text-brand-700 dark:bg-brand-600/15 dark:text-brand-100"
         >
           Mostrar {pending.size} {pending.size === 1 ? 'post novo' : 'posts novos'}
         </button>
@@ -143,7 +143,7 @@ export default function Feed({ endpoint, live = false, emptyText = 'Nada por aqu
           <span className="text-sm text-zinc-500">Carregando…</span>
         ) : (
           !done && ids.length > 0 && (
-            <button type="button" onClick={() => loadMore()} className="text-sm text-brand-600 hover:underline">
+            <button type="button" onClick={() => loadMore()} className="min-h-11 rounded-full px-4 text-sm font-semibold text-brand-600 hover:bg-brand-50 dark:hover:bg-zinc-900">
               Carregar mais
             </button>
           )

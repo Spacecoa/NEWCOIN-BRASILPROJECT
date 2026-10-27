@@ -3,6 +3,7 @@ import { useParams } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Avatar from '../components/Avatar.jsx';
 import Feed from '../components/Feed.jsx';
+import Icon from '../components/Icon.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
 
@@ -13,7 +14,7 @@ const TABS = [
 
 export default function Profile() {
   const { username } = useParams();
-  const { user: me } = useAuth();
+  const { user: me, logout } = useAuth();
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('posts');
@@ -42,17 +43,23 @@ export default function Profile() {
 
   return (
     <>
-      <PageHeader title={profile.display_name} subtitle={`${m.post_count} posts`} />
-      <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
+      <PageHeader back={!isMe} title={profile.display_name} subtitle={`${m.post_count} posts`}>
+        {isMe && (
+          <button onClick={logout} aria-label="Sair" className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 md:hidden dark:hover:bg-zinc-900">
+            <Icon name="logout" />
+          </button>
+        )}
+      </PageHeader>
+      <div className="px-4 pb-4">
         <div className="flex items-start justify-between">
           <Avatar user={profile} size="lg" />
           {!isMe && (
             <button
               onClick={toggleFollow}
-              className={`rounded-full px-4 py-1.5 font-semibold ${
+              className={`min-h-11 rounded-full px-5 font-extrabold ${
                 profile.relationship.following
-                  ? 'border border-zinc-300 hover:border-rose-300 hover:text-rose-600 dark:border-zinc-700'
-                  : 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                  ? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'
+                  : 'bg-brand-600 text-white'
               }`}
             >
               {profile.relationship.following ? 'Seguindo' : 'Seguir'}
@@ -62,7 +69,7 @@ export default function Profile() {
         <h2 className="mt-3 text-xl font-bold">{profile.display_name}</h2>
         <p className="text-zinc-500">
           @{profile.username}
-          {profile.relationship?.followed_by && <span className="ml-2 rounded bg-zinc-100 px-1.5 text-xs dark:bg-zinc-800">Segue você</span>}
+          {profile.relationship?.followed_by && <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-900">Segue você</span>}
         </p>
         <p className="text-xs text-zinc-400" title="Handle federado (WebFinger)">{profile.handle}</p>
         {profile.bio && <p className="mt-2">{profile.bio}</p>}
@@ -74,14 +81,14 @@ export default function Profile() {
           <span><b>{m.followers_count}</b> <span className="text-zinc-500">Seguidores</span></span>
         </p>
       </div>
-      <div role="tablist" className="flex border-b border-zinc-200 dark:border-zinc-800">
+      <div role="tablist" className="flex gap-2 px-4 pb-2">
         {TABS.map(([key, label]) => (
           <button
             key={key}
             role="tab"
             aria-selected={tab === key}
             onClick={() => setTab(key)}
-            className={`flex-1 py-3 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-900 ${tab === key ? 'border-b-2 border-brand-600 font-semibold' : 'text-zinc-500'}`}
+            className={`min-h-10 rounded-full px-4 text-sm ${tab === key ? 'bg-zinc-900 font-extrabold text-white dark:bg-white dark:text-zinc-900' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900'}`}
           >
             {label}
           </button>

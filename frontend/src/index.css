@@ -1,16 +1,52 @@
 @import "tailwindcss";
 
+/* Design: mobile first e minimalista.
+   - Uma família arredondada (Nunito; SF Pro Rounded via ui-rounded nos aparelhos Apple).
+   - Neutros + uma única cor de destaque (brand). Espaço no lugar de linhas.
+   - Classes sem prefixo valem para o celular; md:/lg: acrescentam colunas. */
 @theme {
-  --color-brand-50: #ecfdf3;
-  --color-brand-100: #d1fadf;
-  --color-brand-500: #12a150;
-  --color-brand-600: #0e8a44;
-  --color-brand-700: #0b6e37;
+  --font-sans: "Nunito", ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+
+  --color-brand-50: #eefbf4;
+  --color-brand-100: #d5f5e3;
+  --color-brand-500: #16a35a;
+  --color-brand-600: #10864a;
+  --color-brand-700: #0c6a3b;
 }
 
 html {
   color-scheme: light dark;
+  -webkit-tap-highlight-color: transparent;
 }
 body {
-  @apply bg-white text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+  @apply bg-white font-sans text-[15px] leading-relaxed text-zinc-900 antialiased dark:bg-[#0b0d0c] dark:text-zinc-100;
+}
+
+/* Áreas seguras (notch e barra do sistema) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+.animate-sheet {
+  animation: sheet-up 0.22s ease-out;
 }
