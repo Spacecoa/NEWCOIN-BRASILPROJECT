@@ -78,15 +78,15 @@ npm install
 npm run dev         # http://localhost:5173  (faz proxy de /api e /socket.io para :4000)
 ```
 
-Entre com **`ana_dev` / `senha1234`** (todos os usuários do seed usam essa senha). Para ver o tempo real, abra uma janela anônima com `bruno_pesquisa`, poste algo e veja o aviso "Mostrar 1 post novo" aparecer para a Ana. Ou converse no canal **Café ☕**.
+Entre com o e-mail **`ana_dev@exemplo.test`** e a senha **`senha1234`**. Todos os usuários do seed seguem o padrão `<usuário>@exemplo.test` e usam essa senha. Para sair, use o botão **Sair** (no celular, fica no seu perfil). Para ver o tempo real, abra uma janela anônima com `bruno_pesquisa`, poste algo e veja o aviso "Mostrar 1 post novo" aparecer para a Ana. Ou converse no canal **Café ☕**.
 
 Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL, com o mesmo resultado.
 
 ### Testes
 
 ```bash
-cd backend  && npm test   # 139 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
-cd frontend && npm test   # 43 testes: lógica e componentes (jsdom)
+cd backend  && npm test   # 143 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd frontend && npm test   # 46 testes: lógica e componentes (jsdom)
 ```
 
 Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL`. Os testes de integração **apagam** o banco de teste e o banco 1 do Redis.
@@ -95,7 +95,7 @@ Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL
 
 ```bash
 TOKEN=$(curl -s localhost:4000/api/auth/login -H 'content-type: application/json' \
-  -d '{"login":"ana_dev","password":"senha1234"}' | jq -r .token)
+  -d '{"email":"ana_dev@exemplo.test","password":"senha1234"}' | jq -r .token)
 
 # O token de acesso dura 15 min; o app renova sozinho pelo cookie de sessão.
 # Home "Seguindo", 5 por página

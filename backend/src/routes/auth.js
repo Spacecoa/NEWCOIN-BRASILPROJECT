@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { config } from '../config.js';
-import { authenticate, checkPassword, requireAuth, signToken } from '../lib/auth.js';
+import { authenticate, checkPassword, dummyHash, requireAuth, signToken } from '../lib/auth.js';
 import { parse, unauthorized } from '../lib/errors.js';
 import { rateLimit } from '../lib/rateLimit.js';
 import { registerWithInvite } from '../services/invites.js';
@@ -57,10 +57,14 @@ const registerSchema = z.object({
   invite_code: z.string().trim().toLowerCase().regex(/^[a-z0-9]{8}$/, 'código de convite inválido').optional(),
 });
 
-const loginSchema = z.object({
-  login: z.string().min(1), // e-mail ou username
-  password: z.string().min(1),
-});
+// O app entra com e-mail e senha. "login" (e-mail ou usuário) continua aceito para scripts antigos.
+const loginSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().pipe(z.email('e-mail inválido')).optional(),
+    login: z.string().trim().min(1).max(254).optional(),
+    password: z.string().min(1).max(128),
+  })
+  .refine((v) => v.email || v.login, { message: 'informe o e-mail', path: ['email'] });
 
 // Limite de tentativas por IP para mitigar força bruta.
 const authLimiter = rateLimit({ name: 'auth', limit: 20, windowSec: 15 * 60, key: (req) => req.ip });
@@ -72,10 +76,13 @@ router.post('/register', authLimiter, async (req, res) => {
 });
 
 router.post('/login', authLimiter, async (req, res) => {
-  const { login, password } = parse(loginSchema, req.body);
-  const row = await findUserForLogin(login);
-  // Mesma mensagem para usuário inexistente e senha errada (evita enumeração de contas).
-  if (!row || !(await checkPassword(password, row.password_hash))) throw unauthorized('Credenciais inválidas');
+  const { email, login, password } = parse(loginSchema, req.body);
+  const row = await findUserForLogin(email ?? login);
+  // Mesma mensagem E o mesmo tempo para conta inexistente e senha errada: o bcrypt roda
+  // sempre (contra um hash falso quando a conta não existe), então ninguém descobre
+  // quais e-mails estão cadastrados medindo a demora da resposta.
+  const ok = await checkPassword(password, row?.password_hash ?? (await dummyHash()));
+  if (!row || !ok) throw unauthorized('E-mail ou senha incorretos');
   await startSession(req, res, formatUser(row));
 });
 

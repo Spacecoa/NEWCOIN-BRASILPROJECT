@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { checkPassword, dummyHash } from '../src/lib/auth.js';
 import { api, resetDb, signup } from './helpers.js';
 
 describe('autenticação', () => {
@@ -42,5 +43,38 @@ describe('autenticação', () => {
     expect((await api().get('/api/auth/me').set('Authorization', 'Bearer xyz')).status).toBe(401);
     const tampered = token.slice(0, -2) + (token.endsWith('aa') ? 'bb' : 'aa');
     expect((await api().get('/api/auth/me').set('Authorization', `Bearer ${tampered}`)).status).toBe(401);
+  });
+
+  it('entra com e-mail e senha (sem diferenciar maiúsculas no e-mail)', async () => {
+    const { user } = await signup('alice');
+    const res = await api().post('/api/auth/login').send({ email: '  ALICE@Exemplo.test ', password: 'senha1234' });
+    expect(res.status).toBe(200);
+    expect(res.body.user.id).toBe(user.id);
+    const me = await api().get('/api/auth/me').set('Authorization', `Bearer ${res.body.token}`);
+    expect(me.body.user.username).toBe('alice');
+  });
+
+  it('e-mail errado, senha errada ou conta inexistente: a mesma resposta', async () => {
+    await signup('alice');
+    const wrongPass = await api().post('/api/auth/login').send({ email: 'alice@exemplo.test', password: 'errada123' });
+    const noAccount = await api().post('/api/auth/login').send({ email: 'ninguem@exemplo.test', password: 'errada123' });
+    for (const r of [wrongPass, noAccount]) {
+      expect(r.status).toBe(401);
+      expect(r.body.error).toBe('E-mail ou senha incorretos');
+    }
+  });
+
+  it('e-mail malformado ou ausente é recusado antes de consultar o banco', async () => {
+    const bad = await api().post('/api/auth/login').send({ email: 'nao-e-email', password: 'x' });
+    expect(bad.status).toBe(400);
+    const missing = await api().post('/api/auth/login').send({ password: 'x' });
+    expect(missing.status).toBe(400);
+    expect(missing.body.details[0]).toMatchObject({ path: 'email', message: 'informe o e-mail' });
+  });
+
+  it('conta inexistente também paga o custo do bcrypt (não dá para medir quem existe)', async () => {
+    const h = await dummyHash();
+    expect(h).toMatch(/^\$2[aby]\$04\$/); // mesmo custo dos hashes reais nos testes
+    expect(await checkPassword('qualquer', h)).toBe(false);
   });
 });
