@@ -11,6 +11,7 @@ export default function Layout() {
   useActivityBeat(Boolean(user));
   const items = [
     ['/', 'home', 'Início'],
+    ['/brasil', 'chart', 'Brasil'],
     ['/explorar', 'search', 'Explorar'],
     ['/mencoes', 'at', 'Menções'],
     ['/canais', 'channels', 'Canais'],
@@ -20,7 +21,7 @@ export default function Layout() {
     <div className="mx-auto flex min-h-dvh max-w-5xl">
       <nav aria-label="Principal" className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col gap-1 px-3 py-6 md:flex">
         <p className="mb-6 px-3 text-2xl font-extrabold tracking-tight text-brand-600">ágora</p>
-        {[...items.slice(0, 4), ['/missoes', 'sprout', 'Missões'], ['/carteira', 'wallet', 'Carteira'], items[4], ...(user.is_moderator ? [['/moderacao', 'shield', 'Moderação']] : []), ['/regras', 'book', 'Regras']].map(([to, icon, label]) => (
+        {[...items.slice(0, 5), ['/missoes', 'sprout', 'Missões'], ['/carteira', 'wallet', 'Carteira'], items[5], ...(user.is_moderator ? [['/moderacao', 'shield', 'Moderação']] : []), ['/regras', 'book', 'Regras']].map(([to, icon, label]) => (
           <NavLink
             key={to}
             to={to}

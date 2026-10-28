@@ -1,6 +1,6 @@
 # Informação oficial e aberta sobre o desenvolvimento brasileiro, com verificação tripla
 
-**Data:** 28/10/2026 · **Tipo:** análise e proposta (nada implementado ainda) · **Foco:** integração com o app social
+**Data:** 28/10/2026 · **Tipo:** análise e proposta, com a primeira parte implementada (§12) · **Foco:** integração com o app social
 
 ## 1. Em linguagem simples
 
@@ -242,3 +242,33 @@ Um **canal de transmissão** (o tipo que já existe, inspirado no Telegram) publ
 - Notas da comunidade e algoritmo de ponte: [Community Notes by X (análise)](https://www.lesswrong.com/posts/sx9wTyCp5kgy8xGac/community-notes-by-x) · [abordagem de ponte contra desinformação](https://arxiv.org/pdf/2410.12699) · [estabilidade do consenso](https://arxiv.org/pdf/2601.14002)
 
 > Observação sobre o Comprova: cada checagem é revisada por **pelo menos três jornalistas de outros veículos** que não participaram da apuração. É a mesma lógica da conferência B desta proposta: confirmar com quem não tem a mesma origem.
+
+## 12. Implementado: aba "Brasil em dados"
+
+Em vez de deixar as pessoas anexarem dados aos posts (§7.1), a primeira versão é uma **aba própria**, **Brasil**, no menu principal. Ela mostra só dados da realidade que pesam no dia a dia, de fontes oficiais e independentes, sem opinião nem ranking.
+
+| Tema | Indicador | Origem | Conferência |
+|---|---|---|---|
+| Preços | Inflação (IPCA) em 12 meses | IBGE, tabela 1737, variável 2265 | Banco Central SGS 13522 republica: deve bater |
+| Comida | Custo da cesta básica (São Paulo) | DIEESE | IPCA Alimentação e bebidas (SGS 1635, acumulado em 12 meses): mesma direção |
+| Trabalho | Desemprego | IBGE PNAD Contínua, tabela 6381, variável 4099 | Banco Central SGS 24369 republica: deve bater |
+| Desenvolvimento | Crescimento do PIB (mesmo trimestre do ano anterior) | IBGE, tabela 5932, variável 6561 | IBC-Br (SGS 24363, variação em 12 meses): método distinto, mesma direção |
+| Dinheiro | Selic (meta) | Banco Central, SGS 432 | Não existe outra fonte: é uma decisão do Copom |
+
+**Como funciona:**
+- **Catálogo:** `backend/src/official/catalog.js` lista os indicadores, as fontes, o papel de cada uma (origem, cópia ou independente), as tolerâncias e o texto "por que importa".
+- **Leitura:** os leitores ficam em `backend/src/official/adapters.js`. Cada indicador tem uma **trava de código**: o nome que a fonte devolve precisa conter o trecho esperado. Se um código estiver errado, o cartão mostra o problema em vez de um número trocado.
+- **Coleta:** `backend/src/official/service.js` busca as fontes a cada 6 horas (`OFFICIAL_DATA_REFRESH_MIN`; 0 desliga). Guarda a resposta original com sha256, registra revisões (valor anterior e data) e, se a fonte cair, mantém o último dado bom.
+- **Selos:** calculados como na §3.3: Confirmado, Fonte única, Fontes divergem, Desatualizado, Parcial e Sem dados.
+- **Rotas:**
+  - `GET /api/dados` e `GET /api/dados/:id` são públicas;
+  - `POST /api/moderacao/dados/atualizar` força a coleta e é só da moderação.
+- **No app:** cada cartão traz o número grande, o período, a variação, uma linha do histórico, o "por que importa" e **"De onde vem este número?"**. Essa parte mostra as três conferências, cada fonte com o valor e a data, o hash do original e o link para a fonte.
+
+### O que ainda precisa ser validado
+
+1. **Rede.** O ambiente de nuvem onde o protótipo foi construído não alcança `servicodados.ibge.gov.br`, `api.bcb.gov.br` nem `www.dieese.org.br`. Por isso a aba aparece com "Sem dados ainda" e o motivo. Rodando localmente, com internet, a coleta funciona sem configuração. Para validar na nuvem, é preciso liberar esses domínios nas configurações de rede do ambiente.
+2. **Códigos das séries.** Os códigos acima seguem a documentação pública, mas não puderam ser conferidos ao vivo. A trava de código acusa um código errado do IBGE. Para o Banco Central, a conferência C acusa diferença com a origem.
+3. **Cesta básica.** O DIEESE não tem API documentada: publica a pesquisa em páginas e PDFs mensais. O leitor do DIEESE fica pendente até ser possível ver o formato real com acesso à rede. Até lá, o cartão mostra "fonte ainda não conectada" e, como complemento, a alta dos alimentos no IPCA. **Nenhum valor é inventado.**
+
+Os testes usam respostas **sintéticas** no formato documentado de cada API (`test/official-data.test.js`) e não dependem de internet.
