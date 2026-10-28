@@ -222,7 +222,7 @@ sequenceDiagram
 
 ### 3.4 Autenticação
 
-Cadastro com `username`, `email` e `password` (≥ 8, bcrypt com custo 10). Login por e-mail **ou** username, com a mesma mensagem de erro para "não existe" e "senha errada" (evita descobrir contas). O JWT (HS256, 7 dias) vai no header `Authorization: Bearer`, e o Socket.io valida o mesmo token no handshake.
+Cadastro com `username`, `email` e `password` (≥ 8, bcrypt com custo 10). Login por e-mail **ou** username, com a mesma mensagem de erro para "não existe" e "senha errada" (evita descobrir contas). O token de acesso (JWT HS256, 15 minutos, com o id da sessão) vai no header `Authorization: Bearer`, e o Socket.io valida o mesmo token no handshake. A sessão dura 30 dias por um refresh token rotativo em cookie `HttpOnly; SameSite=Strict`, e pode ser encerrada na hora (um aparelho ou todos). Detalhes em [`docs/10` §4.3](10-seguranca-e-dos.md).
 
 ## 4. API (resumo)
 
@@ -232,6 +232,9 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 |---|---|---|---|
 | POST | `/api/auth/register` | — | Cria a conta e devolve `{token, user}` |
 | POST | `/api/auth/login` | — | `{login, password}` → `{token, user}` |
+| POST | `/api/auth/refresh` | cookie | Troca o cookie de sessão por um token novo (rotação) |
+| POST | `/api/auth/logout` | ✔ ou cookie | Encerra a sessão deste aparelho na hora |
+| POST | `/api/auth/logout-all` | ✔ | Encerra as sessões em todos os aparelhos |
 | GET | `/api/auth/me` | ✔ | Usuário atual |
 | GET | `/api/timeline` | ✔ | Home "Seguindo" (cronológica reversa) |
 | GET | `/api/mentions` | ✔ | Posts que mencionam o usuário |

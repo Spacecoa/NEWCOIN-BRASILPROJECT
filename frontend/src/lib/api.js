@@ -1,21 +1,32 @@
-// Cliente HTTP mínimo. O token JWT fica no localStorage — simples para um protótipo
-// local, mas vulnerável a XSS; em produção prefira cookie HttpOnly + SameSite.
-const TOKEN_KEY = 'agora.token';
+// Cliente HTTP mínimo.
+//
+// Sessão em duas peças (ver docs/10-seguranca-e-dos.md, A2):
+//   - token de acesso: dura 15 min e fica SÓ na memória desta aba (não no localStorage,
+//     onde um script injetado poderia copiá-lo e usá-lo por dias);
+//   - refresh: fica num cookie HttpOnly que o JavaScript não lê. Ao abrir o app ou quando
+//     o token de acesso vence, pedimos /api/auth/refresh e recebemos um token novo.
+const LEGACY_TOKEN_KEY = 'agora.token';
+
+let accessToken = null;
+const listeners = new Set();
+
+// Limpa o token de longa duração que versões antigas guardavam no navegador.
+try {
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+} catch {
+  /* armazenamento indisponível */
+}
 
 export const tokenStore = {
-  get: () => {
-    try {
-      return localStorage.getItem(TOKEN_KEY);
-    } catch {
-      return null;
-    }
-  },
+  get: () => accessToken,
   set: (t) => {
-    try {
-      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
-    } catch {
-      /* armazenamento indisponível: sessão vale só nesta aba */
-    }
+    accessToken = t ?? null;
+    for (const fn of listeners) fn(accessToken);
+  },
+  /** Avisa quando o token muda (renovação automática ou saída). */
+  subscribe: (fn) => {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
   },
 };
 
@@ -27,12 +38,48 @@ export class ApiError extends Error {
   }
 }
 
-export async function api(path, { method = 'GET', body, token = tokenStore.get() } = {}) {
+async function rawFetch(path, { method = 'GET', body, token }) {
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await fetch(path, {
+    method,
+    headers,
+    credentials: 'same-origin',
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
   const data = await res.json().catch(() => null);
+  return { res, data };
+}
+
+// Vários pedidos podem descobrir ao mesmo tempo que o token venceu: renovamos uma vez só.
+let refreshing = null;
+
+/** Troca o cookie de sessão por um token de acesso novo. Devolve { token, user } ou null. */
+export function refreshSession() {
+  refreshing ??= rawFetch('/api/auth/refresh', { method: 'POST' })
+    .then(({ res, data }) => {
+      if (!res.ok || !data?.token) {
+        tokenStore.set(null);
+        return null;
+      }
+      tokenStore.set(data.token);
+      return data;
+    })
+    .catch(() => null)
+    .finally(() => {
+      refreshing = null;
+    });
+  return refreshing;
+}
+
+export async function api(path, { method = 'GET', body, token = tokenStore.get() } = {}) {
+  let { res, data } = await rawFetch(path, { method, body, token });
+  // Token de acesso vencido: renova pela sessão e tenta de novo, uma vez.
+  if (res.status === 401 && token && !path.startsWith('/api/auth/')) {
+    const fresh = await refreshSession();
+    if (fresh) ({ res, data } = await rawFetch(path, { method, body, token: fresh.token }));
+  }
   if (!res.ok) throw new ApiError(res.status, data);
   return data;
 }

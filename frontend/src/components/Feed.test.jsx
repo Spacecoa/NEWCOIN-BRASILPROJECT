@@ -76,10 +76,9 @@ describe('<Feed>', () => {
   });
 
   it('curtir atualiza contador e estado a partir da resposta do servidor', async () => {
-    localStorage.setItem('agora.token', 'token-de-teste');
     const p = makePost({ text: 'curta' });
     mockFetch([
-      [/\/api\/auth\/me$/, { user: users.ana }],
+      [/\/api\/auth\/refresh$/, { token: 'token-de-teste', user: users.ana }],
       [/\/like$/, { data: { ...p, public_metrics: { ...p.public_metrics, like_count: 1 }, viewer: { liked: true, reposted: false } }, includes: { users: [users.ana], posts: [] } }],
       [/\/api\/posts/, page([p])],
     ]);
@@ -115,11 +114,10 @@ describe('<Feed>', () => {
   });
 
   it('recompensar: transfere 1 token e mostra o erro de saldo com atalho para as missões', async () => {
-    localStorage.setItem('agora.token', 'token-de-teste');
     const p = makePost({ text: 'post do bruno', author_id: '2' });
     const p2 = makePost({ text: 'outro do bruno', author_id: '2' });
     mockFetch([
-      [/\/api\/auth\/me$/, { user: users.ana }],
+      [/\/api\/auth\/refresh$/, { token: 'token-de-teste', user: users.ana }],
       [/\/api\/token$/, { name: 'NewCoin', symbol: 'NWC', tip_amount: 1 }],
       [new RegExp(`/api/posts/${p.id}/recompensa$`), { data: { ...p, public_metrics: { ...p.public_metrics, tip_count: 1 }, viewer: { liked: false, reposted: false, tipped: true } }, includes: { users: [users.bruno], posts: [] } }],
       [/\/api\/posts\?/, page([p, p2])],

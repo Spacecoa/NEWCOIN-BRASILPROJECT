@@ -38,8 +38,8 @@ describe('<WhyPanel>', () => {
     render(wrap(<WhyPanel post={ranked} onHide={onHide} />));
     await userEvent.click(screen.getByRole('button', { name: /Por que este post/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Menos disto' }));
-    expect(calls[0].url).toBe(`/api/posts/${ranked.id}/feedback`);
-    expect(JSON.parse(calls[0].init.body)).toEqual({ kind: 'less' });
+    const fb = calls.find((c) => c.url === `/api/posts/${ranked.id}/feedback`);
+    expect(JSON.parse(fb.init.body)).toEqual({ kind: 'less' });
     expect(onHide).toHaveBeenCalledWith(ranked.id);
     expect(screen.getByText('Anotado: menos posts assim.')).toBeInTheDocument();
   });

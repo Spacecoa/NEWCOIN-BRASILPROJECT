@@ -19,10 +19,15 @@ async function hit(key, windowSec) {
       /* Redis fora do ar: cai para memória */
     }
   }
-  const count = (memory.get(fullKey) ?? 0) + 1;
-  memory.set(fullKey, count);
-  if (memory.size > 10_000) memory.clear();
-  return { count, reset };
+  // Sem Redis: contadores na memória. Ao crescer demais, descarta só as janelas vencidas
+  // (antes zerava tudo, o que devolvia o limite inteiro a quem estava abusando).
+  if (memory.size > 50_000) {
+    for (const [k, v] of memory) if (v.reset <= nowSec) memory.delete(k);
+  }
+  const entry = memory.get(fullKey) ?? { count: 0, reset };
+  entry.count += 1;
+  memory.set(fullKey, entry);
+  return { count: entry.count, reset };
 }
 
 export function rateLimit({ name, limit, windowSec, key = (req) => req.user?.id ?? req.ip }) {

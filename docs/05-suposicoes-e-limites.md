@@ -29,7 +29,7 @@ Todo comportamento "inspirado em" uma plataforma tem uma suposição por trás. 
 
 1. **Sem mídia, quotes, enquetes, edição, bloqueio ou silenciamento.** Simplifica o modelo. Os campos e tabelas necessários estão descritos na arquitetura.
 2. **Contagem simples de caracteres** (`char_length`). O X usa "caracteres ponderados" (alguns contam 2, URLs contam 23).
-3. **JWT no `localStorage`.** Simples para uso local, mas exposto a XSS. Para produção: cookie `HttpOnly` + `SameSite` + rotação de tokens.
+3. **Sessão.** Token de acesso de 15 min só na memória da aba, e renovação por cookie `HttpOnly` + `SameSite=Strict` com rotação (ver `docs/10` §4.3). Em HTTPS, ligue `COOKIE_SECURE=true`.
 4. **Sem verificação de e-mail, recuperação de senha nem 2FA.**
 5. **Fan-out síncrono** dentro da requisição. Bom até milhares de seguidores; acima disso, usar uma fila.
 6. **Reconstrução da timeline sem lock.** Um post criado entre o `SELECT` e o `RPUSH` da reconstrução pode ficar fora do cache até ele expirar (TTL de 1 h) ou ser invalidado. O limite está documentado e é aceito.
