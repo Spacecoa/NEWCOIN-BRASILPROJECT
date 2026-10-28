@@ -9,6 +9,7 @@
 - **Federável:** handles `usuario@instancia`, WebFinger e um outbox ActivityStreams somente leitura.
 - **Algoritmo aberto:** aba "Para você" ordenada pelos interesses que a pessoa declara, com explicação em cada post, controles completos, aprendizado só por ações explícitas e um fim de sessão ("Você está em dia"). Popularidade vale zero por padrão. Cada pessoa escolhe **onde o feed é calculado**: no servidor da instância ou **neste aparelho**, com o mesmo código (`shared/ranking/`); no aparelho, preferências e aprendizado nunca saem do navegador.
 - **Moderação:** silenciar (privado), bloquear (nos dois sentidos, também dentro dos grupos) e denunciar posts ou contas pelo menu "⋯". A denúncia vai para a fila de quem modera a instância, que arquiva, remove o post ou suspende a conta, e quem denunciou acompanha o resultado. As **regras da instância** são públicas, aceitas no cadastro e citadas em toda decisão; quem foi afetado pode **recorrer** uma vez (até quem foi suspenso, pela tela de entrar).
+- **Brasil em dados:** uma aba só com números da realidade: inflação, custo da cesta básica, desemprego, crescimento da economia e juros. Os dados vêm direto de IBGE, Banco Central e DIEESE, com verificação tripla e selo em cada cartão ("De onde vem este número?").
 - **Missões diárias e token interno:** até 4 missões por dia feitas dentro do app (curtir, republicar, comentar, recompensar, tempo ativo, receber quem chegou, responder perguntas, abrir grupos, convidar), verificadas pelas ações reais. Cada uma rende **NewCoin (NWC)**, um token interno que só serve, por enquanto, para recompensar posts de outras pessoas (transferência de 1 NWC, como um like). Sem sequências nem ranking. Convites de uso único.
 
 | Início (celular) | Novo post | Canal em tempo real |
@@ -47,8 +48,9 @@ Também há uma versão publicada em https://claude.ai/artifact/1KYADm2kxRoJqg8r
 | 10 | **Segurança e DoS** (análise, medições e correções propostas) | [`docs/10-seguranca-e-dos.md`](docs/10-seguranca-e-dos.md) |
 | 11 | **Moderação** (silenciar, bloquear, denunciar e a fila da moderação, em linguagem simples) | [`docs/11-moderacao.md`](docs/11-moderacao.md) |
 | 12 | **Regras da instância e recursos** (decisões citam a regra; recurso aceito desfaz a decisão) | [`docs/12-regras-e-recursos.md`](docs/12-regras-e-recursos.md) |
-| 13 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
-| 14 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
+| 13 | **Informação oficial e verificação tripla** (análise: fontes abertas do desenvolvimento brasileiro integradas ao app) | [`docs/13-informacao-oficial-e-verificacao.md`](docs/13-informacao-oficial-e-verificacao.md) |
+| 14 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
+| 15 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
 
 ## Stack
 
@@ -88,8 +90,8 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 ### Testes
 
 ```bash
-cd backend  && npm test   # 173 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
-cd frontend && npm test   # 51 testes: lógica e componentes (jsdom)
+cd backend  && npm test   # 183 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd frontend && npm test   # 53 testes: lógica e componentes (jsdom)
 ```
 
 Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL`. Os testes de integração **apagam** o banco de teste e o banco 1 do Redis.

@@ -398,6 +398,36 @@ span.act { pointer-events: none; }
 .plist { list-style: none; margin: 0; padding: 0; }
 .plist li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-bottom: 1px solid var(--line); }
 
+/* Regras, recursos, grupos e Brasil em dados */
+.rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.rules li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; }
+.rules .n { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 14px; }
+.rules b { display: block; }
+.rules small { color: var(--muted); font-size: 14px; }
+.qcard select { width: 100%; min-height: 44px; border: 0; border-radius: 14px; background: var(--soft); color: var(--ink); font: inherit; padding: 0 12px; margin: 6px 0; }
+.qcard .err2 { color: var(--t-ws); font-size: 14px; font-weight: 700; margin: 4px 0 0; }
+.hiddenmsg { align-self: center; font-size: 12px; color: var(--faint); background: var(--soft); padding: 4px 12px; border-radius: 999px; }
+.mutedmsg { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--faint); }
+.mutedmsg button { min-height: 36px; padding: 0 12px; border-radius: 999px; color: var(--accent); font-weight: 800; }
+.bdintro { color: var(--muted); font-size: 15px; margin: 0 0 10px; }
+.bdnote { background: color-mix(in srgb, var(--t-redis) 14%, transparent); color: var(--ink); border-radius: 18px; padding: 12px 16px; font-size: 14px; margin: 10px 0; }
+.bdsec { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; }
+.bdcard { background: var(--soft); border-radius: 24px; padding: 16px; margin-bottom: 12px; position: relative; overflow: hidden; }
+.bdcard .top2 { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.bdcard h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.bdcard .big { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; margin: 8px 0 0; font-variant-numeric: tabular-nums; }
+.bdcard .per { font-size: 13px; color: var(--muted); }
+.bdcard .why { font-size: 14px; color: var(--muted); margin: 8px 0 0; }
+.bdcard svg.spark { width: 100%; height: 48px; color: var(--accent); margin-top: 6px; }
+.bdbadge { font-size: 12px; font-weight: 800; border-radius: 999px; padding: 2px 10px; background: var(--bg); color: var(--muted); }
+.bdbadge.ok { background: var(--accent-soft); color: var(--accent); }
+.bdbadge.warn { background: color-mix(in srgb, var(--t-redis) 16%, transparent); color: var(--t-redis); }
+.bdcard .ribbon { position: absolute; top: 10px; right: -34px; transform: rotate(35deg); background: var(--t-ws); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .08em; padding: 3px 40px; }
+.bdsrc { list-style: none; margin: 8px 0 0; padding: 0; font-size: 14px; }
+.bdsrc li { padding: 8px 0; border-top: 1px solid var(--line); }
+.bdsrc .role { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); }
+.bdsrc a { color: var(--accent); font-weight: 800; text-decoration: none; }
+
 /* Entrar / sair */
 body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"] .fab { display: none !important; }
 .gate[hidden] { display: none; }
@@ -446,7 +476,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
 <body data-auth="out">
 <header class="intro">
   <h1>Ágora <span>em ação</span></h1>
-  <p>Demonstração interativa com dados fictícios. Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste, recompense posts com o token NWC, cumpra as missões do dia, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
+  <p>Demonstração interativa com dados fictícios. Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste, recompense posts com o token NWC, cumpra as missões do dia, veja os números do país na aba Brasil, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância, cita as regras e decide recursos) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
 </header>
 
 <section class="gate" id="gate" aria-label="Entrar">
@@ -922,9 +952,20 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     golpe: 'Golpe, fraude ou se passar por outra pessoa',
     outro: 'Outro motivo (explique)',
   };
+  const RULES = [
+    ['Respeite as pessoas', 'Sem assédio, ameaças, ataques pessoais ou perseguição. Discordar é bem-vindo; atacar quem discorda, não.'],
+    ['Sem discurso de ódio', 'Nada que ataque ou desumanize pessoas por raça, etnia, religião, gênero, orientação sexual, deficiência, origem ou classe.'],
+    ['Sem golpes nem se passar por outra pessoa', 'Nunca peça senha, códigos ou dados de acesso. Não finja ser outra pessoa, marca ou instituição.'],
+    ['Sem spam', 'Nada de propaganda repetitiva, correntes, links em massa ou contas automáticas sem aviso.'],
+    ['Proteja a privacidade', 'Não publique dados pessoais de outras pessoas sem consentimento.'],
+    ['O NWC não é dinheiro', 'Não prometa ganhos, não venda e não troque NWC por dinheiro, produtos ou favores.'],
+    ['Nada ilegal', 'Não use a rede para combinar, divulgar ou incentivar crimes.'],
+  ].map(([title, description], i) => ({ id: i + 1, position: i + 1, title, description }));
+  const ruleLabel = (r) => (r ? `Regra ${r.position}: ${r.title}` : '');
   const RESOLUTION = { arquivar: 'A moderação não viu violação das regras.', remover_post: 'O post foi removido.', suspender: 'A conta foi suspensa.' };
   const MODERATORS = new Set([ME]);
-  const mod = { muted: new Set(), blocked: new Set(), suspended: new Set(), reports: [], menu: null, umenu: false, confirmBlock: false, note: null, report: null, qtab: 'aberta', confirm: null };
+  const mod = { muted: new Set(), blocked: new Set(), suspended: new Set(), reports: [], menu: null, umenu: false, confirmBlock: false, note: null, report: null, qtab: 'aberta', confirm: null, sanctions: [], removed: new Map(), revealed: new Set(), ruleErr: null };
+  let sanctionSeq = 0;
   let reportSeq = 0;
   const spamPost = keyToId.s1;
   [['bruno_pesquisa', 'golpe', 'Pede senha das pessoas em troca de token. O NWC nem tem valor.'], ['karen_ml', 'spam', '']].forEach(([who, reason, details]) => {
@@ -970,14 +1011,16 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     sliders: 'M4 7h9m4 0h3M4 17h3m4 0h9M15 5v4M9 15v4',
     circle: 'M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
     more: 'M5 12h.01M12 12h.01M19 12h.01',
+    chart: 'M4 20V11m5.3 9V5m5.4 15v-7m5.3 7V8M3 20.5h18',
+    book: 'M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5zm0 15A1.5 1.5 0 0 0 6.5 21H19',
     flag: 'M5 21V4m0 0h11l-1.5 4L16 12H5',
     mute: 'M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1zm12.5-.5 5 5m0-5-5 5',
     block: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM5.6 5.6l12.8 12.8',
     shield: 'M12 3 5 6v5c0 4.4 3 8.3 7 10 4-1.7 7-5.6 7-10V6z',
   };
   const svgI = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${PATHS[name]}"/></svg>`;
-  const NAV = [['home', 'home', 'Início'], ['explore', 'search', 'Explorar'], ['mentions', 'at', 'Menções'], ['channel', 'channels', 'Canal'], ['missions', 'sprout', 'Missões'], ['me', 'user', 'Perfil']];
-  const SIDE_NAV = [...NAV.slice(0, 5), ['wallet', 'wallet', 'Carteira'], NAV[5], ['moderation', 'shield', 'Moderação']];
+  const NAV = [['home', 'home', 'Início'], ['brasil', 'chart', 'Brasil'], ['explore', 'search', 'Explorar'], ['mentions', 'at', 'Menções'], ['channel', 'channels', 'Canal'], ['me', 'user', 'Perfil']];
+  const SIDE_NAV = [...NAV.slice(0, 5), ['missions', 'sprout', 'Missões'], ['wallet', 'wallet', 'Carteira'], NAV[5], ['moderation', 'shield', 'Moderação'], ['rules', 'book', 'Regras']];
 
   const n = (x) => (x > 0 ? `<span>${x}</span>` : '');
   function whyHTML(p, r) {
@@ -1079,7 +1122,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (r.step === 'form') {
       panel.innerHTML = `<div class="grab"><span></span></div>
         <h2 id="rsheet-title">${r.postId ? 'Denunciar post' : 'Denunciar @' + r.u}</h2>
-        <p class="sub">A moderação desta instância vai analisar. @${r.u} não fica sabendo quem denunciou.</p>
+        <p class="sub">A moderação desta instância vai analisar com base nas <button type="button" class="mention" data-nav="rules" data-rclose>regras</button>. @${r.u} não fica sabendo quem denunciou.</p>
         <form data-reportform>
           <fieldset><legend>Qual é o problema?</legend>
             ${Object.entries(REASONS).map(([id, label]) => `<label class="rr"><input type="radio" name="reason" value="${id}" ${r.reason === id ? 'checked' : ''}> <span>${label}</span></label>`).join('')}
@@ -1117,7 +1160,59 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   }
 
   function myLinksHTML() {
-    return `<div class="mylinks"><button class="chip" data-nav="privacy">${svgI('block', 'sm')} Bloqueios e denúncias</button>${MODERATORS.has(ME) ? `<button class="chip" data-nav="moderation">${svgI('shield', 'sm')} Fila da moderação</button>` : ''}</div>`;
+    return `<div class="mylinks"><button class="chip" data-nav="privacy">${svgI('block', 'sm')} Bloqueios e denúncias</button><button class="chip" data-nav="rules">${svgI('book', 'sm')} Regras da instância</button>${MODERATORS.has(ME) ? `<button class="chip" data-nav="moderation">${svgI('shield', 'sm')} Fila da moderação</button>` : ''}</div>`;
+  }
+
+  // Aba "Brasil em dados": a demo roda sem internet, então não lê as fontes. Ela mostra a
+  // estrutura real (indicadores, fontes, papéis, selos) e, se a pessoa pedir, o layout com
+  // valores de EXEMPLO marcados em cada cartão. Nenhum número é apresentado como real.
+  const BD = [
+    { id: 'inflacao', section: 'Preços', title: 'Inflação (IPCA) em 12 meses', unit: '%', why: 'Quanto os preços subiram, em média, no último ano. Se o seu salário subiu menos do que isso, ele compra menos.', badge: ['Fonte única, conferida', 'info'],
+      sources: [['Origem (quem produz)', 'IBGE', 'https://sidra.ibge.gov.br/tabela/1737'], ['Confere a cópia', 'Banco Central', 'https://www3.bcb.gov.br/sgspub/']], ex: 4.5 },
+    { id: 'comida', section: 'Comida', title: 'Custo da cesta básica', unit: 'R$', why: 'Quanto custa, por mês, a cesta de alimentos básicos de uma pessoa adulta na capital. Comparar com o salário mínimo mostra quanto do salário vai para comer.', badge: ['Confirmado por 3 conferências', 'ok'],
+      sources: [['Origem (quem produz)', 'DIEESE', 'https://www.dieese.org.br/cesta/'], ['Fonte independente', 'IBGE (alimentos no IPCA)', 'https://sidra.ibge.gov.br/']], ex: 700 },
+    { id: 'emprego', section: 'Trabalho', title: 'Desemprego', unit: '%', why: 'Parte das pessoas que querem trabalhar e procuraram emprego, mas não acharam. Não conta quem desistiu de procurar.', badge: ['Fonte única, conferida', 'info'],
+      sources: [['Origem (quem produz)', 'IBGE (PNAD Contínua)', 'https://sidra.ibge.gov.br/tabela/6381'], ['Confere a cópia', 'Banco Central', 'https://www3.bcb.gov.br/sgspub/']], ex: 7 },
+    { id: 'economia', section: 'Desenvolvimento', title: 'Crescimento da economia (PIB)', unit: '%', why: 'Quanto a produção do país cresceu em relação ao mesmo trimestre do ano anterior. Crescer não garante que a vida melhore para todos, mas sem crescer fica mais difícil.', badge: ['Fontes divergem', 'warn'],
+      sources: [['Origem (quem produz)', 'IBGE (Contas Nacionais)', 'https://sidra.ibge.gov.br/tabela/5932'], ['Fonte independente', 'Banco Central (IBC-Br)', 'https://www3.bcb.gov.br/sgspub/']], ex: 2 },
+    { id: 'juros', section: 'Dinheiro', title: 'Juros básicos (Selic)', unit: '% ao ano', why: 'A taxa que serve de base para os juros de empréstimos, financiamentos e do cartão. Quando sobe, comprar a prazo fica mais caro.', badge: ['Fonte única, conferida', 'info'],
+      sources: [['Origem (quem produz)', 'Banco Central (Copom)', 'https://www.bcb.gov.br/controleinflacao/historicotaxasjuros']], ex: 10 },
+  ];
+  const bd = { example: false, open: new Set() };
+  const fmtBR = (v, unit) => { const n = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: unit === 'R$' ? 2 : 1, maximumFractionDigits: unit === 'R$' ? 2 : 1 }).format(v); return unit === 'R$' ? `R$ ${n}` : unit === '%' ? `${n}%` : `${n} ${unit}`; };
+  function spark(seed) {
+    const pts = Array.from({ length: 12 }, (_, i) => 0.5 + 0.35 * Math.sin(i / 2 + seed));
+    const xy = pts.map((v, i) => [4 + (i / 11) * 232, 44 - v * 36]);
+    const d = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+    const [lx, ly] = xy.at(-1);
+    return `<svg class="spark" viewBox="0 0 240 48" aria-hidden="true"><path d="${d} L${lx},48 L4,48 Z" fill="currentColor" opacity=".08"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="${lx}" cy="${ly}" r="3.5" fill="currentColor"/></svg>`;
+  }
+  function renderBrasil() {
+    let html = header('Brasil em dados', 'Fontes oficiais e independentes', `<button class="chip" data-bd-example>${bd.example ? 'Ocultar exemplo' : 'Ver layout com valores de exemplo'}</button>`);
+    html += `<p class="bdintro">Números sobre preços, comida, trabalho e economia, lidos direto de quem os produz e conferidos três vezes. Aqui não há opinião nem ranking: só o dado, a data e de onde ele vem.</p>`;
+    html += `<div class="bdnote">${bd.example ? '<b>Valores de EXEMPLO, não são dados reais.</b> Servem só para mostrar como os cartões ficam.' : '<b>Esta demo roda sem internet, então não lê as fontes.</b> No app de verdade, os números vêm direto do IBGE, do Banco Central e do DIEESE, a cada 6 horas.'}</div>`;
+    html += `<details class="panel"><summary style="cursor:pointer;font-weight:800">Como conferimos</summary><p><b>1. Origem:</b> o dado vem de quem o produz, e a resposta original fica guardada.</p><p><b>2. Fonte independente:</b> outra instituição ou outro método mede a mesma coisa. Se discordar, mostramos as duas.</p><p><b>3. Consistência:</b> quem republica precisa bater com a origem, e o dado não pode estar velho.</p></details>`;
+    let sec = null;
+    for (const [i, ind] of BD.entries()) {
+      if (ind.section !== sec) { sec = ind.section; html += `<h2 class="bdsec">${sec}</h2>`; }
+      const open = bd.open.has(ind.id);
+      html += `<article class="bdcard" aria-label="${esc(ind.title)}">${bd.example ? '<span class="ribbon">EXEMPLO</span>' : ''}
+        <div class="top2"><h3>${esc(ind.title)}</h3><span class="bdbadge ${bd.example ? ind.badge[1] : ''}">${bd.example ? ind.badge[0] : 'Sem dados na demo'}</span></div>
+        ${bd.example ? `<p class="big">${fmtBR(ind.ex, ind.unit)}</p><div class="per">valor de exemplo · não é dado real</div>${spark(i)}` : '<p class="big" style="color:var(--faint)">—</p>'}
+        <p class="why">${esc(ind.why)}</p>
+        <button class="chip" style="margin-top:8px" data-bd-open="${ind.id}" aria-expanded="${open}">${open ? 'Fechar' : 'De onde vem este número?'}</button>
+        ${open ? `<ul class="bdsrc">${ind.sources.map(([role, inst, url]) => `<li><div class="role">${role}</div><b>${esc(inst)}</b><br><a href="${url}" target="_blank" rel="noopener">Ver na fonte ↗</a></li>`).join('')}</ul>${ind.id === 'juros' ? '<p class="per">É uma decisão do Banco Central, não uma medição: só existe uma fonte.</p>' : ''}` : ''}
+      </article>`;
+    }
+    return html + `<p class="per" style="margin:8px 0 16px">Os dados oficiais são públicos e podem ser reutilizados citando a fonte (Decreto 8.777/2016). O Ágora mostra o número e a origem; a interpretação é de cada pessoa.</p>`;
+  }
+
+  function renderRules() {
+    return header('Regras da instância', 'Valem para todas as pessoas daqui', '', state.stack.length > 0)
+      + `<p class="bdintro">Quem se cadastra aceita estas regras. Quando a moderação remove um post ou suspende uma conta, ela diz qual regra foi quebrada, e quem foi afetado pode recorrer uma vez.</p>
+        <ol class="rules">${RULES.map((r) => `<li><span class="n">${r.position}</span><span><b>${esc(r.title)}</b><small>${esc(r.description)}</small></span></li>`).join('')}</ol>
+        <section class="panel" style="margin-top:16px"><h2>Como a moderação decide</h2><p><b>Arquivar:</b> a denúncia não mostrou violação. <b>Remover post:</b> o post sai do ar, citando a regra. <b>Suspender conta:</b> a conta não entra mais, citando a regra.</p>
+        <h2 style="margin-top:12px">Como recorrer</h2><p>Cada decisão aceita um recurso. Se for aceito, o post volta ou a conta é reativada. Quem modera: @${ME}.</p></section>`;
   }
 
   function renderPrivacy() {
@@ -1128,10 +1223,11 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     return header('Bloqueios e denúncias', 'Só você vê esta página', '', state.stack.length > 0)
       + `<section class="sec"><h2>Bloqueados</h2><p class="hint">Vocês não veem os posts um do outro e ninguém consegue seguir, responder ou curtir o outro.</p>${people(mod.blocked, 'data-unblock-u', 'Desbloquear', 'Você não bloqueou ninguém.')}</section>`
       + `<section class="sec"><h2>Silenciados</h2><p class="hint">Os posts não aparecem nos seus feeds nem nas menções. A pessoa não fica sabendo.</p>${people(mod.muted, 'data-unmute-u', 'Deixar de silenciar', 'Você não silenciou ninguém.')}</section>`
-      + `<section class="sec"><h2>Suas denúncias</h2><p class="hint">A moderação analisa cada uma. Quem foi denunciado não sabe quem denunciou.</p>${mine.length ? mine.map((r) => `<div class="qcard"><div class="top2"><b>${r.postText != null ? 'Post de @' + r.target : 'Conta @' + r.target}</b><span class="statuspill ${r.status === 'aberta' ? 'open' : ''}">${r.status === 'aberta' ? 'Em análise' : r.status === 'acatada' ? 'Acatada' : 'Arquivada'}</span></div>${r.postText ? `<blockquote>${esc(r.postText)}</blockquote>` : ''}<div class="det2">Enviada ${rel(r.created)}${r.resolution ? ` · ${RESOLUTION[r.resolution]}${r.note ? ' Nota: ' + esc(r.note) : ''}` : ''}</div></div>`).join('') : '<p class="empty" style="padding:8px 0;text-align:left">Você não fez nenhuma denúncia. Use o "⋯" de um post ou perfil.</p>'}</section>`;
+      + `<section class="sec"><h2>Suas denúncias</h2><p class="hint">A moderação analisa cada uma. Quem foi denunciado não sabe quem denunciou.</p>${mine.length ? mine.map((r) => `<div class="qcard"><div class="top2"><b>${r.postText != null ? 'Post de @' + r.target : 'Conta @' + r.target}</b><span class="statuspill ${r.status === 'aberta' ? 'open' : ''}">${r.status === 'aberta' ? 'Em análise' : r.status === 'acatada' ? 'Acatada' : 'Arquivada'}</span></div>${r.postText ? `<blockquote>${esc(r.postText)}</blockquote>` : ''}<div class="det2">Enviada ${rel(r.created)}${r.resolution ? ` · ${RESOLUTION[r.resolution]}${r.rule ? ' ' + esc(ruleLabel(r.rule)) + '.' : ''}${r.note ? ' Nota: ' + esc(r.note) : ''}` : ''}</div></div>`).join('') : '<p class="empty" style="padding:8px 0;text-align:left">Você não fez nenhuma denúncia. Use o "⋯" de um post ou perfil.</p>'}</section>`;
   }
 
   function renderModeration() {
+    if (mod.qtab === 'recursos') return renderAppeals();
     const list = mod.reports.filter((r) => (mod.qtab === 'aberta' ? r.status === 'aberta' : r.status !== 'aberta')).sort((a, b) => (mod.qtab === 'aberta' ? a.id - b.id : b.id - a.id));
     const openAgainst = (u) => mod.reports.filter((x) => x.target === u && x.status === 'aberta').length;
     const card = (r) => {
@@ -1144,39 +1240,99 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
         ${r.postText != null ? `<blockquote>${esc(r.postText)}${r.postId && !exists ? '<br><small class="handle">(o post já não existe)</small>' : ''}</blockquote>` : ''}
         <div class="det2">${r.details ? `“${esc(r.details)}” — ` : 'Denunciado por '}@${r.reporter}${r.reporter === ME ? ' (você)' : ''}</div>
         ${decided
-          ? `<div class="det2" style="color:var(--ink)">${RESOLUTION[r.resolution]} <span class="handle">por @${r.by} ${rel(r.resolvedAt)}</span>${r.note ? `<br><span class="handle">Nota: ${esc(r.note)}</span>` : ''}${r.resolution === 'suspender' && mod.suspended.has(r.target) ? `<div class="acts" style="margin-top:8px"><button class="chip" data-unsuspend="${r.target}">Reativar @${r.target}</button></div>` : ''}</div>`
+          ? `<div class="det2" style="color:var(--ink)">${RESOLUTION[r.resolution]} ${r.rule ? `<b>${esc(ruleLabel(r.rule))}.</b>` : ''} <span class="handle">por @${r.by} ${rel(r.resolvedAt)}</span>${r.note ? `<br><span class="handle">Nota: ${esc(r.note)}</span>` : ''}${r.resolution === 'suspender' && mod.suspended.has(r.target) ? `<div class="acts" style="margin-top:8px"><button class="chip" data-unsuspend="${r.target}">Reativar @${r.target}</button></div>` : ''}</div>`
           : `<label for="note-${r.id}" hidden>Nota da decisão</label><input id="note-${r.id}" placeholder="Nota da decisão (quem denunciou vê)" maxlength="500" value="${esc(mod.notes?.[r.id] ?? '')}">
              ${conf
-               ? `<div class="qcard" style="background:var(--bg);margin:6px 0 0" role="group" aria-label="Confirmar decisão"><p style="margin:0 0 8px;font-size:14px">${conf === 'remover_post' ? 'O post sai do ar para todo mundo. As outras denúncias deste post são resolvidas junto.' : 'A conta é desconectada na hora, não consegue mais entrar e os posts somem para todos. Dá para reativar depois.'}</p><div class="acts"><button class="btn-danger" data-resolve="${r.id}" data-action="${conf}">${conf === 'remover_post' ? 'Remover post' : 'Suspender conta'}</button><button class="chip" data-confirm-cancel>Cancelar</button></div></div>`
+               ? `<div class="qcard" style="background:var(--bg);margin:6px 0 0" role="group" aria-label="Confirmar decisão"><p style="margin:0 0 8px;font-size:14px">${conf === 'remover_post' ? 'O post sai do ar para todo mundo. As outras denúncias deste post são resolvidas junto.' : 'A conta é desconectada na hora, não consegue mais entrar e os posts somem para todos. Dá para reativar depois.'}</p><label for="rule-${r.id}" style="font-size:14px;font-weight:700">Qual regra foi quebrada?</label><select id="rule-${r.id}"><option value="">Escolha uma regra…</option>${RULES.map((ru) => `<option value="${ru.id}">${esc(ruleLabel(ru))}</option>`).join('')}</select>${mod.ruleErr === r.id ? '<p class="err2" role="alert">Escolha qual regra foi quebrada.</p>' : ''}<div class="acts"><button class="btn-danger" data-resolve="${r.id}" data-action="${conf}">${conf === 'remover_post' ? 'Remover post' : 'Suspender conta'}</button><button class="chip" data-confirm-cancel>Cancelar</button></div></div>`
                : `<div class="acts"><button class="chip" data-resolve="${r.id}" data-action="arquivar">Arquivar</button>${exists ? `<button class="chip warn" data-ask-resolve="${r.id}" data-action="remover_post">Remover post</button>` : ''}${mod.suspended.has(r.target) ? '' : `<button class="chip warn" data-ask-resolve="${r.id}" data-action="suspender">Suspender conta</button>`}</div>`}`}
       </div>`;
     };
     return header('Fila da moderação', 'Denúncias desta instância · a Ana modera', '', state.stack.length > 0)
-      + `<div class="qtabs" role="tablist"><button class="chip" role="tab" aria-selected="${mod.qtab === 'aberta'}" data-qtab="aberta" ${mod.qtab === 'aberta' ? 'style="background:var(--ink);color:var(--bg)"' : ''}>Abertas</button><button class="chip" role="tab" aria-selected="${mod.qtab !== 'aberta'}" data-qtab="decididas" ${mod.qtab !== 'aberta' ? 'style="background:var(--ink);color:var(--bg)"' : ''}>Decididas</button></div>`
+      + qtabsHTML()
       + (list.length ? list.map(card).join('') : `<div class="empty">${mod.qtab === 'aberta' ? 'Nenhuma denúncia esperando decisão.' : 'Nada decidido ainda.'}</div>`);
+  }
+
+  function qtabsHTML() {
+    const t = (k, label) => `<button class="chip" role="tab" aria-selected="${mod.qtab === k}" data-qtab="${k}" ${mod.qtab === k ? 'style="background:var(--ink);color:var(--bg)"' : ''}>${label}</button>`;
+    return `<div class="qtabs" role="tablist">${t('aberta', 'Abertas')}${t('recursos', 'Recursos')}${t('decididas', 'Decididas')}</div>`;
+  }
+
+  function renderAppeals() {
+    const KIND = { post_removido: 'Post removido', suspensao: 'Conta suspensa' };
+    const list = [...mod.sanctions].sort((a, b) => b.id - a.id);
+    const card = (s) => `<div class="qcard">
+        <div class="top2"><span class="reason">${KIND[s.kind]}</span><span class="handle">${rel(s.created)}</span></div>
+        <p style="margin:8px 0 0"><button class="mention" data-profile="${s.user}">@${s.user}</button> · decisão de @${ME}, ${esc(ruleLabel(s.rule))}${s.note ? ` <span class="handle">· ${esc(s.note)}</span>` : ''}</p>
+        ${s.postText ? `<blockquote>${esc(s.postText)}</blockquote>` : ''}
+        ${s.appeal
+          ? `<div class="det2" style="color:var(--ink)"><b>Recurso:</b> “${esc(s.appeal)}”</div>${s.appealStatus === 'aberto'
+              ? `<input id="anote-${s.id}" placeholder="Nota para a pessoa (ela vê)" maxlength="500"><div class="acts"><button class="primary" data-appeal-ok="${s.id}">Aceitar e desfazer</button><button class="chip" data-appeal-no="${s.id}">Manter decisão</button></div>`
+              : `<div class="det2">${s.appealStatus === 'aceito' ? 'Aceito: decisão desfeita' : 'Negado: decisão mantida'}${s.appealNote ? ` · ${esc(s.appealNote)}` : ''}</div>`}`
+          : s.reverted ? '<div class="det2">Decisão desfeita.</div>' : `<div class="acts"><button class="chip" data-sim-appeal="${s.id}">Simular recurso de @${s.user}</button></div>`}
+      </div>`;
+    return header('Fila da moderação', 'Denúncias e recursos desta instância · a Ana modera', '', state.stack.length > 0)
+      + qtabsHTML()
+      + (list.length ? list.map(card).join('') : '<div class="empty">Nenhuma decisão para recorrer ainda. Remova um post ou suspenda uma conta em "Abertas" (citando a regra) e volte aqui.</div>');
+  }
+
+  const APPEAL_TEXT = {
+    promo_rapida: 'Eu só divulgava uma promoção, não pedi senha de ninguém.',
+  };
+  function simulateAppeal(id) {
+    const s = mod.sanctions.find((x) => x.id === id);
+    s.appeal = APPEAL_TEXT[s.user] ?? 'Acho que a decisão foi um engano: peço que revejam.';
+    s.appealStatus = 'aberto';
+    log('http', s.kind === 'suspensao' ? 'POST /api/recursos/suspensao → 201' : `POST /api/conta/decisoes/${id}/recurso → 201`, s.kind === 'suspensao' ? 'a conta suspensa não entra: o recurso confere e-mail e senha (mesmo custo do login)' : 'um recurso por decisão');
+    toast(`@${s.user} recorreu da decisão`);
+    render();
+  }
+  function decideAppeal(id, accept) {
+    const s = mod.sanctions.find((x) => x.id === id);
+    s.appealNote = (document.getElementById('anote-' + id)?.value ?? '').trim();
+    s.appealStatus = accept ? 'aceito' : 'negado';
+    if (accept) {
+      s.reverted = true;
+      if (s.kind === 'suspensao') mod.suspended.delete(s.user);
+      else (mod.removed.get(s.postId) ?? []).forEach((p) => posts.set(p.id, p));
+    }
+    log('http', `POST /api/moderacao/recursos/${id}/decidir → 200`, `{ decision: "${accept ? 'aceitar' : 'negar'}" }${accept ? (s.kind === 'suspensao' ? ' · conta reativada' : ' · UPDATE posts SET removed_at = NULL (o post volta igual)') : ''}`);
+    toast(accept ? 'Recurso aceito: decisão desfeita' : 'Decisão mantida');
+    render();
   }
 
   function resolveReport(id, action) {
     const r = mod.reports.find((x) => x.id === id);
     const note = (document.getElementById('note-' + id)?.value ?? '').trim();
-    const close = (pred) => mod.reports.filter((x) => x.status === 'aberta' && pred(x)).forEach((x) => Object.assign(x, { status: action === 'arquivar' ? 'arquivada' : 'acatada', resolution: action, note, by: ME, resolvedAt: new Date() }));
+    const ruleId = Number(document.getElementById('rule-' + id)?.value || 0);
+    const rule = RULES.find((x) => x.id === ruleId) ?? null;
+    if (action !== 'arquivar' && !rule) {
+      mod.ruleErr = id;
+      log('http', `POST /api/moderacao/denuncias/${id}/resolver → 400`, '{ error: "Cite a regra da instância que foi quebrada" }');
+      mod.notes = { ...(mod.notes || {}), [id]: note };
+      return render();
+    }
+    mod.ruleErr = null;
+    const close = (pred) => mod.reports.filter((x) => x.status === 'aberta' && pred(x)).forEach((x) => Object.assign(x, { status: action === 'arquivar' ? 'arquivada' : 'acatada', resolution: action, note, rule, by: ME, resolvedAt: new Date() }));
+    if (rule) mod.sanctions.push({ id: ++sanctionSeq, user: r.target, kind: action === 'suspender' ? 'suspensao' : 'post_removido', postId: r.postId, postText: r.postText, rule, note, created: new Date(), appeal: null, appealStatus: null, reverted: false });
     if (action === 'arquivar') {
       close((x) => x.id === id);
       log('http', `POST /api/moderacao/denuncias/${id}/resolver → 200`, '{ action: "arquivar" } · nada acontece com a conta');
       toast('Denúncia arquivada');
     } else if (action === 'remover_post') {
       close((x) => x.postId === r.postId);
-      [...posts.values()].filter((p) => p.repostOf === r.postId).forEach((p) => posts.delete(p.id));
-      posts.delete(r.postId);
-      log('http', `POST /api/moderacao/denuncias/${id}/resolver → 200`, '{ action: "remover_post" }');
-      log('sql', 'DELETE FROM posts WHERE id = $1 (pela moderação) · UPDATE reports SET status = acatada WHERE post_id = $1');
+      // Remover esconde (não apaga): se o recurso for aceito, o post volta igual.
+      mod.removed.set(r.postId, [...posts.values()].filter((p) => p.id === r.postId || p.repostOf === r.postId));
+      mod.removed.get(r.postId).forEach((p) => posts.delete(p.id));
+      log('http', `POST /api/moderacao/denuncias/${id}/resolver → 200`, `{ action: "remover_post", rule_id: ${rule.id} }`);
+      log('sql', 'UPDATE posts SET removed_at = now() WHERE id = $1 · UPDATE reports SET status = acatada, rule_id = $2 · INSERT INTO sanctions (post_removido)');
       log('ws', 'emit post:deleted → o post some das telas abertas');
       toast('Post removido');
     } else {
       close((x) => x.target === r.target);
       mod.suspended.add(r.target);
       following[ME].delete(r.target);
-      log('http', `POST /api/moderacao/denuncias/${id}/resolver → 200`, '{ action: "suspender" }');
+      log('http', `POST /api/moderacao/denuncias/${id}/resolver → 200`, `{ action: "suspender", rule_id: ${rule.id} }`);
+      log('sql', 'INSERT INTO sanctions (suspensao, regra citada) · a pessoa vê o motivo na tela de entrar e pode recorrer');
       log('sql', `UPDATE users SET suspended_at = now() WHERE username = ${r.target} · UPDATE reports SET status = acatada (todas contra a conta) · UPDATE sessions SET revoked_at = now()`);
       log('redis', 'SET revoked:sid:… EX 900 (todas as sessões)', 'a conta é desconectada na hora; login passa a responder 403');
       toast(`@${r.target} suspensa`);
@@ -1461,6 +1617,9 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     html += `<div class="gapnote old">histórico anterior (pts 1–9) não carregado</div>`;
     for (const m of channel.messages) {
       if (state.gapNote && state.gapNote.before === m.id) html += `<div class="gapnote">${esc(state.gapNote.text)}</div>`;
+      // Bloqueio ou suspensão: aviso no lugar da mensagem (mesmo pts); silêncio: recolhida.
+      if (blockedOrSuspended(m.author)) { html += `<div class="hiddenmsg">${mod.suspended.has(m.author) ? 'Mensagem de uma conta suspensa' : 'Mensagem oculta por bloqueio'} · pts ${m.pts}</div>`; continue; }
+      if (mod.muted.has(m.author) && !mod.revealed.has(m.id)) { html += `<div class="mutedmsg"><span>Mensagem de @${m.author} (silenciada)</span><button data-reveal-msg="${m.id}">Mostrar</button></div>`; continue; }
       const mine = m.author === ME;
       const reacts = Object.entries(m.reactions).filter(([, s]) => s.size).map(([e, s]) => `<button class="react" data-react="${m.id}" data-emoji="${e}" aria-pressed="${s.has(ME)}">${e} ${s.size}</button>`).join('');
       const add = `<details class="pick"><summary aria-label="Reagir">${svgI('smile', 'sm')}</summary><div class="opts">${REACTION_SET.map((e) => `<button data-react="${m.id}" data-emoji="${e}" aria-label="Reagir com ${e}">${e}</button>`).join('')}</div></details>`;
@@ -1486,10 +1645,13 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     else if (state.view === 'channel') html = renderChannel();
     else if (state.view === 'privacy') html = renderPrivacy();
     else if (state.view === 'moderation') html = renderModeration();
+    else if (state.view === 'rules') html = renderRules();
+    else if (state.view === 'brasil') html = renderBrasil();
     else html = renderFeed(state.view);
     mainEl.innerHTML = html;
     state.fresh.clear();
     const navKey = (state.view === 'profile' && state.profile === ME) || state.view === 'privacy' ? 'me' : state.view === 'algo' ? 'home' : state.view;
+    // (Missões e Regras ficam na barra lateral; no celular, Missões abre pelo atalho do Início.)
     const item = (cls) => ([key, icon, label]) => `<button class="${cls}" data-nav="${key}" ${key === navKey ? 'aria-current="page"' : ''}>${svgI(icon, key === navKey && !['explore', 'mentions', 'missions'].includes(key) ? 'fill' : '')}${label}${key === 'mentions' && state.mentionsUnread ? '<span class="dot" aria-label="menções novas"></span>' : ''}</button>`;
     document.getElementById('side-items').innerHTML = SIDE_NAV.map(item('navbtn')).join('');
     document.getElementById('tab-items').innerHTML = NAV.map(item('tab')).join('');
@@ -1528,6 +1690,8 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   function go(view, opts = {}) {
     mod.menu = null; mod.umenu = false; mod.confirmBlock = false; mod.note = null; mod.confirm = null;
     if (view === 'privacy') log('http', 'GET /api/conta/bloqueados · /api/conta/silenciados · /api/denuncias → 200', 'só a própria pessoa vê');
+    if (view === 'brasil') log('http', 'GET /api/dados → 200', 'indicadores com origem, fontes, conferências A/B/C e selo · na demo, sem conexão às fontes');
+    if (view === 'rules') log('http', 'GET /api/instancia/regras → 200', 'regras públicas, quem modera e a data da última mudança');
     if (view === 'moderation') log('http', `GET /api/moderacao/denuncias?status=aberta → 200`, 'assertModerator(): confere users.is_moderator no banco a cada pedido');
     if (opts.push !== false && (view === 'thread' || view === 'profile' || view === 'algo')) state.stack.push({ view: state.view, focal: state.focal, profile: state.profile });
     if (!['thread', 'profile', 'algo'].includes(view)) state.stack = [];
@@ -1742,8 +1906,14 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (d.unmuteU) { setMute(d.unmuteU, false); render(); return; }
     if (d.undoHide !== undefined) { const n0 = mod.note; (n0.kind === 'mute' ? setMute : setBlock)(n0.u, false); mod.note = null; render(); return; }
     if (d.reportOpen) { const u = d.reportOpen; mod.menu = null; mod.umenu = false; render(); openReport(u, d.reportPost); return; }
-    if (d.rclose !== undefined) { rsheet.hidden = true; mod.report = null; render(); return; }
+    if (d.rclose !== undefined) { rsheet.hidden = true; mod.report = null; if (d.nav) { go(d.nav); return; } render(); return; }
     if (d.rblock !== undefined) { setBlock(mod.report.u, true, null); mod.report.blocked = true; renderReport(); return; }
+    if (d.bdExample !== undefined) { bd.example = !bd.example; render(); return; }
+    if (d.bdOpen) { bd.open.has(d.bdOpen) ? bd.open.delete(d.bdOpen) : bd.open.add(d.bdOpen); render(); return; }
+    if (d.revealMsg) { mod.revealed.add(d.revealMsg); render(); return; }
+    if (d.simAppeal) return simulateAppeal(Number(d.simAppeal));
+    if (d.appealOk) return decideAppeal(Number(d.appealOk), true);
+    if (d.appealNo) return decideAppeal(Number(d.appealNo), false);
     if (d.qtab) { mod.qtab = d.qtab; mod.confirm = null; render(); return; }
     if (d.askResolve) { mod.notes = { ...(mod.notes || {}), [d.askResolve]: document.getElementById('note-' + d.askResolve)?.value ?? '' }; mod.confirm = { id: Number(d.askResolve), action: d.action }; render(); return; }
     if (d.confirmCancel !== undefined) { mod.confirm = null; render(); return; }
@@ -1835,11 +2005,14 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     render();
   });
 
-  // Estado inicial: login + primeira página
-  // Estado inicial: tela de entrar (e-mail e senha). O app só aparece depois do login.
-  log('http', 'POST /api/auth/refresh → 401', 'sem cookie de sessão neste navegador: mostra a tela de entrar');
+  // Estado inicial: já logada como Ana (a tela de entrar só aparece se a pessoa clicar em Sair).
+  log('http', 'POST /api/auth/refresh → 200', 'cookie de sessão (HttpOnly) → token de 15 min · a demo abre já logada como @ana_dev');
+  log('ws', 'connect (auth.token = JWT) → salas user:ana_dev e session:…');
+  sess.devices = 2;
+  document.body.dataset.auth = 'in';
+  gate.hidden = true;
+  startDay();
   go('home');
-  showGate();
 })();
 </script>
 </body>

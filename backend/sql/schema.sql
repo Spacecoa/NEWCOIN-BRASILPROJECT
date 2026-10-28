@@ -348,3 +348,32 @@ CREATE INDEX IF NOT EXISTS sanctions_user_idx ON sanctions (user_id, id DESC);
 CREATE INDEX IF NOT EXISTS sanctions_appeals_idx ON sanctions (appeal_at) WHERE appeal_status = 'aberto';
 -- A regra citada na decisão também fica na denúncia, para quem denunciou ver.
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS rule_id BIGINT REFERENCES instance_rules(id);
+
+-- ---------------------------------------------------------------------------
+-- Aba "Brasil em dados": fontes oficiais com verificação tripla (docs/13)
+-- ---------------------------------------------------------------------------
+
+-- Cada resposta das fontes é guardada como veio (o original nunca é reescrito).
+CREATE TABLE IF NOT EXISTS official_raw (
+  id          BIGINT PRIMARY KEY,
+  source_key  TEXT   NOT NULL,
+  url         TEXT,
+  fetched_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ok          BOOLEAN NOT NULL,
+  sha256      TEXT,
+  body        TEXT,
+  error       TEXT
+);
+CREATE INDEX IF NOT EXISTS official_raw_source_idx ON official_raw (source_key, id DESC);
+
+-- Valores interpretados. Se a fonte revisar um número, o anterior fica em previous_value.
+CREATE TABLE IF NOT EXISTS official_observations (
+  source_key     TEXT    NOT NULL,
+  period         TEXT    NOT NULL,
+  value          NUMERIC NOT NULL,
+  raw_id         BIGINT  NOT NULL REFERENCES official_raw(id),
+  previous_value NUMERIC,
+  revised_at     TIMESTAMPTZ,
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (source_key, period)
+);

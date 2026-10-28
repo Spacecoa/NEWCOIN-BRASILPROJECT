@@ -14,6 +14,7 @@ import Privacy from './pages/Privacy.jsx';
 import Profile from './pages/Profile.jsx';
 import Register from './pages/Register.jsx';
 import Rules from './pages/Rules.jsx';
+import Brasil from './pages/Brasil.jsx';
 import Thread from './pages/Thread.jsx';
 import Wallet from './pages/Wallet.jsx';
 
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="privacidade" element={<Privacy />} />
         <Route path="moderacao" element={<Moderation />} />
         <Route path="regras" element={<Rules />} />
+        <Route path="brasil" element={<Brasil />} />
       </Route>
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/cadastro" element={<Navigate to="/" replace />} />
