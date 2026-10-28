@@ -47,8 +47,9 @@ Também há uma versão publicada em https://claude.ai/artifact/1KYADm2kxRoJqg8r
 | 10 | **Segurança e DoS** (análise, medições e correções propostas) | [`docs/10-seguranca-e-dos.md`](docs/10-seguranca-e-dos.md) |
 | 11 | **Moderação** (silenciar, bloquear, denunciar e a fila da moderação, em linguagem simples) | [`docs/11-moderacao.md`](docs/11-moderacao.md) |
 | 12 | **Regras da instância e recursos** (decisões citam a regra; recurso aceito desfaz a decisão) | [`docs/12-regras-e-recursos.md`](docs/12-regras-e-recursos.md) |
-| 13 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
-| 14 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
+| 13 | **Informação oficial e verificação tripla** (análise: fontes abertas do desenvolvimento brasileiro integradas ao app) | [`docs/13-informacao-oficial-e-verificacao.md`](docs/13-informacao-oficial-e-verificacao.md) |
+| 14 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
+| 15 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
 
 ## Stack
 
