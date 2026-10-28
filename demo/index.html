@@ -1005,7 +1005,41 @@ span.act { pointer-events: none; }
           <p style="margin:4px 0">${esc(u.bio)}</p>
           <div class="stats"><span><b>${following[u.username]?.size ?? 0}</b> Seguindo</span><span><b>${followersOf(u.username).length}</b> Seguidores</span></div>
         </section>`
+      + (isMe ? sessionPanel() : '')
       + (sourceFor('profile').map((id) => postHTML(posts.get(id))).join('') || '<div class="empty">Sem posts ainda.</div>');
+  }
+
+  // Sessão: token de acesso de 15 min, renovado pelo cookie HttpOnly; sair vale na hora.
+  const sess = { devices: 2, confirmAll: false };
+  function sessionPanel() {
+    const other = sess.devices - 1;
+    return `<section class="panel">
+        <h2>Sessão</h2>
+        <p>Você entrou neste aparelho${other ? ` e em mais ${other}` : ''}. O acesso vale 15 minutos e é renovado sozinho, sem pedir senha. "Sair" cancela na hora.</p>
+        ${sess.confirmAll
+          ? `<p><b>Encerrar a sessão em todos os aparelhos, inclusive neste?</b> Use se perdeu um celular ou entrou num computador que não é seu.</p>
+             <div class="row2"><button class="primary" data-logout-all-ok>Sair de todos</button><button class="chip" data-logout-all-cancel>Cancelar</button></div>`
+          : `<div class="row2"><button class="chip" data-sim-expire>Simular 15 min depois</button><button class="chip" data-logout-all>Sair de todos os aparelhos</button></div>`}
+      </section>`;
+  }
+  function simulateExpiry() {
+    log('http', 'GET /api/timeline → 401', 'o token de acesso venceu (dura 15 min)');
+    log('http', 'POST /api/auth/refresh → 200', 'envia o cookie agora_refresh (HttpOnly: o JavaScript da página não lê) → token novo + cookie novo');
+    log('sql', 'UPDATE sessions SET prev_hash = refresh_hash, refresh_hash = sha256(novo) WHERE id = sid AND refresh_hash = sha256(enviado)', 'rotação: se o cookie antigo reaparecer depois de 30 s, é cópia e a sessão é encerrada');
+    log('http', 'GET /api/timeline → 200', 'o mesmo pedido, repetido com o token novo');
+    toast('Token renovado sozinho, sem pedir senha.');
+  }
+  function logoutEverywhere() {
+    const n = sess.devices;
+    log('http', 'POST /api/auth/logout-all → 200', `{ ended: ${n} }`);
+    log('sql', `UPDATE sessions SET revoked_at = now() WHERE user_id = ana_dev AND revoked_at IS NULL → ${n} linhas`);
+    log('redis', `SET revoked:sid:… 1 EX 900  (×${n})`, 'cada pedido confere esta lista: o token de quem copiou deixa de valer na hora');
+    log('ws', 'disconnectSockets(session:…) → a conexão em tempo real do outro aparelho cai');
+    log('note', 'Demo: entrando de novo como Ana para continuar');
+    log('http', 'POST /api/auth/login → 200', 'nova sessão: token de 15 min + cookie HttpOnly, SameSite=Strict');
+    sess.devices = 1; sess.confirmAll = false;
+    toast(`Sessão encerrada em ${n} aparelhos. Você entrou de novo neste.`);
+    render();
   }
 
   const tagFor = (c) => (c.mission ? MISSIONS[c.mission]?.title : '');
@@ -1347,6 +1381,10 @@ span.act { pointer-events: none; }
     if (d.mute) { const i = algo.muted.indexOf(d.mute); i >= 0 ? algo.muted.splice(i, 1) : algo.muted.push(d.mute); log('http', 'PUT /api/feed/preferencias → 200', `muted_topics: [${algo.muted.join(', ')}]`); render(); return; }
     if (d.kwdel) { algo.keywords = algo.keywords.filter((k) => k !== d.kwdel); log('http', 'PUT /api/feed/preferencias → 200', `keywords: [${algo.keywords.join(', ')}]`); render(); return; }
     if (d.resetLearn !== undefined) { learned.topics = {}; learned.authors = {}; hiddenFy.clear(); state.fb = {}; log('http', 'DELETE /api/feed/aprendizado → 200', 'apaga learned_topics, learned_authors e hidden_posts'); toast('Aprendizado apagado.'); render(); return; }
+    if (d.simExpire !== undefined) return simulateExpiry();
+    if (d.logoutAll !== undefined) { sess.confirmAll = true; render(); return; }
+    if (d.logoutAllCancel !== undefined) { sess.confirmAll = false; render(); return; }
+    if (d.logoutAllOk !== undefined) return logoutEverywhere();
     if (d.tip) return tip(d.tip);
     if (d.skip) { day.skipped.add(d.skip); log('http', `POST /api/missoes/${d.skip}/pular → 200`, 'pular não tem custo'); render(); return; }
     if (d.simMinutes !== undefined) return beat(5, true);
@@ -1422,8 +1460,9 @@ span.act { pointer-events: none; }
   });
 
   // Estado inicial: login + primeira página
-  log('http', 'POST /api/auth/login → 200', '{ login: "ana_dev" } → { token: "eyJhbGciOi…", user }');
-  log('ws', 'connect (auth.token = JWT) → entra na sala user:ana_dev');
+  log('http', 'POST /api/auth/login → 200', '{ login: "ana_dev" } → { token (15 min), user } + Set-Cookie: agora_refresh; HttpOnly; SameSite=Strict');
+  log('sql', 'INSERT INTO sessions (id, user_id, refresh_hash, expires_at) → sessão de 30 dias', 'o banco guarda só o hash do cookie');
+  log('ws', 'connect (auth.token = JWT) → salas user:ana_dev e session:…', 'se a pessoa sair, a conexão deste aparelho cai junto');
   startDay();
   go('home');
 })();
