@@ -353,6 +353,51 @@ span.act { pointer-events: none; }
 .specbox { background: var(--soft); border-radius: 20px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
 .specbox code { font-family: var(--mono); font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
 
+/* Moderação */
+.post { position: relative; }
+.post .more-btn { position: absolute; right: 4px; top: 6px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--faint); }
+.post .more-btn:hover { background: var(--bg); color: var(--ink); }
+.post .meta { padding-right: 36px; }
+.pmenu { position: absolute; z-index: 8; right: 8px; top: 46px; width: min(290px, calc(100% - 16px)); background: var(--bg); border-radius: 20px; padding: 6px; box-shadow: 0 10px 32px var(--overlay); cursor: default; }
+.pmenu button.mi { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 12px; border-radius: 14px; text-align: left; font-size: 15px; }
+.pmenu button.mi:hover { background: var(--soft); }
+.pmenu .danger { color: var(--t-ws); }
+.pmenu .ask { padding: 8px 10px; font-size: 14px; }
+.pmenu .ask p { margin: 0 0 10px; }
+.btn-danger { min-height: 44px; background: var(--t-ws); color: #fff; border-radius: 999px; padding: 0 18px; font-weight: 800; }
+.hidenote { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; color: var(--muted); font-size: 14px; border-bottom: 1px solid var(--line); }
+.hidenote button { min-height: 44px; padding: 0 14px; border-radius: 999px; color: var(--accent); font-weight: 800; flex-shrink: 0; }
+.modbadge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 2px 10px; margin-left: 8px; vertical-align: middle; }
+.relnote { background: var(--soft); border-radius: 20px; padding: 12px 16px; margin: 8px 0; font-size: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.relnote button { min-height: 44px; padding: 0 14px; border-radius: 999px; color: var(--accent); font-weight: 800; flex-shrink: 0; }
+.mylinks { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.mylinks button { display: inline-flex; align-items: center; gap: 8px; }
+.rsheet .panel { max-height: 90vh; overflow-y: auto; }
+.rsheet h2 { margin: 6px 0 2px; font-size: 19px; font-weight: 800; }
+.rsheet .sub { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
+.rsheet fieldset { border: 0; margin: 0; padding: 0; }
+.rsheet legend { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.rsheet label.rr { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 0 10px; border-radius: 14px; cursor: pointer; }
+.rsheet label.rr:hover { background: var(--soft); }
+.rsheet input[type=radio] { width: 20px; height: 20px; accent-color: var(--accent); }
+.rsheet textarea { width: 100%; min-height: 80px; border: 0; border-radius: 16px; background: var(--soft); color: var(--ink); font: inherit; padding: 10px 14px; outline: none; resize: none; margin-top: 4px; }
+.rsheet .err { color: var(--t-ws); font-size: 14px; font-weight: 700; margin: 8px 0 0; }
+.rsheet .row3 { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.qtabs { display: flex; gap: 8px; margin: 4px 0 12px; }
+.qcard { background: var(--soft); border-radius: 24px; padding: 14px 16px; margin-bottom: 12px; }
+.qcard .top2 { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.qcard .reason { font-size: 12px; font-weight: 800; color: var(--t-ws); background: color-mix(in srgb, var(--t-ws) 12%, transparent); border-radius: 999px; padding: 2px 10px; }
+.qcard blockquote { margin: 8px 0; background: var(--bg); border-radius: 16px; padding: 10px 12px; font-size: 14px; overflow-wrap: anywhere; }
+.qcard .det2 { font-size: 14px; color: var(--muted); margin: 6px 0; }
+.qcard input { width: 100%; min-height: 44px; border: 0; border-radius: 14px; background: var(--bg); color: var(--ink); font: inherit; padding: 0 14px; outline: none; margin: 6px 0; }
+.qcard .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.qcard .acts .chip { background: var(--bg); }
+.qcard .acts .warn { color: var(--t-ws); }
+.statuspill { font-size: 12px; font-weight: 800; border-radius: 999px; padding: 2px 10px; background: var(--accent-soft); color: var(--accent); }
+.statuspill.open { background: color-mix(in srgb, var(--t-redis) 16%, transparent); color: var(--t-redis); }
+.plist { list-style: none; margin: 0; padding: 0; }
+.plist li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-bottom: 1px solid var(--line); }
+
 /* Entrar / sair */
 body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"] .fab { display: none !important; }
 .gate[hidden] { display: none; }
@@ -401,7 +446,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
 <body data-auth="out">
 <header class="intro">
   <h1>Ágora <span>em ação</span></h1>
-  <p>Demonstração interativa com dados fictícios. Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste, recompense posts com o token NWC, cumpra as missões do dia e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
+  <p>Demonstração interativa com dados fictícios. Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste, recompense posts com o token NWC, cumpra as missões do dia, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
 </header>
 
 <section class="gate" id="gate" aria-label="Entrar">
@@ -443,6 +488,10 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
 <nav class="tabs" aria-label="Principal (celular)" id="tab-items"></nav>
 <button class="logpill" data-openlog>Bastidores <b id="log-unseen" hidden>0</b></button>
 <button class="fab" data-opensheet aria-label="Novo post"><svg class="i" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M12 5v14M5 12h14"/></svg></button>
+<div class="sheet rsheet" id="rsheet" hidden role="dialog" aria-modal="true" aria-labelledby="rsheet-title">
+  <button class="scrim" data-rclose aria-label="Fechar"></button>
+  <div class="panel" id="rsheet-panel"></div>
+</div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-label="Novo post">
   <button class="scrim" data-closesheet aria-label="Fechar"></button>
   <div class="panel">
@@ -486,6 +535,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     ['leo_infra', 'Leonardo Dias', 'Kubernetes de dia, violão à noite.'],
     ['nina_nova', 'Nina Barros', 'Estudo redes comunitárias e rádios livres.'],
     ['otavio_recife', 'Otávio Lins', 'Dados abertos e mapeamento de bairro em Recife.'],
+    ['promo_rapida', 'Promo Rápida', 'Ganhe NWC fácil!!! Link na bio.'],
   ].forEach(([u, n, b], i) => {
     USERS[u] = { username: u, name: n, bio: b, tone: 'av' + (i % 6), id: snowflake(NOW - (30 - i) * 86400000), since: new Date(NOW - (30 - i) * 86400000) };
   });
@@ -500,7 +550,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     iris_prof: new Set(['ana_dev', 'carla_ux', 'gabi_front']), carla_ux: new Set(['gabi_front', 'ana_dev']),
     leo_infra: new Set(['diego_ops', 'ana_dev']), gabi_front: new Set(['carla_ux']), elisa_dados: new Set(['karen_ml']),
     fabio_sec: new Set(['heitor_net']), joao_mobile: new Set(['gabi_front']),
-    nina_nova: new Set(['ana_dev']), otavio_recife: new Set(),
+    nina_nova: new Set(['ana_dev']), otavio_recife: new Set(), promo_rapida: new Set(),
   };
   const followersOf = (u) => Object.keys(following).filter((k) => following[k].has(u));
 
@@ -524,6 +574,8 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     { k: 'p15', a: 'elisa_dados', t: 'Bom dia, rede! Café pronto e testes verdes ☕', m: 8, likes: 1 },
     { k: 'p16', a: 'fabio_sec', t: 'Quem guarda JWT no localStorage precisa pensar em XSS. Cookie HttpOnly existe por um motivo.', m: 130, likes: 3 },
     { k: 'n1', a: 'nina_nova', t: 'Oi! Cheguei agora pelo convite da @ana_dev. Alguém recomenda grupos para quem estuda redes comunitárias?', m: 70 },
+    { k: 's1', a: 'promo_rapida', t: 'GANHE 500 NWC POR DIA!!! Mande sua senha no privado e eu deposito na hora. Vagas limitadas!!!', m: 180 },
+    { k: 's2', a: 'promo_rapida', t: 'Últimas vagas para o esquema de NWC em dobro. Chama no privado!!!', m: 55 },
     { k: 'n2', a: 'otavio_recife', t: 'Primeiro post: trabalho com dados abertos em Recife e quero conectar quem mapeia o próprio bairro.', m: 40 },
   ].sort((x, y) => y.m - x.m);
   const others = Object.keys(USERS).filter((u) => u !== ME);
@@ -534,7 +586,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     const orig = s.repost ? posts.get(keyToId[s.repost]) : null;
     const likes = new Set(others.filter((u) => u !== s.a).slice(i % 4, (i % 4) + (s.likes || 0)));
     if (s.k === 'p8' || s.k === 'p13') likes.add(ME);
-    posts.set(id, { id, author: s.a, text: s.t || '', replyTo: parent ? parent.id : null, repostOf: orig ? orig.id : null, conv: parent ? parent.conv : (orig ? orig.conv : id), likes, tips: new Set(s.repost || NEWCOMERS.includes(s.a) ? [] : others.filter((u) => u !== s.a).slice(i % 5, (i % 5) + (i % 3))), created: new Date(NOW - s.m * 60000) });
+    posts.set(id, { id, author: s.a, text: s.t || '', replyTo: parent ? parent.id : null, repostOf: orig ? orig.id : null, conv: parent ? parent.conv : (orig ? orig.conv : id), likes, tips: new Set(s.repost || NEWCOMERS.includes(s.a) || s.a === 'promo_rapida' ? [] : others.filter((u) => u !== s.a).slice(i % 5, (i % 5) + (i % 3))), created: new Date(NOW - s.m * 60000) });
   });
 
   // ---------- Canal Café (grupo) ----------
@@ -653,6 +705,11 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     amplificar: () => allPosts().filter((p) => !p.repostOf && p.author !== ME && smallVoice(p.author) && !reposted(p.id)).sort(byIdDesc).slice(0, 3).map((p) => ({ type: 'post', id: p.id, username: p.author, text: p.text })),
     conversa_coletiva: () => [{ type: 'channel', slug: 'cafe', title: 'Café' }],
   };
+
+  for (const k of Object.keys(SUGG)) {
+    const f = SUGG[k];
+    SUGG[k] = () => f().filter((x) => !x.username || (!hiddenAuthor(x.username) && !(['ponte', 'amplificar'].includes(k) && underReview(x.username))));
+  }
 
   // Progresso e conclusão, calculados a partir das ações reais do dia
   const PROGRESS = {
@@ -845,7 +902,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   }
   function computeRanking() {
     const now = Date.now();
-    const cands = [...posts.values()].filter((p) => !p.repostOf && p.author !== ME && !hiddenFy.has(p.id) && now - p.created.getTime() < 7 * 86400000).sort((a, b) => (BigInt(b.id) > BigInt(a.id) ? 1 : -1)).slice(0, 500);
+    const cands = [...posts.values()].filter((p) => !p.repostOf && p.author !== ME && !hiddenFy.has(p.id) && !hiddenAuthor(p.author) && now - p.created.getTime() < 7 * 86400000).sort((a, b) => (BigInt(b.id) > BigInt(a.id) ? 1 : -1)).slice(0, 500);
     const scored = cands.map((p) => scoreFy(p, now)).filter(Boolean);
     scored.sort((a, b) => b.score - a.score || (BigInt(b.post.id) > BigInt(a.post.id) ? 1 : -1));
     const ranked = diversifyFy(scored, algo.diversity).slice(0, algo.session_limit);
@@ -854,13 +911,43 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   }
   const isPersonalized = () => Object.values(algo.topics).some((v) => v > 0) || algo.keywords.length > 0 || Object.values(learned.topics).some((e) => decayedVal(e) > 0);
 
+  // ---------- Moderação: silenciar, bloquear, denunciar ----------
+  // Mesmas regras do backend (docs/11-moderacao.md): silenciar é privado e some só dos
+  // feeds; bloquear vale nos dois sentidos; conta suspensa some para todos.
+  const REASONS = {
+    spam: 'Spam ou propaganda repetitiva',
+    assedio: 'Assédio ou ataque a uma pessoa',
+    odio: 'Discurso de ódio ou discriminação',
+    violencia: 'Ameaça ou incentivo à violência',
+    golpe: 'Golpe, fraude ou se passar por outra pessoa',
+    outro: 'Outro motivo (explique)',
+  };
+  const RESOLUTION = { arquivar: 'A moderação não viu violação das regras.', remover_post: 'O post foi removido.', suspender: 'A conta foi suspensa.' };
+  const MODERATORS = new Set([ME]);
+  const mod = { muted: new Set(), blocked: new Set(), suspended: new Set(), reports: [], menu: null, umenu: false, confirmBlock: false, note: null, report: null, qtab: 'aberta', confirm: null };
+  let reportSeq = 0;
+  const spamPost = keyToId.s1;
+  [['bruno_pesquisa', 'golpe', 'Pede senha das pessoas em troca de token. O NWC nem tem valor.'], ['karen_ml', 'spam', '']].forEach(([who, reason, details]) => {
+    mod.reports.push({ id: ++reportSeq, reporter: who, target: 'promo_rapida', postId: spamPost, postText: posts.get(spamPost).text, reason, details, status: 'aberta', created: new Date(NOW - 3 * 3600000) });
+  });
+  const blockedOrSuspended = (u) => mod.blocked.has(u) || mod.suspended.has(u);
+  const hiddenAuthor = (u) => blockedOrSuspended(u) || mod.muted.has(u);
+  const underReview = (u) => mod.reports.some((r) => r.target === u && r.status === 'aberta');
+  // Um post some do feed se o autor (ou o autor do original, num repost) está escondido.
+  const visibleInFeed = (p) => {
+    if (mod.note && p.id === mod.note.postId) return true;
+    const orig = p.repostOf ? posts.get(p.repostOf) : null;
+    return !hiddenAuthor(p.author) && !(orig && hiddenAuthor(orig.author));
+  };
+
   // ---------- Fontes de posts ----------
   const homeIds = () => [...posts.values()].filter((p) => p.author === ME || following[ME].has(p.author)).sort(byIdDesc).map((p) => p.id);
   function sourceFor(view) {
-    if (view === 'home') return homeIds().filter((id) => !state.hidden.has(id));
-    if (view === 'explore') return [...posts.values()].filter((p) => !p.repostOf).sort(byIdDesc).map((p) => p.id);
-    if (view === 'mentions') return [...posts.values()].filter((p) => p.author !== ME && p.text.includes('@' + ME)).sort(byIdDesc).map((p) => p.id);
-    if (view === 'profile') return [...posts.values()].filter((p) => p.author === state.profile).sort(byIdDesc).map((p) => p.id);
+    if (view === 'home') return homeIds().filter((id) => !state.hidden.has(id) && visibleInFeed(posts.get(id)));
+    if (view === 'explore') return [...posts.values()].filter((p) => !p.repostOf && visibleInFeed(p)).sort(byIdDesc).map((p) => p.id);
+    if (view === 'mentions') return [...posts.values()].filter((p) => p.author !== ME && p.text.includes('@' + ME) && visibleInFeed(p)).sort(byIdDesc).map((p) => p.id);
+    // No perfil, silenciados aparecem (a pessoa escolheu abrir); bloqueio e suspensão não.
+    if (view === 'profile') return blockedOrSuspended(state.profile) ? [] : [...posts.values()].filter((p) => p.author === state.profile).sort(byIdDesc).map((p) => p.id);
     return [];
   }
 
@@ -882,10 +969,15 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     check: 'M5 12.5 10 17l9-10',
     sliders: 'M4 7h9m4 0h3M4 17h3m4 0h9M15 5v4M9 15v4',
     circle: 'M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
+    more: 'M5 12h.01M12 12h.01M19 12h.01',
+    flag: 'M5 21V4m0 0h11l-1.5 4L16 12H5',
+    mute: 'M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1zm12.5-.5 5 5m0-5-5 5',
+    block: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM5.6 5.6l12.8 12.8',
+    shield: 'M12 3 5 6v5c0 4.4 3 8.3 7 10 4-1.7 7-5.6 7-10V6z',
   };
   const svgI = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${PATHS[name]}"/></svg>`;
   const NAV = [['home', 'home', 'Início'], ['explore', 'search', 'Explorar'], ['mentions', 'at', 'Menções'], ['channel', 'channels', 'Canal'], ['missions', 'sprout', 'Missões'], ['me', 'user', 'Perfil']];
-  const SIDE_NAV = [...NAV.slice(0, 5), ['wallet', 'wallet', 'Carteira'], NAV[5]];
+  const SIDE_NAV = [...NAV.slice(0, 5), ['wallet', 'wallet', 'Carteira'], NAV[5], ['moderation', 'shield', 'Moderação']];
 
   const n = (x) => (x > 0 ? `<span>${x}</span>` : '');
   function whyHTML(p, r) {
@@ -901,13 +993,19 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
 
   function postHTML(p, { focal = false, rank = null } = {}) {
     const hm = Boolean(rank && algo.hide_metrics);
+    if (mod.note && p.id === mod.note.postId) {
+      const n0 = mod.note;
+      return `<div class="hidenote" role="status"><span>${n0.kind === 'mute' ? `Você silenciou @${n0.u}. Os posts dessa conta não aparecem mais nos seus feeds.` : `Você bloqueou @${n0.u}.`}</span><button data-undo-hide>Desfazer</button></div>`;
+    }
     const shown = p.repostOf ? posts.get(p.repostOf) : p;
-    if (!shown) return '';
+    if (!shown || blockedOrSuspended(shown.author) || blockedOrSuspended(p.author)) return '';
     const u = USERS[shown.author];
+    const menuOpen = mod.menu === p.id;
     const parent = shown.replyTo ? posts.get(shown.replyTo) : null;
     const liked = shown.likes.has(ME);
     const rp = reposted(shown.id);
-    return `<article class="post ${focal ? 'focal' : ''} ${state.fresh.has(p.id) ? 'fresh' : ''}" data-open="${shown.id}">
+    const menu = shown.author === ME ? '' : `<button class="more-btn" data-pmenu="${p.id}" aria-label="Mais opções" aria-haspopup="menu" aria-expanded="${menuOpen}">${svgI('more')}</button>${menuOpen ? menuHTML(shown.author, { postId: shown.id, ctx: p.id }) : ''}`;
+    return `<article class="post ${focal ? 'focal' : ''} ${state.fresh.has(p.id) ? 'fresh' : ''}" data-open="${shown.id}">${menu}
       ${p.repostOf ? `<div class="repost-line">${svgI('repost', 'sm')} ${p.author === ME ? 'Você repostou' : esc(USERS[p.author].name) + ' repostou'}</div>` : ''}
       ${avatar(shown.author)}
       <div style="min-width:0">
@@ -926,6 +1024,165 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
         ${rank ? whyHTML(shown, rank) : ''}
       </div>
     </article>`;
+  }
+
+  // Menu "⋯" (post ou perfil). Bloquear pede confirmação dentro do menu.
+  function menuHTML(u, { postId = null, ctx = null } = {}) {
+    if (mod.confirmBlock) {
+      return `<div class="pmenu" role="menu"><div class="ask"><p><b>Bloquear @${u}?</b> Vocês deixam de ver os posts um do outro, os follows entre vocês são desfeitos e ninguém consegue responder ou curtir o outro.</p><div class="row2"><button class="btn-danger" data-block-u="${u}" data-ctx="${ctx ?? ''}">Bloquear</button><button class="chip" data-menu-cancel>Cancelar</button></div></div></div>`;
+    }
+    const muted = mod.muted.has(u), blocked = mod.blocked.has(u);
+    return `<div class="pmenu" role="menu">
+      <button class="mi" role="menuitem" data-mute-u="${u}" data-ctx="${ctx ?? ''}">${svgI('mute', 'sm')} ${muted ? 'Deixar de silenciar' : 'Silenciar'} @${u}</button>
+      <button class="mi" role="menuitem" ${blocked ? `data-unblock-u="${u}"` : 'data-block-ask'}>${svgI('block', 'sm')} ${blocked ? 'Desbloquear' : 'Bloquear'} @${u}</button>
+      <button class="mi danger" role="menuitem" data-report-open="${u}" data-report-post="${postId ?? ''}">${svgI('flag', 'sm')} ${postId ? 'Denunciar post' : 'Denunciar @' + u}</button>
+    </div>`;
+  }
+
+  function setMute(u, on, ctx) {
+    on ? mod.muted.add(u) : mod.muted.delete(u);
+    log('http', `${on ? 'POST' : 'DELETE'} /api/users/${u}/mute → 200`, `{ muting: ${on} }`);
+    log('sql', on ? `INSERT INTO mutes (user_id, target_id) VALUES (ana_dev, ${u}) ON CONFLICT DO NOTHING` : `DELETE FROM mutes WHERE user_id = ana_dev AND target_id = ${u}`);
+    if (on) log('note', `hydrate() passa a esconder @${u} nos feeds, menções e notificações`, 'perfil e thread continuam visíveis · a outra pessoa não é avisada');
+    mod.note = on && ctx ? { postId: ctx, kind: 'mute', u } : null;
+  }
+  function setBlock(u, on, ctx) {
+    if (on) {
+      mod.blocked.add(u);
+      following[ME].delete(u);
+      following[u]?.delete(ME);
+      log('http', `POST /api/users/${u}/block → 200`, '{ blocking: true }');
+      log('sql', `INSERT INTO blocks … · DELETE FROM follows nos dois sentidos (ana_dev ↔ ${u})`);
+      log('redis', `DEL tl:home:ana_dev · DEL tl:home:${u}`, 'as duas timelines materializadas tinham posts um do outro');
+      log('note', 'seguir, responder, curtir, repostar e recompensar passam a responder 403 entre vocês');
+      state.cacheWarm = false;
+    } else {
+      mod.blocked.delete(u);
+      log('http', `DELETE /api/users/${u}/block → 200`, '{ blocking: false } · os follows desfeitos não voltam');
+      log('sql', `DELETE FROM blocks WHERE user_id = ana_dev AND target_id = ${u}`);
+    }
+    mod.note = on && ctx ? { postId: ctx, kind: 'block', u } : null;
+  }
+
+  // Folha de denúncia
+  const rsheet = document.getElementById('rsheet');
+  function openReport(u, postId) {
+    mod.report = { u, postId: postId || null, reason: null, details: '', step: 'form', error: null, blocked: mod.blocked.has(u) };
+    renderReport();
+    rsheet.hidden = false;
+    setTimeout(() => document.getElementById('rsheet-panel').focus?.(), 30);
+  }
+  function renderReport() {
+    const r = mod.report;
+    const panel = document.getElementById('rsheet-panel');
+    panel.tabIndex = -1;
+    if (r.step === 'form') {
+      panel.innerHTML = `<div class="grab"><span></span></div>
+        <h2 id="rsheet-title">${r.postId ? 'Denunciar post' : 'Denunciar @' + r.u}</h2>
+        <p class="sub">A moderação desta instância vai analisar. @${r.u} não fica sabendo quem denunciou.</p>
+        <form data-reportform>
+          <fieldset><legend>Qual é o problema?</legend>
+            ${Object.entries(REASONS).map(([id, label]) => `<label class="rr"><input type="radio" name="reason" value="${id}" ${r.reason === id ? 'checked' : ''}> <span>${label}</span></label>`).join('')}
+          </fieldset>
+          <label for="rdetails" style="display:block;margin-top:10px;font-size:14px;color:var(--muted)">Detalhes ${r.reason === 'outro' ? '' : '(opcional)'}</label>
+          <textarea id="rdetails" maxlength="500">${esc(r.details)}</textarea>
+          ${r.error ? `<p class="err" role="alert">${r.error}</p>` : ''}
+          <div class="row3"><button class="primary" type="submit">Enviar denúncia</button><button class="chip" type="button" data-rclose>Cancelar</button></div>
+        </form>`;
+    } else {
+      panel.innerHTML = `<div class="grab"><span></span></div>
+        <h2 id="rsheet-title">Denúncia enviada</h2>
+        <p class="sub">Obrigado. A moderação vai analisar e você acompanha o resultado em Perfil › Bloqueios e denúncias.</p>
+        ${r.blocked ? `<p class="ok" style="margin:0;background:var(--accent-soft);color:var(--accent);border-radius:16px;padding:10px 14px;font-weight:700">Você bloqueou @${r.u}.</p>` : `<p class="sub">Se não quiser mais ver @${r.u} enquanto isso, bloqueie a conta.</p>`}
+        <div class="row3">${r.blocked ? '' : `<button class="chip" data-rblock>Bloquear @${r.u}</button>`}<button class="primary" data-rclose>Pronto</button></div>`;
+    }
+  }
+  function submitReport(form) {
+    const r = mod.report;
+    r.reason = form.querySelector('input[name=reason]:checked')?.value ?? null;
+    r.details = form.querySelector('#rdetails').value.trim();
+    if (!r.reason) { r.error = 'Escolha um motivo.'; return renderReport(); }
+    if (r.reason === 'outro' && !r.details) { r.error = 'Explique o motivo em poucas palavras.'; return renderReport(); }
+    const dup = mod.reports.some((x) => x.reporter === ME && x.status === 'aberta' && (r.postId ? x.postId === r.postId : !x.postId && x.target === r.u));
+    if (dup) {
+      log('http', 'POST /api/denuncias → 409', '{ error: "Você já denunciou isto. A moderação vai analisar." }');
+      r.error = 'Você já denunciou isto. A moderação vai analisar.'; return renderReport();
+    }
+    const post = r.postId ? posts.get(r.postId) : null;
+    mod.reports.push({ id: ++reportSeq, reporter: ME, target: r.u, postId: r.postId, postText: post ? post.text : null, reason: r.reason, details: r.details, status: 'aberta', created: new Date() });
+    log('http', 'POST /api/denuncias → 201', JSON.stringify(r.postId ? { post_id: short(r.postId), reason: r.reason } : { username: r.u, reason: r.reason }));
+    log('sql', 'INSERT INTO reports (reporter, target, post_id, post_text, reason, details) · índice único: sem denúncia duplicada aberta', 'o texto do post fica copiado para a moderação decidir mesmo se ele sumir');
+    r.step = 'sent'; r.error = null;
+    renderReport();
+  }
+
+  function myLinksHTML() {
+    return `<div class="mylinks"><button class="chip" data-nav="privacy">${svgI('block', 'sm')} Bloqueios e denúncias</button>${MODERATORS.has(ME) ? `<button class="chip" data-nav="moderation">${svgI('shield', 'sm')} Fila da moderação</button>` : ''}</div>`;
+  }
+
+  function renderPrivacy() {
+    const people = (set, attr, label, empty) => set.size
+      ? `<ul class="plist">${[...set].map((u) => `<li><button data-profile="${u}" style="text-align:left"><b>${esc(USERS[u].name)}</b> <span class="handle">@${u}</span></button><button class="chip" ${attr}="${u}">${label}</button></li>`).join('')}</ul>`
+      : `<p class="empty" style="padding:8px 0;text-align:left">${empty}</p>`;
+    const mine = mod.reports.filter((r) => r.reporter === ME).sort((a, b) => b.id - a.id);
+    return header('Bloqueios e denúncias', 'Só você vê esta página', '', state.stack.length > 0)
+      + `<section class="sec"><h2>Bloqueados</h2><p class="hint">Vocês não veem os posts um do outro e ninguém consegue seguir, responder ou curtir o outro.</p>${people(mod.blocked, 'data-unblock-u', 'Desbloquear', 'Você não bloqueou ninguém.')}</section>`
+      + `<section class="sec"><h2>Silenciados</h2><p class="hint">Os posts não aparecem nos seus feeds nem nas menções. A pessoa não fica sabendo.</p>${people(mod.muted, 'data-unmute-u', 'Deixar de silenciar', 'Você não silenciou ninguém.')}</section>`
+      + `<section class="sec"><h2>Suas denúncias</h2><p class="hint">A moderação analisa cada uma. Quem foi denunciado não sabe quem denunciou.</p>${mine.length ? mine.map((r) => `<div class="qcard"><div class="top2"><b>${r.postText != null ? 'Post de @' + r.target : 'Conta @' + r.target}</b><span class="statuspill ${r.status === 'aberta' ? 'open' : ''}">${r.status === 'aberta' ? 'Em análise' : r.status === 'acatada' ? 'Acatada' : 'Arquivada'}</span></div>${r.postText ? `<blockquote>${esc(r.postText)}</blockquote>` : ''}<div class="det2">Enviada ${rel(r.created)}${r.resolution ? ` · ${RESOLUTION[r.resolution]}${r.note ? ' Nota: ' + esc(r.note) : ''}` : ''}</div></div>`).join('') : '<p class="empty" style="padding:8px 0;text-align:left">Você não fez nenhuma denúncia. Use o "⋯" de um post ou perfil.</p>'}</section>`;
+  }
+
+  function renderModeration() {
+    const list = mod.reports.filter((r) => (mod.qtab === 'aberta' ? r.status === 'aberta' : r.status !== 'aberta')).sort((a, b) => (mod.qtab === 'aberta' ? a.id - b.id : b.id - a.id));
+    const openAgainst = (u) => mod.reports.filter((x) => x.target === u && x.status === 'aberta').length;
+    const card = (r) => {
+      const exists = r.postId && posts.has(r.postId);
+      const conf = mod.confirm && mod.confirm.id === r.id ? mod.confirm.action : null;
+      const decided = r.status !== 'aberta';
+      return `<div class="qcard">
+        <div class="top2"><span class="reason">${REASONS[r.reason]}</span><span class="handle">${rel(r.created)}</span></div>
+        <p style="margin:8px 0 0">${r.postText != null ? 'Post de ' : 'Conta '}<button class="mention" data-profile="${r.target}">@${r.target}</button>${mod.suspended.has(r.target) ? ' <b style="color:var(--t-ws);font-size:12px">suspensa</b>' : ''}${!decided && openAgainst(r.target) > 1 ? ` <span class="handle" style="font-size:13px">· ${openAgainst(r.target)} denúncias abertas contra esta conta</span>` : ''}</p>
+        ${r.postText != null ? `<blockquote>${esc(r.postText)}${r.postId && !exists ? '<br><small class="handle">(o post já não existe)</small>' : ''}</blockquote>` : ''}
+        <div class="det2">${r.details ? `“${esc(r.details)}” — ` : 'Denunciado por '}@${r.reporter}${r.reporter === ME ? ' (você)' : ''}</div>
+        ${decided
+          ? `<div class="det2" style="color:var(--ink)">${RESOLUTION[r.resolution]} <span class="handle">por @${r.by} ${rel(r.resolvedAt)}</span>${r.note ? `<br><span class="handle">Nota: ${esc(r.note)}</span>` : ''}${r.resolution === 'suspender' && mod.suspended.has(r.target) ? `<div class="acts" style="margin-top:8px"><button class="chip" data-unsuspend="${r.target}">Reativar @${r.target}</button></div>` : ''}</div>`
+          : `<label for="note-${r.id}" hidden>Nota da decisão</label><input id="note-${r.id}" placeholder="Nota da decisão (quem denunciou vê)" maxlength="500" value="${esc(mod.notes?.[r.id] ?? '')}">
+             ${conf
+               ? `<div class="qcard" style="background:var(--bg);margin:6px 0 0" role="group" aria-label="Confirmar decisão"><p style="margin:0 0 8px;font-size:14px">${conf === 'remover_post' ? 'O post sai do ar para todo mundo. As outras denúncias deste post são resolvidas junto.' : 'A conta é desconectada na hora, não consegue mais entrar e os posts somem para todos. Dá para reativar depois.'}</p><div class="acts"><button class="btn-danger" data-resolve="${r.id}" data-action="${conf}">${conf === 'remover_post' ? 'Remover post' : 'Suspender conta'}</button><button class="chip" data-confirm-cancel>Cancelar</button></div></div>`
+               : `<div class="acts"><button class="chip" data-resolve="${r.id}" data-action="arquivar">Arquivar</button>${exists ? `<button class="chip warn" data-ask-resolve="${r.id}" data-action="remover_post">Remover post</button>` : ''}${mod.suspended.has(r.target) ? '' : `<button class="chip warn" data-ask-resolve="${r.id}" data-action="suspender">Suspender conta</button>`}</div>`}`}
+      </div>`;
+    };
+    return header('Fila da moderação', 'Denúncias desta instância · a Ana modera', '', state.stack.length > 0)
+      + `<div class="qtabs" role="tablist"><button class="chip" role="tab" aria-selected="${mod.qtab === 'aberta'}" data-qtab="aberta" ${mod.qtab === 'aberta' ? 'style="background:var(--ink);color:var(--bg)"' : ''}>Abertas</button><button class="chip" role="tab" aria-selected="${mod.qtab !== 'aberta'}" data-qtab="decididas" ${mod.qtab !== 'aberta' ? 'style="background:var(--ink);color:var(--bg)"' : ''}>Decididas</button></div>`
+      + (list.length ? list.map(card).join('') : `<div class="empty">${mod.qtab === 'aberta' ? 'Nenhuma denúncia esperando decisão.' : 'Nada decidido ainda.'}</div>`);
+  }
+
+  function resolveReport(id, action) {
+    const r = mod.reports.find((x) => x.id === id);
+    const note = (document.getElementById('note-' + id)?.value ?? '').trim();
+    const close = (pred) => mod.reports.filter((x) => x.status === 'aberta' && pred(x)).forEach((x) => Object.assign(x, { status: action === 'arquivar' ? 'arquivada' : 'acatada', resolution: action, note, by: ME, resolvedAt: new Date() }));
+    if (action === 'arquivar') {
+      close((x) => x.id === id);
+      log('http', `POST /api/moderacao/denuncias/${id}/resolver → 200`, '{ action: "arquivar" } · nada acontece com a conta');
+      toast('Denúncia arquivada');
+    } else if (action === 'remover_post') {
+      close((x) => x.postId === r.postId);
+      [...posts.values()].filter((p) => p.repostOf === r.postId).forEach((p) => posts.delete(p.id));
+      posts.delete(r.postId);
+      log('http', `POST /api/moderacao/denuncias/${id}/resolver → 200`, '{ action: "remover_post" }');
+      log('sql', 'DELETE FROM posts WHERE id = $1 (pela moderação) · UPDATE reports SET status = acatada WHERE post_id = $1');
+      log('ws', 'emit post:deleted → o post some das telas abertas');
+      toast('Post removido');
+    } else {
+      close((x) => x.target === r.target);
+      mod.suspended.add(r.target);
+      following[ME].delete(r.target);
+      log('http', `POST /api/moderacao/denuncias/${id}/resolver → 200`, '{ action: "suspender" }');
+      log('sql', `UPDATE users SET suspended_at = now() WHERE username = ${r.target} · UPDATE reports SET status = acatada (todas contra a conta) · UPDATE sessions SET revoked_at = now()`);
+      log('redis', 'SET revoked:sid:… EX 900 (todas as sessões)', 'a conta é desconectada na hora; login passa a responder 403');
+      toast(`@${r.target} suspensa`);
+    }
+    mod.confirm = null;
+    render();
   }
 
   const composerHTML = (id, placeholder, label) => `<form class="composer" data-compose="${id}">
@@ -954,7 +1211,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
       if (state.hidden.size) html += `<button class="banner" data-reveal>Mostrar ${state.hidden.size} ${state.hidden.size === 1 ? 'post novo' : 'posts novos'}</button>`;
     } else if (view === 'explore') {
       html += header('Explorar', 'Timeline pública desta instância (sem reposts)');
-      const sugg = Object.keys(USERS).filter((u) => u !== ME && !following[ME].has(u));
+      const sugg = Object.keys(USERS).filter((u) => u !== ME && !following[ME].has(u) && !hiddenAuthor(u) && !underReview(u));
       if (sugg.length) html += `<section class="who"><h3>Quem seguir</h3>${sugg.map((u) => `<div class="who-row">${avatar(u, 'sm')}<div class="info"><b>${esc(USERS[u].name)}</b><small>@${u}</small></div><button class="primary" data-follow="${u}">Seguir</button></div>`).join('')}</section>`;
     } else if (view === 'mentions') {
       html += header('Menções', 'Posts que citam @ana_dev');
@@ -1031,17 +1288,22 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     const iFollow = following[ME].has(u.username);
     const followsMe = following[u.username]?.has(ME);
     const count = [...posts.values()].filter((p) => p.author === u.username).length;
-    return header(esc(u.name), `${count} posts`, '', state.stack.length > 0)
+    const blocked = mod.blocked.has(u.username), muted = mod.muted.has(u.username), suspended = mod.suspended.has(u.username);
+    const umenu = isMe ? '' : `<div style="position:relative"><button class="iconbtn" data-umenu aria-label="Mais opções" aria-haspopup="menu" aria-expanded="${mod.umenu}">${svgI('more')}</button>${mod.umenu ? menuHTML(u.username) : ''}</div>`;
+    if (suspended) return header(esc(u.name), 'Conta suspensa', '', state.stack.length > 0) + `<div class="relnote"><span>Esta conta foi suspensa pela moderação da instância.</span></div>`;
+    return header(esc(u.name), `${count} posts`, umenu, state.stack.length > 0)
       + `<section class="profile">
-          <div class="top">${avatar(u.username, 'lg')}${isMe ? '' : `<button class="primary ${iFollow ? 'quiet' : ''}" data-follow="${u.username}">${iFollow ? 'Seguindo' : 'Seguir'}</button>`}</div>
-          <h3>${esc(u.name)}</h3>
+          <div class="top">${avatar(u.username, 'lg')}${isMe || blocked ? '' : `<button class="primary ${iFollow ? 'quiet' : ''}" data-follow="${u.username}">${iFollow ? 'Seguindo' : 'Seguir'}</button>`}</div>
+          <h3>${esc(u.name)}${MODERATORS.has(u.username) ? `<span class="modbadge">${svgI('shield', 'sm')} Moderação</span>` : ''}</h3>
           <div class="handle">@${u.username}${followsMe && !isMe ? '<span class="follows-you">Segue você</span>' : ''}</div>
           <div class="fedi" title="Handle federado, resolvido via WebFinger">${u.username}@agora.local</div>
           <p style="margin:4px 0">${esc(u.bio)}</p>
           <div class="stats"><span><b>${following[u.username]?.size ?? 0}</b> Seguindo</span><span><b>${followersOf(u.username).length}</b> Seguidores</span></div>
         </section>`
-      + (isMe ? sessionPanel() : '')
-      + (sourceFor('profile').map((id) => postHTML(posts.get(id))).join('') || '<div class="empty">Sem posts ainda.</div>');
+      + (blocked ? `<div class="relnote" role="status"><span>Você bloqueou @${u.username}. Vocês não veem os posts um do outro.</span><button data-unblock-u="${u.username}">Desbloquear</button></div>` : '')
+      + (muted && !blocked ? `<div class="relnote" role="status"><span>Você silenciou @${u.username}. Os posts dessa conta não aparecem nos seus feeds.</span><button data-unmute-u="${u.username}">Desfazer</button></div>` : '')
+      + (isMe ? myLinksHTML() + sessionPanel() : '')
+      + (sourceFor('profile').map((id) => postHTML(posts.get(id))).join('') || `<div class="empty">${blocked ? 'Os posts não aparecem por causa do bloqueio.' : 'Sem posts ainda.'}</div>`);
   }
 
   // Sessão: token de acesso de 15 min, renovado pelo cookie HttpOnly; sair vale na hora.
@@ -1086,6 +1348,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     document.getElementById('g-pass').value = '';
     logPanel.classList.remove('open');
     sheet.hidden = true;
+    rsheet.hidden = true;
     window.scrollTo(0, 0);
   }
   function gateError(msg) {
@@ -1221,10 +1484,12 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     else if (state.view === 'thread') html = renderThread();
     else if (state.view === 'profile') html = renderProfile();
     else if (state.view === 'channel') html = renderChannel();
+    else if (state.view === 'privacy') html = renderPrivacy();
+    else if (state.view === 'moderation') html = renderModeration();
     else html = renderFeed(state.view);
     mainEl.innerHTML = html;
     state.fresh.clear();
-    const navKey = state.view === 'profile' && state.profile === ME ? 'me' : state.view === 'algo' ? 'home' : state.view;
+    const navKey = (state.view === 'profile' && state.profile === ME) || state.view === 'privacy' ? 'me' : state.view === 'algo' ? 'home' : state.view;
     const item = (cls) => ([key, icon, label]) => `<button class="${cls}" data-nav="${key}" ${key === navKey ? 'aria-current="page"' : ''}>${svgI(icon, key === navKey && !['explore', 'mentions', 'missions'].includes(key) ? 'fill' : '')}${label}${key === 'mentions' && state.mentionsUnread ? '<span class="dot" aria-label="menções novas"></span>' : ''}</button>`;
     document.getElementById('side-items').innerHTML = SIDE_NAV.map(item('navbtn')).join('');
     document.getElementById('tab-items').innerHTML = NAV.map(item('tab')).join('');
@@ -1261,6 +1526,9 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   }
 
   function go(view, opts = {}) {
+    mod.menu = null; mod.umenu = false; mod.confirmBlock = false; mod.note = null; mod.confirm = null;
+    if (view === 'privacy') log('http', 'GET /api/conta/bloqueados · /api/conta/silenciados · /api/denuncias → 200', 'só a própria pessoa vê');
+    if (view === 'moderation') log('http', `GET /api/moderacao/denuncias?status=aberta → 200`, 'assertModerator(): confere users.is_moderator no banco a cada pedido');
     if (opts.push !== false && (view === 'thread' || view === 'profile' || view === 'algo')) state.stack.push({ view: state.view, focal: state.focal, profile: state.profile });
     if (!['thread', 'profile', 'algo'].includes(view)) state.stack = [];
     state.view = view;
@@ -1287,7 +1555,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   }
   function openProfile(u) {
     state.profile = u;
-    log('http', `GET /api/users/${u} → 200`, 'perfil + public_metrics + relationship {following, followed_by}');
+    log('http', `GET /api/users/${u} → 200`, 'perfil + public_metrics + relationship {following, followed_by, blocking, blocked_by, muting}');
     log('http', `GET /api/users/${u}/posts → 200`);
     go('profile', { push: state.view !== 'profile' || state.profile !== u });
   }
@@ -1462,6 +1730,29 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (d.mute) { const i = algo.muted.indexOf(d.mute); i >= 0 ? algo.muted.splice(i, 1) : algo.muted.push(d.mute); log('http', 'PUT /api/feed/preferencias → 200', `muted_topics: [${algo.muted.join(', ')}]`); render(); return; }
     if (d.kwdel) { algo.keywords = algo.keywords.filter((k) => k !== d.kwdel); log('http', 'PUT /api/feed/preferencias → 200', `keywords: [${algo.keywords.join(', ')}]`); render(); return; }
     if (d.resetLearn !== undefined) { learned.topics = {}; learned.authors = {}; hiddenFy.clear(); state.fb = {}; log('http', 'DELETE /api/feed/aprendizado → 200', 'apaga learned_topics, learned_authors e hidden_posts'); toast('Aprendizado apagado.'); render(); return; }
+    // Fecha menus abertos ao clicar fora deles.
+    if ((mod.menu || mod.umenu) && !e.target.closest('.pmenu, [data-pmenu], [data-umenu]')) { mod.menu = null; mod.umenu = false; mod.confirmBlock = false; render(); if (t.tagName === 'ARTICLE') return; }
+    if (d.pmenu) { e.stopPropagation(); mod.menu = mod.menu === d.pmenu ? null : d.pmenu; mod.confirmBlock = false; render(); return; }
+    if (d.umenu !== undefined) { mod.umenu = !mod.umenu; mod.confirmBlock = false; render(); return; }
+    if (d.blockAsk !== undefined) { mod.confirmBlock = true; render(); return; }
+    if (d.menuCancel !== undefined) { mod.confirmBlock = false; render(); return; }
+    if (d.muteU) { const on = !mod.muted.has(d.muteU); setMute(d.muteU, on, d.ctx || null); mod.menu = null; mod.umenu = false; toast(on ? `Você silenciou @${d.muteU}` : `@${d.muteU} não está mais silenciada`); render(); return; }
+    if (d.blockU) { setBlock(d.blockU, true, d.ctx || null); mod.menu = null; mod.umenu = false; mod.confirmBlock = false; toast(`Você bloqueou @${d.blockU}`); render(); return; }
+    if (d.unblockU) { setBlock(d.unblockU, false); mod.menu = null; mod.umenu = false; render(); return; }
+    if (d.unmuteU) { setMute(d.unmuteU, false); render(); return; }
+    if (d.undoHide !== undefined) { const n0 = mod.note; (n0.kind === 'mute' ? setMute : setBlock)(n0.u, false); mod.note = null; render(); return; }
+    if (d.reportOpen) { const u = d.reportOpen; mod.menu = null; mod.umenu = false; render(); openReport(u, d.reportPost); return; }
+    if (d.rclose !== undefined) { rsheet.hidden = true; mod.report = null; render(); return; }
+    if (d.rblock !== undefined) { setBlock(mod.report.u, true, null); mod.report.blocked = true; renderReport(); return; }
+    if (d.qtab) { mod.qtab = d.qtab; mod.confirm = null; render(); return; }
+    if (d.askResolve) { mod.notes = { ...(mod.notes || {}), [d.askResolve]: document.getElementById('note-' + d.askResolve)?.value ?? '' }; mod.confirm = { id: Number(d.askResolve), action: d.action }; render(); return; }
+    if (d.confirmCancel !== undefined) { mod.confirm = null; render(); return; }
+    if (d.resolve) {
+      const id = Number(d.resolve);
+      if (mod.notes?.[id] !== undefined && !document.getElementById('note-' + id)?.value) { const i = document.getElementById('note-' + id); if (i) i.value = mod.notes[id]; }
+      return resolveReport(id, d.action);
+    }
+    if (d.unsuspend) { mod.suspended.delete(d.unsuspend); log('http', `POST /api/moderacao/usuarios/${d.unsuspend}/reativar → 200`, 'UPDATE users SET suspended_at = NULL'); toast(`@${d.unsuspend} reativada`); render(); return; }
     if (d.pwtoggle !== undefined) { const i = document.getElementById('g-pass'); const show = i.type === 'password'; i.type = show ? 'text' : 'password'; t.textContent = show ? 'Ocultar' : 'Mostrar'; t.setAttribute('aria-pressed', String(show)); return; }
     if (d.logout !== undefined) return doLogout();
     if (d.simExpire !== undefined) return simulateExpiry();
@@ -1505,7 +1796,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
       else if (a === 'limit') { algo.session_limit = v; document.getElementById('limit-v').textContent = v; }
       return;
     }
-    if (e.target.tagName !== 'TEXTAREA') return;
+    if (e.target.tagName !== 'TEXTAREA' || !e.target.form?.dataset.compose) return;
     if (e.target.id !== 'compose-sheet') state.draft = e.target.value;
     updateCounter(e.target);
   });
@@ -1516,10 +1807,11 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (a === 'hide') algo.hide_metrics = el.checked;
     putPrefs(a === 'w' ? `weights.${el.dataset.key} = ${algo.weights[el.dataset.key]}` : a === 't' ? `topics.${el.dataset.key} = ${algo.topics[el.dataset.key]}` : a === 'div' ? `diversity = ${algo.diversity}` : a === 'limit' ? `session_limit = ${algo.session_limit}` : a === 'half' ? `half_life_hours = ${algo.half_life}` : `hide_metrics = ${algo.hide_metrics}`);
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { sheet.hidden = true; logPanel.classList.remove('open'); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { sheet.hidden = true; rsheet.hidden = true; mod.report = null; mod.menu = null; mod.umenu = false; logPanel.classList.remove('open'); render(); } });
   document.addEventListener('submit', (e) => {
     e.preventDefault();
     const f = e.target;
+    if (f.dataset.reportform !== undefined) return submitReport(f);
     if (f.dataset.login !== undefined) return doLogin(document.getElementById('g-email').value, document.getElementById('g-pass').value);
     if (f.dataset.kwform !== undefined) {
       const k = f.querySelector('input').value.trim().toLowerCase();
