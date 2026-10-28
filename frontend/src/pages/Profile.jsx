@@ -14,7 +14,8 @@ const TABS = [
 
 export default function Profile() {
   const { username } = useParams();
-  const { user: me, logout } = useAuth();
+  const { user: me, logout, logoutEverywhere } = useAuth();
+  const [confirmAll, setConfirmAll] = useState(false);
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('posts');
@@ -85,6 +86,24 @@ export default function Profile() {
           <span><b>{m.following_count}</b> <span className="text-zinc-500">Seguindo</span></span>
           <span><b>{m.followers_count}</b> <span className="text-zinc-500">Seguidores</span></span>
         </p>
+        {isMe && !confirmAll && (
+          <button type="button" onClick={() => setConfirmAll(true)} className="mt-3 min-h-11 text-sm text-zinc-500 underline-offset-4 hover:underline">
+            Sair de todos os aparelhos
+          </button>
+        )}
+        {isMe && confirmAll && (
+          <div role="group" aria-label="Confirmar saída de todos os aparelhos" className="mt-3 rounded-2xl bg-zinc-50 p-4 text-sm dark:bg-zinc-900">
+            <p>Isso encerra sua sessão em todos os aparelhos, inclusive neste. Use se perdeu um celular ou entrou num computador que não é seu.</p>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={logoutEverywhere} className="min-h-11 rounded-full bg-rose-600 px-5 font-extrabold text-white">
+                Sair de todos
+              </button>
+              <button type="button" onClick={() => setConfirmAll(false)} className="min-h-11 rounded-full px-5 text-zinc-600 dark:text-zinc-300">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       <div role="tablist" className="flex gap-2 px-4 pb-2">
         {TABS.map(([key, label]) => (

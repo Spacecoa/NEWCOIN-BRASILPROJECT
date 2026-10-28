@@ -228,3 +228,21 @@ CREATE TABLE IF NOT EXISTS daily_missions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, day)
 );
+
+-- Sessões de login (uma por aparelho). O token de acesso dura minutos; a sessão dura
+-- semanas e é renovada por um "refresh token" guardado num cookie HttpOnly.
+-- Só o hash (SHA-256) do refresh token fica no banco. A cada renovação ele muda;
+-- se um refresh antigo reaparecer, alguém o copiou e a sessão inteira é encerrada.
+CREATE TABLE IF NOT EXISTS sessions (
+  id           BIGINT PRIMARY KEY,
+  user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  refresh_hash TEXT   NOT NULL,
+  prev_hash    TEXT,               -- o refresh anterior, aceito por 30 s (abas renovando juntas)
+  rotated_at   TIMESTAMPTZ,
+  user_agent   TEXT   NOT NULL DEFAULT '',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_used_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at   TIMESTAMPTZ NOT NULL,
+  revoked_at   TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions (user_id) WHERE revoked_at IS NULL;

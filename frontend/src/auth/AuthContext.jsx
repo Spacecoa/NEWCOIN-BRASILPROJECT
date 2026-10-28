@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, tokenStore } from '../lib/api.js';
+import { api, refreshSession, tokenStore } from '../lib/api.js';
 import { resetCachedMode } from '../lib/rankingMode.js';
 import { closeSocket, getSocket } from '../lib/socket.js';
 
@@ -8,29 +8,43 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(tokenStore.get);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(Boolean(token));
+  const [loading, setLoading] = useState(true);
 
+  // Acompanha renovações automáticas; se a sessão acabar (token null), sai da conta.
+  useEffect(
+    () =>
+      tokenStore.subscribe((t) => {
+        setToken(t);
+        if (!t) {
+          closeSocket();
+          setUser(null);
+        }
+      }),
+    [],
+  );
+
+  // Ao abrir o app: o cookie de sessão (se houver) vira um token de acesso.
   useEffect(() => {
-    if (!token) return;
     let cancelled = false;
-    api('/api/auth/me', { token })
-      .then(({ user }) => !cancelled && setUser(user))
-      .catch(() => {
-        if (cancelled) return;
-        tokenStore.set(null);
-        setToken(null);
-      })
+    refreshSession()
+      .then((data) => !cancelled && data && setUser(data.user))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, []);
 
   const finish = useCallback(({ token, user }) => {
     tokenStore.set(token);
-    setToken(token);
     setUser(user);
     setLoading(false);
+  }, []);
+
+  const endLocal = useCallback(() => {
+    closeSocket();
+    resetCachedMode();
+    tokenStore.set(null);
+    setUser(null);
   }, []);
 
   const value = useMemo(
@@ -38,18 +52,21 @@ export function AuthProvider({ children }) {
       user,
       token,
       loading,
-      socket: user ? getSocket(token) : null,
+      socket: user ? getSocket(user.id) : null,
       login: async (login, password) => finish(await api('/api/auth/login', { method: 'POST', body: { login, password } })),
       register: async (input) => finish(await api('/api/auth/register', { method: 'POST', body: input })),
-      logout: () => {
-        tokenStore.set(null);
-        closeSocket();
-        resetCachedMode();
-        setToken(null);
-        setUser(null);
+      // Sair encerra a sessão no servidor: o token deixa de valer na hora.
+      logout: async () => {
+        await api('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        endLocal();
+      },
+      // Para quando um aparelho foi perdido: encerra a sessão em todos.
+      logoutEverywhere: async () => {
+        await api('/api/auth/logout-all', { method: 'POST' }).catch(() => {});
+        endLocal();
       },
     }),
-    [user, token, loading, finish],
+    [user, token, loading, finish, endLocal],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

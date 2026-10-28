@@ -67,7 +67,7 @@ docker compose up -d
 
 # 2. Backend
 cd backend
-cp .env.example .env
+cp .env.example .env   # JWT_SECRET vazio = segredo aleatório a cada início (só em dev)
 npm install
 npm run seed        # cria o schema e popula com dados fictícios
 npm run dev         # http://localhost:4000
@@ -85,8 +85,8 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 ### Testes
 
 ```bash
-cd backend  && npm test   # 119 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
-cd frontend && npm test   # 38 testes: lógica e componentes (jsdom)
+cd backend  && npm test   # 139 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd frontend && npm test   # 43 testes: lógica e componentes (jsdom)
 ```
 
 Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL`. Os testes de integração **apagam** o banco de teste e o banco 1 do Redis.
@@ -97,6 +97,7 @@ Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL
 TOKEN=$(curl -s localhost:4000/api/auth/login -H 'content-type: application/json' \
   -d '{"login":"ana_dev","password":"senha1234"}' | jq -r .token)
 
+# O token de acesso dura 15 min; o app renova sozinho pelo cookie de sessão.
 # Home "Seguindo", 5 por página
 curl -s "localhost:4000/api/timeline?max_results=5" -H "authorization: Bearer $TOKEN" | jq '.meta'
 # → { "result_count": 5, "newest_id": "…", "oldest_id": "…", "next_token": "…" }

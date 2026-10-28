@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import { config } from '../config.js';
-import { verifyToken } from '../lib/auth.js';
+import { authenticate } from '../lib/auth.js';
 import { getChannel } from '../services/channels.js';
 import { bus } from './bus.js';
 
@@ -13,8 +13,8 @@ import { bus } from './bus.js';
 export function attachRealtime(httpServer) {
   const io = new Server(httpServer, { cors: { origin: config.corsOrigin } });
 
-  io.use((socket, next) => {
-    const user = verifyToken(socket.handshake.auth?.token ?? '');
+  io.use(async (socket, next) => {
+    const user = await authenticate(String(socket.handshake.auth?.token ?? ''));
     if (!user) return next(new Error('unauthorized'));
     socket.data.user = user;
     next();
@@ -22,6 +22,8 @@ export function attachRealtime(httpServer) {
 
   io.on('connection', (socket) => {
     socket.join(`user:${socket.data.user.id}`);
+    // Sala da sessão: quando a pessoa sai, a conexão deste aparelho cai junto.
+    socket.join(`session:${socket.data.user.sid}`);
 
     socket.on('channel:subscribe', async ({ slug } = {}, ack) => {
       try {
@@ -47,6 +49,7 @@ export function attachRealtime(httpServer) {
     'post:created': ({ post, audience }) => {
       for (const uid of audience) io.to(`user:${uid}`).emit('timeline:new', post);
     },
+    'session:revoked': ({ sid }) => io.in(`session:${sid}`).disconnectSockets(true),
     'post:deleted': ({ id }) => io.emit('post:deleted', { id }),
     notification: ({ userIds, type, post }) => {
       for (const uid of userIds) io.to(`user:${uid}`).emit('notification', { type, post });

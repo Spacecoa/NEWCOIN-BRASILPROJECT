@@ -8,29 +8,25 @@ O protótipo tem uma boa base: SQL sempre parametrizado, validação estrita com
 
 O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limites de requisição ligados, conseguia deixar o servidor lento para todo mundo. Uma rota trivial passava de 2 ms para mais de 500 ms, porque o cálculo do feed "Para você" ocupava a CPU do processo e não tinha limite próprio. **Esse ponto foi corrigido nesta entrega** (§4.1): o custo de CPU caiu 12 vezes e o mesmo abuso deixou de afetar as outras pessoas.
 
-Os demais itens são propostas de correção, em ordem de prioridade (§6). Os mais importantes antes de qualquer uso fora do ambiente local são:
-
-- o segredo JWT com valor padrão;
-- tokens sem revogação;
-- a falta de limites globais e de cabeçalhos de segurança.
+**Atualização (28/10/2026, etapa 1):** A1, A2, A3, M7, M8 e B1 foram corrigidos, com testes (§8). Os demais itens seguem como propostas, em ordem de prioridade (§6).
 
 | # | Achado | Severidade | Situação |
 |---|---|---|---|
 | C1 | Feed "Para você": uma conta degrada o servidor inteiro (CPU no event loop, rota sem limite) | **Crítica** | **Corrigido** |
-| A1 | Segredo JWT com valor padrão conhecido | Alta | Proposta |
-| A2 | Tokens de 7 dias sem revogação, guardados em `localStorage` | Alta | Proposta |
-| A3 | Rotas caras ou públicas sem limite de requisições | Alta | Proposta (parcial: C1) |
+| A1 | Segredo JWT com valor padrão conhecido | Alta | **Corrigido** (etapa 1) |
+| A2 | Tokens de 7 dias sem revogação, guardados em `localStorage` | Alta | **Corrigido** (etapa 1) |
+| A3 | Rotas caras ou públicas sem limite de requisições | Alta | **Corrigido** (etapa 1: limite geral) |
 | M1 | Fan-out síncrono dentro da requisição de postar | Média | Proposta |
 | M2 | Missões: consultas pesadas e painel coletivo recalculado a cada pedido | Média | Proposta |
 | M3 | Enumeração de contas (cadastro e tempo de resposta do login) | Média | Proposta |
-| M4 | Limite de login só por IP, e `trust proxy` não configurado | Média | Proposta |
+| M4 | Limite de login só por IP, e `trust proxy` não configurado | Média | Parcial (`TRUST_PROXY` configurável) |
 | M5 | WebSocket sem limites de conexões e eventos, exclusão enviada a todos | Média | Proposta |
 | M6 | Contas falsas podem minerar NWC pelas missões | Média | Proposta (antes de dar utilidade ao token) |
-| M7 | Sem cabeçalhos de segurança (CSP, frame-ancestors, HSTS…) | Média | Proposta |
-| M8 | Banco sem `statement_timeout` e pool pequeno amplificam lentidão | Média | Proposta |
-| B1 | Corpo acima de 32 KB responde 500 e grava o erro completo no log | Baixa | Proposta |
+| M7 | Sem cabeçalhos de segurança (CSP, frame-ancestors, HSTS…) | Média | **Corrigido** (etapa 1) |
+| M8 | Banco sem `statement_timeout` e pool pequeno amplificam lentidão | Média | **Corrigido** (etapa 1) |
+| B1 | Corpo acima de 32 KB responde 500 e grava o erro completo no log | Baixa | **Corrigido** (etapa 1) |
 | B2 | Busca de pessoas com `ILIKE '%…%'` (varredura completa) | Baixa | Proposta |
-| B3 | Limitador em memória (quando o Redis cai) zera ao passar de 10 mil chaves | Baixa | Proposta |
+| B3 | Limitador em memória (quando o Redis cai) zera ao passar de 10 mil chaves | Baixa | Parcial (descarta só janelas vencidas) |
 | B4 | `GET /api/missoes` grava dados (credita tokens) | Baixa | Proposta |
 | I1 | Federação somente leitura e sem assinatura | Informativo | Por projeto |
 
@@ -92,7 +88,7 @@ Os demais itens são propostas de correção, em ordem de prioridade (§6). Os m
 - rodar o ranking em `worker_threads`;
 - usar o modo "neste aparelho" como padrão, o que tira esse custo do servidor.
 
-### 4.2 A1 — Segredo JWT com valor padrão · Alta
+### 4.2 A1 — Segredo JWT com valor padrão · Alta · **corrigido**
 
 **Evidência:**
 - `backend/src/config.js:11` usa `'dev-only-secret'` quando `JWT_SECRET` não existe.
@@ -105,7 +101,9 @@ Os demais itens são propostas de correção, em ordem de prioridade (§6). Os m
 - gerar o segredo no setup (`openssl rand -base64 48`);
 - trocar o valor do `.env.example` por um marcador vazio.
 
-### 4.3 A2 — Tokens sem revogação e em `localStorage` · Alta
+**Correção aplicada:** `resolveJwtSecret()` em `config.js`. Segredo conhecido ou com menos de 32 caracteres impede o servidor de iniciar, em qualquer ambiente. Sem segredo, produção não inicia; em desenvolvimento um segredo aleatório é gerado a cada início (as sessões sobrevivem, porque a renovação não depende dele). O `.env.example` agora vem vazio. Os tokens também passaram a exigir `HS256` e o campo `sid`.
+
+### 4.3 A2 — Tokens sem revogação e em `localStorage` · Alta · **corrigido**
 
 **Evidência:**
 - o token dura 7 dias (`config.js:12`);
@@ -118,7 +116,15 @@ Os demais itens são propostas de correção, em ordem de prioridade (§6). Os m
 - token de acesso curto (15 minutos) com um token de renovação rotativo em cookie `HttpOnly; Secure; SameSite=Strict`;
 - uma coluna `users.token_version`, incluída no JWT e conferida a cada requisição, que permite "sair de todos os aparelhos" e invalidar tokens ao trocar a senha.
 
-### 4.4 A3 — Rotas caras ou públicas sem limite · Alta
+**Correção aplicada** (com uma tabela de sessões no lugar de `token_version`, para poder encerrar um aparelho só):
+- token de acesso de **15 minutos**, que carrega o id da sessão (`sid`);
+- tabela `sessions` e refresh token `<sid>.<segredo>` em cookie `HttpOnly; SameSite=Strict; Path=/api/auth` (`Secure` com `COOKIE_SECURE=true`). O banco guarda só o SHA-256;
+- **rotação** a cada renovação, atômica. Se um refresh antigo reaparece, alguém o copiou: a sessão inteira é encerrada. A exceção é o refresh recém-trocado nos últimos 30 s (duas abas renovando juntas): ele recebe só um token de acesso, sem cookie novo;
+- `POST /api/auth/logout` encerra a sessão na hora: o `sid` entra numa lista de revogados (Redis + memória, por 15 min) conferida em cada pedido e no WebSocket, e a conexão em tempo real daquele aparelho cai;
+- `POST /api/auth/logout-all` ("Sair de todos os aparelhos", na tela de perfil);
+- no navegador, o token de acesso fica só na memória da aba. O token antigo do `localStorage` é apagado ao abrir o app.
+
+### 4.4 A3 — Rotas caras ou públicas sem limite · Alta · **corrigido (limite geral)**
 
 **Evidência** (só 7 limitadores em todo o backend: auth, timeline, posts, mensagens, convites, candidatos e, agora, interesses). Medições sem limites:
 
@@ -207,7 +213,7 @@ Os demais itens são propostas de correção, em ordem de prioridade (§6). Os m
 - ignorar interações entre contas novas ou de baixa confiança para fins de missão;
 - painel de anomalias (grupos que só interagem entre si).
 
-### 4.11 M7 — Sem cabeçalhos de segurança · Média
+### 4.11 M7 — Sem cabeçalhos de segurança · Média · **corrigido**
 
 **Evidência:** não há `helmet` nem cabeçalhos definidos no backend, e o frontend em produção também não tem política definida.
 
@@ -220,7 +226,11 @@ Os demais itens são propostas de correção, em ordem de prioridade (§6). Os m
 - `helmet` no backend;
 - no servidor que entrega o frontend: CSP restrita (`default-src 'self'`; fontes do Google Fonts liberadas), `frame-ancestors 'none'`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff` e HSTS.
 
-### 4.12 M8 — Banco sem tempo limite · Média
+**Correção aplicada**, sem dependência nova (`lib/securityHeaders.js`):
+- API: CSP `default-src 'none'; frame-ancestors 'none'`, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, COOP/CORP, `Permissions-Policy` e HSTS quando a conexão é HTTPS; `Cache-Control: no-store` nas rotas de login;
+- frontend: CSP na versão final (`vite build`), com scripts só do próprio site. No modo dev ela fica desligada, porque o Vite injeta scripts inline. `frame-ancestors` e HSTS da página dependem do servidor que a entregar (§5).
+
+### 4.12 M8 — Banco sem tempo limite · Média · **corrigido**
 
 **Evidência:** `db.js:6` cria um pool de 10 conexões sem `statement_timeout`.
 
@@ -231,11 +241,13 @@ Os demais itens são propostas de correção, em ordem de prioridade (§6). Os m
 - `connectionTimeoutMillis` no pool;
 - dimensionar o pool junto com o `max_connections` do Postgres.
 
+**Correção aplicada:** `statement_timeout` de 5 s (`DB_STATEMENT_TIMEOUT_MS`), `idle_in_transaction_session_timeout` de 10 s e espera máxima de 5 s por conexão livre. O pool é configurável (`DB_POOL_MAX`). Consulta cancelada ou pool esgotado viram **503** com `Retry-After`, em vez de pedidos presos.
+
 ### 4.13 Achados baixos
 
-- **B1 — Corpo grande demais vira erro 500.** O limite de 32 KB funciona (`app.js:19`), mas o tratamento de erros não reconhece `entity.too.large`. A resposta é **500 "Erro interno"** e o erro completo vai para o log a cada pedido, o que permite encher o log com pouco esforço (confirmado com uma requisição de 40 KB). Correção: responder **413** sem registrar o erro completo.
+- **B1 — Corpo grande demais vira erro 500.** O limite de 32 KB funciona (`app.js:19`), mas o tratamento de erros não reconhece `entity.too.large`. A resposta é **500 "Erro interno"** e o erro completo vai para o log a cada pedido, o que permite encher o log com pouco esforço (confirmado com uma requisição de 40 KB). Correção: responder **413** sem registrar o erro completo. **Corrigido:** 413 com mensagem curta; erros 4xx do Express não vão mais para o log.
 - **B2 — Busca com `ILIKE '%…%'`** (`services/users.js:124`). Ela varre a tabela inteira: 9 a 13 ms com 5 mil contas, crescendo de forma linear. Correção: índice `pg_trgm` em `username` e `display_name`, com um limite de requisições na rota.
-- **B3 — Limitador em memória.** Quando o Redis cai, o contador em memória é apagado inteiro ao passar de 10 mil chaves (`lib/rateLimit.js:24`), zerando todos os limites, e cada processo conta separadamente. Correção: descartar só as entradas mais antigas, e falhar fechado (recusar) nas rotas de login quando o Redis estiver fora.
+- **B3 — Limitador em memória.** Quando o Redis cai, o contador em memória é apagado inteiro ao passar de 10 mil chaves (`lib/rateLimit.js:24`), zerando todos os limites, e cada processo conta separadamente. Correção: descartar só as entradas mais antigas, e falhar fechado (recusar) nas rotas de login quando o Redis estiver fora. **Parcial:** agora só as janelas vencidas são descartadas; falhar fechado continua proposto.
 - **B4 — `GET /api/missoes` grava dados.** A rota credita tokens. É idempotente e exige token no cabeçalho (sem risco de CSRF), mas um `GET` com efeito colateral pode ser disparado por pré-carregamentos e caches. Correção: creditar só em `POST /api/missoes/verificar`, ou documentar o comportamento.
 - **I1 — Federação.** A federação é somente leitura e sem assinatura, por projeto (`docs/03` §5). Ao implementar o `inbox`, será preciso:
   - exigir HTTP Signatures;
@@ -261,9 +273,9 @@ Inundação de conexões, de pacotes ou de requisições vindas de muitas origen
 | Ordem | Itens | Esforço | Por quê |
 |---|---|---|---|
 | **Feito** | C1 (MMR otimizado + limite em `/api/feed/interesses`) | — | Uma conta derrubava o serviço |
-| 1 | A1 (segredo obrigatório), B1 (413), limite padrão da API (A3) | Pequeno | Baixo custo, fecha os riscos mais diretos |
-| 2 | A2 (tokens curtos + revogação), M7 (cabeçalhos/CSP), M3 (enumeração), M4 (`trust proxy` + limite por conta) | Médio | Autenticação pronta para rede aberta |
-| 3 | M5 (WebSocket), M8 (`statement_timeout`), M2 (consultas e cache das missões), B2, B3 | Médio | Robustez sob carga |
+| **Feito (etapa 1)** | A1, A2, A3 (limite geral), M7, M8, B1; `trust proxy` configurável; B3 parcial | — | Autenticação e base pronta para rede aberta (§8) |
+| 2 | M3 (enumeração), M4 (limite de login por conta), M5 (WebSocket) | Médio | Fecha o que resta da autenticação e do tempo real |
+| 3 | M2 (consultas e cache das missões), B2, B3 (falhar fechado), B4 | Médio | Robustez sob carga |
 | 4 | M1 (fan-out em fila e híbrido), proxy reverso e observabilidade (§5) | Maior | Escala |
 | Antes de dar utilidade ao NWC | M6 (contas falsas e teto de emissão) | Médio | O incentivo econômico muda o modelo de ameaça |
 
@@ -274,3 +286,23 @@ Inundação de conexões, de pacotes ou de requisições vindas de muitas origen
 3. Rode a carga de 10 conexões por 8 s (autocannon) em uma rota enquanto uma sonda mede `/api/health` a cada 50 ms, e compare com a sonda em repouso.
 
 As medições foram feitas só contra instâncias locais deste projeto.
+
+## 8. Etapa 1, em linguagem simples
+
+O que mudou, para quem não é da área. A analogia é um prédio com portaria.
+
+| Correção | Antes | Agora | Por que importa |
+|---|---|---|---|
+| **Segredo forte (A1)** | O "carimbo" que a portaria usa para validar crachás tinha um modelo público, escrito no próprio repositório. | O servidor não liga com carimbo conhecido ou fraco. Cada instalação tem o seu. | Com o carimbo público, qualquer pessoa fabricava um crachá de qualquer morador, sem senha. |
+| **Sessões que podem ser encerradas (A2)** | O crachá valia 7 dias e "Sair" só jogava fora a cópia do seu celular. Uma cópia roubada continuava abrindo a porta. | O crachá vale 15 minutos e é trocado sozinho, sem pedir senha. "Sair" cancela na hora. "Sair de todos os aparelhos" cancela todos. Uma cópia roubada e reusada denuncia o roubo e encerra a sessão. | Celular perdido, computador emprestado ou link malicioso deixam de virar acesso por dias. |
+| **Crachá fora do alcance de scripts (A2)** | O crachá ficava numa gaveta que qualquer script da página podia abrir (`localStorage`). | A parte que dura semanas fica num cofre que só o navegador abre (cookie HttpOnly). O crachá curto fica só na memória da aba. | Um texto malicioso que conseguisse rodar na página não leva mais a sua conta junto. |
+| **Limite geral de pedidos (A3)** | Só algumas portas tinham catraca. Nas outras, uma pessoa podia entrar e sair milhares de vezes por minuto. | Toda a API tem catraca: 600 pedidos a cada 5 minutos por pessoa (ou por IP sem login), além dos limites mais rígidos que já existiam. | Uma conta (ou um robô) não consegue mais deixar o app lento para todo mundo, nem copiar a rede inteira de uma vez. |
+| **Cabeçalhos de proteção (M7)** | O navegador não recebia regras do que a página podia carregar ou executar. | O app diz ao navegador: "só rode código do próprio Ágora" e "não deixe outro site me exibir escondido". | Impede golpes como esconder o Ágora dentro de outro site para enganar cliques, e reduz o estrago se algum texto malicioso escapar. |
+| **Tempo-limite no banco (M8)** | Uma consulta travada segurava uma das 10 "linhas de atendimento" do banco sem prazo. | Nenhuma consulta passa de 5 segundos. Se o banco estiver cheio, a pessoa recebe "tente de novo em instantes" em vez de esperar sem fim. | Um pedido pesado não congela o atendimento de todos. |
+| **Erro sem detalhes internos (B1)** | Um envio grande demais virava "erro interno" e escrevia o erro completo no registro do servidor. | Resposta clara ("grande demais, máximo de 32 KB") e nada no registro. | Evita encher o registro de lixo de propósito e não expõe detalhes do servidor. |
+
+**Como foi verificado:**
+- 20 testes novos no backend (`test/security.test.js`, incluindo duas abas renovando ao mesmo tempo) e 5 no frontend (`src/lib/api.test.js`), além dos que já existiam;
+- teste no navegador com a versão final do app e tokens de 5 s: login, recarregar a página continua logado, renovação automática sem pedir senha, mensagem em tempo real depois da renovação, "Sair" invalida o token copiado, "Sair de todos" desconecta o outro aparelho e nenhum bloqueio indevido da política de conteúdo.
+
+**Para quem instala:** deixe `JWT_SECRET` vazio em desenvolvimento ou gere um com `openssl rand -hex 32`. Um `.env` antigo com o valor de exemplo faz o servidor recusar iniciar, com a instrução na mensagem. Em HTTPS, ligue `COOKIE_SECURE=true`. Atrás de proxy reverso, ajuste `TRUST_PROXY`.
