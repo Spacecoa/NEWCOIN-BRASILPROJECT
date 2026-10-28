@@ -43,6 +43,12 @@ As consultas que **sugerem** conteúdo também filtram, com o mesmo SQL (`hidden
 
 **Tempo real.** O aviso de post novo e as notificações de menção e resposta não chegam a quem silenciou ou tem bloqueio com o autor (`filterAudience()`).
 
+**Grupos e canais.** As mensagens seguem as mesmas regras, mas, numa conversa, sumir no meio deixaria buracos:
+- **bloqueio (qualquer lado) ou conta suspensa:** a mensagem chega como aviso ("Mensagem oculta por bloqueio" ou "Mensagem de uma conta suspensa"), sem texto, sem autor e sem reações, no mesmo `pts`. Assim a numeração segue contínua e o app não pede `/difference` à toa;
+- **silenciado:** o texto vem marcado com `muted: true` e o app mostra recolhido, com "Mostrar". Numa conversa, o contexto pode importar;
+- **reações:** não dá para reagir à mensagem de quem tem bloqueio com você (403);
+- **tempo real:** cada pessoa inscrita no canal recebe a versão que pode ver.
+
 **Paginação.** A paginação continua pelos IDs originais. Uma página pode vir com menos itens que `max_results` quando algo foi filtrado, mas o `next_token` segue correto. O perfil de alguém com bloqueio responde vazio, com `meta.blocked: true` e sem `next_token`.
 
 **Denúncias** (`reports`):
@@ -89,7 +95,6 @@ O perfil (`GET /api/users/:username`) traz `relationship.{blocking, blocked_by, 
 
 ## 5. Limites conhecidos e próximos passos
 
-- **Grupos e canais:** mensagens de quem você bloqueou ainda aparecem em grupos dos quais os dois participam. O bloqueio vale para o feed, as menções e as interações com posts.
 - **Federação:** bloquear ou silenciar uma instância inteira ainda não existe; a federação, por enquanto, é só de leitura.
 - **Regras da instância e recursos:** feito em [`docs/12-regras-e-recursos.md`](12-regras-e-recursos.md). As decisões agora citam a regra quebrada e podem ser contestadas.
 - **Mais de um servidor:** a queda imediata das sessões da conta suspensa (WebSocket) precisa de Redis Pub/Sub entre processos.

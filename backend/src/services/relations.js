@@ -117,3 +117,36 @@ export async function listRelations(userId, kind) {
   );
   return rows;
 }
+
+/** Relação de quem está vendo com cada autor: bloqueio (qualquer lado), silêncio e suspensão. */
+export async function viewerRelations(viewerId, authorIds) {
+  const ids = [...new Set(authorIds)].filter(Boolean);
+  const out = { blocked: new Set(), muted: new Set(), suspended: new Set() };
+  if (!ids.length) return out;
+  const { rows } = await query(
+    `SELECT u.id, u.suspended_at IS NOT NULL AS suspended,
+       EXISTS (SELECT 1 FROM blocks b WHERE (b.user_id = $2 AND b.target_id = u.id) OR (b.user_id = u.id AND b.target_id = $2)) AS blocked,
+       EXISTS (SELECT 1 FROM mutes m WHERE m.user_id = $2 AND m.target_id = u.id) AS muted
+     FROM users u WHERE u.id = ANY($1::bigint[])`,
+    [ids, viewerId ?? 0],
+  );
+  for (const r of rows) {
+    if (r.suspended) out.suspended.add(r.id);
+    if (r.blocked) out.blocked.add(r.id);
+    if (r.muted) out.muted.add(r.id);
+  }
+  return out;
+}
+
+/** Para o tempo real: quem tem bloqueio com o autor (qualquer lado) e quem o silenciou. */
+export async function authorRelations(authorId) {
+  const { rows } = await query(
+    `SELECT target_id AS id, 'blocked' AS kind FROM blocks WHERE user_id = $1
+     UNION SELECT user_id, 'blocked' FROM blocks WHERE target_id = $1
+     UNION SELECT user_id, 'muted' FROM mutes WHERE target_id = $1`,
+    [authorId],
+  );
+  const blocked = new Set(rows.filter((r) => r.kind === 'blocked').map((r) => r.id));
+  const muted = new Set(rows.filter((r) => r.kind === 'muted' && !blocked.has(r.id)).map((r) => r.id));
+  return { blocked, muted };
+}

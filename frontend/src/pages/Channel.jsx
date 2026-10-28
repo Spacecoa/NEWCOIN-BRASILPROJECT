@@ -15,6 +15,7 @@ export default function Channel() {
   const { user: me, socket } = useAuth();
   const [channel, setChannel] = useState(null);
   const [sync, setSync] = useState({ messages: [], lastPts: 0 });
+  const [revealed, setRevealed] = useState(() => new Set());
   const [users, setUsers] = useState({});
   const [hasOlder, setHasOlder] = useState(false);
   const [text, setText] = useState('');
@@ -73,7 +74,7 @@ export default function Channel() {
     const onReactions = ({ message_id, reactions }) =>
       setSync((s) => ({
         ...s,
-        messages: s.messages.map((m) => (m.id === message_id ? { ...m, reactions: mergeReactions(m.reactions, reactions) } : m)),
+        messages: s.messages.map((m) => (m.id === message_id && !m.hidden ? { ...m, reactions: mergeReactions(m.reactions, reactions) } : m)),
       }));
     if (socket.connected) subscribe();
     socket.on('connect', subscribe); // reconexão => reinscreve e sincroniza por pts
@@ -148,8 +149,29 @@ export default function Channel() {
           </li>
         )}
         {sync.messages.map((m) => {
+          // Bloqueio (qualquer lado) ou conta suspensa: o servidor não manda texto nem autor.
+          if (m.hidden) {
+            return (
+              <li key={m.id} className="text-center">
+                <span className="inline-block rounded-full bg-zinc-50 px-3 py-1 text-xs text-zinc-400 dark:bg-zinc-900">
+                  {m.hidden === 'suspensa' ? 'Mensagem de uma conta suspensa' : 'Mensagem oculta por bloqueio'} · pts {m.pts}
+                </span>
+              </li>
+            );
+          }
           const author = users[m.author_id];
           const mine = m.author_id === me.id;
+          // Silenciado: recolhido, com "Mostrar" (numa conversa, o contexto pode importar).
+          if (m.muted && !revealed.has(m.id)) {
+            return (
+              <li key={m.id} className="flex items-center gap-2 text-xs text-zinc-400">
+                <span>Mensagem de @{author?.username ?? '…'} (silenciada)</span>
+                <button type="button" onClick={() => setRevealed((r) => new Set(r).add(m.id))} className="min-h-9 rounded-full px-3 font-extrabold text-brand-600">
+                  Mostrar
+                </button>
+              </li>
+            );
+          }
           return (
             <li key={m.id} className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
               <Avatar user={author} size="sm" />

@@ -2,6 +2,7 @@ import { query, withTransaction } from '../db.js';
 import { conflict, forbidden, notFound } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
 import { bus } from '../realtime/bus.js';
+import { assertCanInteract, viewerRelations } from './relations.js';
 import { getUsersByIds } from './users.js';
 
 // Vertente "mensageria" inspirada no Telegram:
@@ -111,18 +112,33 @@ async function reactionsFor(messageIds, viewerId) {
   return map;
 }
 
+/**
+ * Mensagem de quem tem bloqueio com quem está vendo (ou de conta suspensa) vira um aviso:
+ * sem texto, sem autor e sem reações. Ela continua na lista para o pts seguir sem buracos
+ * (senão o cliente acharia que perdeu mensagens e pediria /difference à toa).
+ */
+export function hiddenMessage(m, reason) {
+  return { ...m, author_id: null, text: null, reactions: [], hidden: reason };
+}
+
 async function present(rows, viewerId) {
-  const reactions = await reactionsFor(rows.map((r) => r.id), viewerId);
-  const data = rows.map((r) => ({
-    id: r.id,
-    channel_id: r.channel_id,
-    author_id: r.author_id,
-    text: r.text,
-    pts: Number(r.pts),
-    created_at: r.created_at,
-    reactions: reactions.get(r.id) ?? [],
-  }));
-  const users = await getUsersByIds([...new Set(data.map((m) => m.author_id))]);
+  const [reactions, rel] = await Promise.all([reactionsFor(rows.map((r) => r.id), viewerId), viewerRelations(viewerId, rows.map((r) => r.author_id))]);
+  const data = rows.map((r) => {
+    const m = {
+      id: r.id,
+      channel_id: r.channel_id,
+      author_id: r.author_id,
+      text: r.text,
+      pts: Number(r.pts),
+      created_at: r.created_at,
+      reactions: reactions.get(r.id) ?? [],
+    };
+    if (rel.suspended.has(r.author_id)) return hiddenMessage(m, 'suspensa');
+    if (rel.blocked.has(r.author_id)) return hiddenMessage(m, 'bloqueio');
+    // Silenciado: o texto vem, mas o app mostra recolhido (dentro de uma conversa o contexto importa).
+    return rel.muted.has(r.author_id) ? { ...m, muted: true } : m;
+  });
+  const users = await getUsersByIds([...new Set(data.map((m) => m.author_id).filter(Boolean))]);
   return { data, includes: { users } };
 }
 
@@ -175,9 +191,11 @@ export async function postMessage(userId, slug, text) {
 
 async function messageInChannel(slug, messageId, userId) {
   const channel = await getChannel(slug, userId);
-  const { rows } = await query('SELECT id FROM messages WHERE id = $1 AND channel_id = $2', [messageId, channel.id]);
+  const { rows } = await query('SELECT id, author_id FROM messages WHERE id = $1 AND channel_id = $2', [messageId, channel.id]);
   if (!rows[0]) throw notFound('Mensagem não encontrada');
   if (!channel.viewer_role) throw forbidden('Entre no canal para reagir');
+  // Bloqueio também vale para reagir à mensagem do outro.
+  await assertCanInteract(userId, rows[0].author_id);
   return channel;
 }
 

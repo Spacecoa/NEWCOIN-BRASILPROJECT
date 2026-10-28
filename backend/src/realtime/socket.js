@@ -1,7 +1,8 @@
 import { Server } from 'socket.io';
 import { config } from '../config.js';
 import { authenticate } from '../lib/auth.js';
-import { getChannel } from '../services/channels.js';
+import { getChannel, hiddenMessage } from '../services/channels.js';
+import { authorRelations } from '../services/relations.js';
 import { bus } from './bus.js';
 
 // Salas:
@@ -54,7 +55,19 @@ export function attachRealtime(httpServer) {
     notification: ({ userIds, type, post }) => {
       for (const uid of userIds) io.to(`user:${uid}`).emit('notification', { type, post });
     },
-    'message:created': ({ channelId, message }) => io.to(`channel:${channelId}`).emit('message:new', message),
+    // Cada pessoa no canal recebe a versão que pode ver: quem tem bloqueio com o autor
+    // recebe o aviso "mensagem oculta" (no lugar certo do pts); quem silenciou, a mensagem marcada.
+    'message:created': async ({ channelId, message }) => {
+      const room = `channel:${channelId}`;
+      const rel = await authorRelations(message.data.author_id).catch(() => ({ blocked: new Set(), muted: new Set() }));
+      if (!rel.blocked.size && !rel.muted.size) return io.to(room).emit('message:new', message);
+      const hidden = { data: hiddenMessage(message.data, 'bloqueio'), includes: { users: [] } };
+      const muted = { ...message, data: { ...message.data, muted: true } };
+      for (const s of await io.in(room).fetchSockets()) {
+        const uid = s.data.user?.id;
+        s.emit('message:new', rel.blocked.has(uid) ? hidden : rel.muted.has(uid) ? muted : message);
+      }
+    },
     'message:reactions': ({ channelId, messageId, reactions }) =>
       io.to(`channel:${channelId}`).emit('message:reactions', { message_id: messageId, reactions }),
   };
