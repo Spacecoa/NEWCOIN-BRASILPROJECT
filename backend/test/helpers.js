@@ -9,7 +9,7 @@ export const api = () => request(app);
 
 export async function resetDb() {
   await migrate();
-  await query('TRUNCATE users, sessions, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
+  await query('TRUNCATE users, sessions, mutes, blocks, reports, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
   const redis = getRedis();
   if (redis) await redis.flushdb();
 }

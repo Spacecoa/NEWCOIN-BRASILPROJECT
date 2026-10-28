@@ -4,7 +4,13 @@ import { notFound } from '../lib/errors.js';
 import { CATALOG, PRINCIPLES, selectMissions } from '../lib/missions.js';
 import { minutesToday } from './activity.js';
 import { getSettings } from './interests.js';
+import { hiddenAuthorsSql } from './relations.js';
 import { getBalance, rewardMission, TOKEN } from './tokens.js';
+
+// Sugestões nunca apontam para quem a pessoa silenciou, bloqueou ou foi suspenso.
+const HIDDEN = hiddenAuthorsSql('$1');
+// Missões que dão alcance (amplificar, ponte) não apontam para contas com denúncia aberta.
+const UNDER_REVIEW = (col) => `EXISTS (SELECT 1 FROM reports rr WHERE rr.target_user_id = ${col} AND rr.status = 'aberta')`;
 
 // Cada missão tem:
 //  suggest(): alvos concretos (pessoas, perguntas, grupos). Lista vazia = missão não se aplica hoje.
@@ -95,7 +101,7 @@ const DEFS = {
       (
         await query(
           `SELECT u.username, u.display_name FROM users u
-           WHERE ${NEW_USER} AND u.id <> $1
+           WHERE ${NEW_USER} AND u.id <> $1 AND u.id NOT IN ${HIDDEN}
              AND NOT EXISTS (SELECT 1 FROM mentions m JOIN posts p ON p.id = m.post_id WHERE m.user_id = u.id AND p.author_id = $1)
              AND NOT EXISTS (SELECT 1 FROM posts r JOIN posts t ON t.id = r.reply_to_id WHERE r.author_id = $1 AND t.author_id = u.id)
            ORDER BY u.created_at DESC LIMIT 3`,
@@ -118,7 +124,7 @@ const DEFS = {
       (
         await query(
           `SELECT p.id, p.text, u.username FROM posts p JOIN users u ON u.id = p.author_id
-           WHERE p.author_id <> $1 AND p.repost_of_id IS NULL AND p.reply_count = 0
+           WHERE p.author_id <> $1 AND p.author_id NOT IN ${HIDDEN} AND p.repost_of_id IS NULL AND p.reply_count = 0
              AND p.text LIKE '%?%' AND p.created_at > now() - interval '3 days'
            ORDER BY p.id DESC LIMIT 3`,
           [me],
@@ -139,7 +145,7 @@ const DEFS = {
       (
         await query(
           `SELECT u.username, u.display_name FROM users u
-           WHERE u.id <> $1
+           WHERE u.id <> $1 AND u.id NOT IN ${HIDDEN} AND NOT ${UNDER_REVIEW('u.id')}
              AND NOT EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $1 AND f.followee_id = u.id)
              AND NOT EXISTS (SELECT 1 FROM follows mine JOIN follows theirs ON theirs.follower_id = mine.followee_id
                              WHERE mine.follower_id = $1 AND theirs.followee_id = u.id)
@@ -162,7 +168,8 @@ const DEFS = {
       (
         await query(
           `SELECT p.id, p.text, u.username FROM posts p JOIN users u ON u.id = p.author_id
-           WHERE p.author_id <> $1 AND p.repost_of_id IS NULL AND p.created_at > now() - interval '3 days'
+           WHERE p.author_id <> $1 AND p.author_id NOT IN ${HIDDEN} AND NOT ${UNDER_REVIEW('p.author_id')}
+             AND p.repost_of_id IS NULL AND p.created_at > now() - interval '3 days'
              AND (SELECT count(*) FROM follows f WHERE f.followee_id = p.author_id AND f.follower_id <> $1) < 5
              AND NOT EXISTS (SELECT 1 FROM posts r WHERE r.repost_of_id = p.id AND r.author_id = $1)
            ORDER BY p.id DESC LIMIT 3`,

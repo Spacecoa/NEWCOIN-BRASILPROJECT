@@ -15,7 +15,7 @@ describe('perfis e follows', () => {
     await api().post('/api/users/bob/follow').set(alice.auth); // idempotente
     const asAlice = await api().get('/api/users/bob').set(alice.auth);
     expect(asAlice.body.data.public_metrics).toEqual({ followers_count: 1, following_count: 0, post_count: 1 });
-    expect(asAlice.body.data.relationship).toEqual({ following: true, followed_by: false });
+    expect(asAlice.body.data.relationship).toEqual({ following: true, followed_by: false, blocking: false, blocked_by: false, muting: false });
     const anon = await api().get('/api/users/bob');
     expect(anon.body.data.relationship).toBeNull();
   });

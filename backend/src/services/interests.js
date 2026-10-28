@@ -2,6 +2,7 @@ import { query } from '../db.js';
 import { notFound } from '../lib/errors.js';
 import { decayed, learn, mergeSettings, rank } from '../lib/ranking.js';
 import { extractTopics, TOPICS } from '../lib/topics.js';
+import { hiddenAuthorsSql } from './relations.js';
 import { hydrate } from './posts.js';
 
 export const CANDIDATE_DAYS = 7;
@@ -110,6 +111,7 @@ function candidateRows(userId) {
      WHERE p.repost_of_id IS NULL AND p.author_id <> $1
        AND p.created_at > now() - make_interval(days => $2)
        AND NOT EXISTS (SELECT 1 FROM hidden_posts h WHERE h.user_id = $1 AND h.post_id = p.id)
+       AND p.author_id NOT IN ${hiddenAuthorsSql('$1')}
      ORDER BY p.id DESC LIMIT $3`,
     [userId, CANDIDATE_DAYS, CANDIDATE_LIMIT],
   );

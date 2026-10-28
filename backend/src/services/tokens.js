@@ -3,6 +3,7 @@ import { query, withTransaction } from '../db.js';
 import { conflict, notFound } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
 import { bus } from '../realtime/bus.js';
+import { assertCanInteract } from './relations.js';
 
 // Token interno. Regras (ver docs/09-token-interno.md):
 //  - Utilidade nula por enquanto: serve só para recompensar outras pessoas.
@@ -92,6 +93,7 @@ export async function tipPost(userId, postId) {
     const { rows: orig } = await client.query('SELECT author_id FROM posts WHERE id = $1', [target]);
     const authorId = orig[0].author_id;
     if (authorId === userId) throw conflict('Você não pode recompensar o próprio post');
+    await assertCanInteract(userId, authorId, client);
 
     await ensureWallet(userId, client);
     await ensureWallet(authorId, client);

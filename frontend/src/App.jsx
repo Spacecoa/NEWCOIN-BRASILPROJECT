@@ -9,6 +9,8 @@ import Interests from './pages/Interests.jsx';
 import Login from './pages/Login.jsx';
 import Mentions from './pages/Mentions.jsx';
 import Missions from './pages/Missions.jsx';
+import Moderation from './pages/Moderation.jsx';
+import Privacy from './pages/Privacy.jsx';
 import Profile from './pages/Profile.jsx';
 import Register from './pages/Register.jsx';
 import Thread from './pages/Thread.jsx';
@@ -41,6 +43,8 @@ export default function App() {
         <Route path="post/:id" element={<Thread />} />
         <Route path="canais" element={<Channels />} />
         <Route path="canais/:slug" element={<Channel />} />
+        <Route path="privacidade" element={<Privacy />} />
+        <Route path="moderacao" element={<Moderation />} />
       </Route>
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/cadastro" element={<Navigate to="/" replace />} />
