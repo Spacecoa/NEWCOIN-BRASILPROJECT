@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { authenticate, checkPassword, dummyHash, requireAuth, signToken } from '../lib/auth.js';
-import { parse, unauthorized } from '../lib/errors.js';
+import { forbidden, parse, unauthorized } from '../lib/errors.js';
 import { rateLimit } from '../lib/rateLimit.js';
 import { registerWithInvite } from '../services/invites.js';
 import { createSession, revokeAllSessions, revokeByRefresh, revokeSession, rotateSession } from '../services/sessions.js';
@@ -83,6 +83,7 @@ router.post('/login', authLimiter, async (req, res) => {
   // quais e-mails estão cadastrados medindo a demora da resposta.
   const ok = await checkPassword(password, row?.password_hash ?? (await dummyHash()));
   if (!row || !ok) throw unauthorized('E-mail ou senha incorretos');
+  if (row.suspended_at) throw forbidden('Esta conta foi suspensa pela moderação da instância.');
   await startSession(req, res, formatUser(row));
 });
 

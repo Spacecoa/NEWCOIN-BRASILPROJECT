@@ -71,4 +71,6 @@ export const config = {
   tokenSymbol: env.TOKEN_SYMBOL ?? 'NWC',
   missionTimezone: env.MISSION_TZ ?? 'America/Sao_Paulo',
   timelineCacheSize: Number(env.TIMELINE_CACHE_SIZE ?? 800),
+  // Contas que moderam a instância (usernames separados por vírgula), promovidas ao iniciar.
+  moderators: (env.MODERATORS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
 };

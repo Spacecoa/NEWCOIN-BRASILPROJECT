@@ -246,3 +246,58 @@ CREATE TABLE IF NOT EXISTS sessions (
   revoked_at   TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions (user_id) WHERE revoked_at IS NULL;
+
+-- ---------------------------------------------------------------------------
+-- Moderação: silenciar, bloquear, denunciar
+-- ---------------------------------------------------------------------------
+
+-- Silenciar é privado e de mão única: só quem silenciou deixa de ver.
+CREATE TABLE IF NOT EXISTS mutes (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, target_id),
+  CHECK (user_id <> target_id)
+);
+
+-- Bloquear vale nos dois sentidos para leitura e interação.
+CREATE TABLE IF NOT EXISTS blocks (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, target_id),
+  CHECK (user_id <> target_id)
+);
+CREATE INDEX IF NOT EXISTS blocks_target_idx ON blocks (target_id, user_id);
+
+-- Papel na instância e suspensão (decisão da moderação, com motivo registrado).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_moderator BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS suspension_reason TEXT;
+
+-- Denúncias de um post ou de uma conta. post_id fica nulo quando a denúncia é da conta,
+-- e também quando o post é removido (a denúncia continua no histórico).
+CREATE TABLE IF NOT EXISTS reports (
+  id             BIGINT PRIMARY KEY,
+  reporter_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id        BIGINT REFERENCES posts(id) ON DELETE SET NULL,
+  post_text      TEXT,               -- cópia do texto denunciado, para a moderação decidir mesmo se o post sumir
+  reason         TEXT NOT NULL CHECK (reason IN ('spam', 'assedio', 'odio', 'violencia', 'golpe', 'outro')),
+  details        TEXT NOT NULL DEFAULT '' CHECK (char_length(details) <= 500),
+  status         TEXT NOT NULL DEFAULT 'aberta' CHECK (status IN ('aberta', 'arquivada', 'acatada')),
+  resolution     TEXT,               -- 'arquivar' | 'remover_post' | 'suspender'
+  resolution_note TEXT,
+  resolved_by    BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  resolved_at    TIMESTAMPTZ,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (reporter_id <> target_user_id)
+);
+CREATE INDEX IF NOT EXISTS reports_open_idx ON reports (id DESC) WHERE status = 'aberta';
+CREATE INDEX IF NOT EXISTS reports_reporter_idx ON reports (reporter_id, id DESC);
+-- A mesma pessoa não abre duas denúncias iguais enquanto a primeira está aberta:
+-- uma por post e uma por conta (denúncia de conta não tem post_text).
+CREATE UNIQUE INDEX IF NOT EXISTS reports_unique_open_post
+  ON reports (reporter_id, post_id) WHERE status = 'aberta' AND post_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS reports_unique_open_account
+  ON reports (reporter_id, target_user_id) WHERE status = 'aberta' AND post_text IS NULL;

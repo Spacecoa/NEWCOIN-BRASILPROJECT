@@ -4,6 +4,7 @@ import { nextId } from '../lib/ids.js';
 import { extractMentions } from '../lib/text.js';
 import { bus } from '../realtime/bus.js';
 import { recordSignalSafely } from './interests.js';
+import { assertCanInteract, filterAudience, hiddenAuthors } from './relations.js';
 import { fanOut } from './timeline.js';
 import { getUsersByIds } from './users.js';
 
@@ -55,16 +56,25 @@ async function fetchPostRows(ids, viewerId) {
 /**
  * Converte uma lista ordenada de IDs em { data, includes }.
  * IDs que não existem mais (posts apagados ainda presentes no cache) são ignorados.
+ *
+ * É aqui que a moderação pessoal vale para todas as listas: somem os posts (e reposts)
+ * de quem tem bloqueio com quem está vendo, de contas suspensas e, por padrão, de quem
+ * a pessoa silenciou. Com { muted: false } os silenciados aparecem: é o caso de abrir
+ * de propósito o perfil, a thread ou um post específico.
  */
-export async function hydrate(ids, viewerId) {
-  const rows = await fetchPostRows(ids, viewerId);
+export async function hydrate(ids, viewerId, { muted = true } = {}) {
+  const [rows, hidden] = await Promise.all([fetchPostRows(ids, viewerId), hiddenAuthors(viewerId, { muted })]);
   const byId = new Map(rows.map((r) => [r.id, formatPost(r)]));
-  const data = ids.map((id) => byId.get(id)).filter(Boolean);
+  let data = ids.map((id) => byId.get(id)).filter((p) => p && !hidden.has(p.author_id));
 
   // Expansão de referências (1 nível, como referenced_tweets.id no X).
   const refIds = [...new Set(data.flatMap((p) => p.referenced_posts.map((r) => r.id)))].filter((id) => !byId.has(id));
   const refRows = await fetchPostRows(refIds, viewerId);
-  const includedPosts = refRows.map(formatPost);
+  const allRefs = refRows.map(formatPost);
+  const hiddenRef = new Set(allRefs.filter((p) => hidden.has(p.author_id)).map((p) => p.id));
+  // Repost de quem está escondido também some; respostas ficam, mas sem o post de origem.
+  data = data.filter((p) => !p.referenced_posts.some((r) => r.type === 'reposted' && (hiddenRef.has(r.id) || hidden.has(byId.get(r.id)?.author_id))));
+  const includedPosts = allRefs.filter((p) => !hiddenRef.has(p.id));
 
   const authorIds = [...new Set([...data, ...includedPosts].map((p) => p.author_id))];
   const users = await getUsersByIds(authorIds);
@@ -74,7 +84,7 @@ export async function hydrate(ids, viewerId) {
 }
 
 export async function getPost(id, viewerId) {
-  const result = await hydrate([id], viewerId);
+  const result = await hydrate([id], viewerId, { muted: false });
   if (!result.data.length) throw notFound('Post não encontrado');
   return { data: result.data[0], includes: result.includes };
 }
@@ -100,6 +110,7 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
       );
       if (!rows[0]) throw notFound('Post respondido não existe');
       if (rows[0].repost_of_id) throw conflict('Responda ao post original, não ao repost');
+      await assertCanInteract(authorId, rows[0].author_id, client);
       conversationId = rows[0].conversation_id;
       parentAuthor = rows[0].author_id;
       await client.query('UPDATE posts SET reply_count = reply_count + 1 WHERE id = $1', [replyToId]);
@@ -118,21 +129,24 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
     return { mentionedIds: mentioned, parentAuthorId: parentAuthor };
   });
 
-  const audience = await fanOut(id, authorId);
+  // Quem silenciou ou tem bloqueio com o autor não recebe o aviso em tempo real nem notificação.
+  const audience = await filterAudience(authorId, await fanOut(id, authorId));
   if (replyToId) await recordSignalSafely(authorId, replyToId, 'reply');
   const post = await getPost(id, authorId);
   bus.emit('post:created', { post, audience });
   const notify = new Set(mentionedIds);
   if (parentAuthorId && parentAuthorId !== authorId) notify.add(parentAuthorId);
-  if (notify.size) bus.emit('notification', { userIds: [...notify], type: replyToId ? 'reply' : 'mention', post });
+  const notifyIds = await filterAudience(authorId, [...notify]);
+  if (notifyIds.length) bus.emit('notification', { userIds: notifyIds, type: replyToId ? 'reply' : 'mention', post });
   return post;
 }
 
-export async function deletePost(userId, id) {
+/** Apaga um post. Só o autor, ou a moderação (byModerator) ao acatar uma denúncia. */
+export async function deletePost(userId, id, { byModerator = false } = {}) {
   await withTransaction(async (client) => {
     const { rows } = await client.query('SELECT author_id, reply_to_id, repost_of_id FROM posts WHERE id = $1 FOR UPDATE', [id]);
     if (!rows[0]) throw notFound('Post não encontrado');
-    if (rows[0].author_id !== userId) throw forbidden('Só o autor pode apagar o post');
+    if (rows[0].author_id !== userId && !byModerator) throw forbidden('Só o autor pode apagar o post');
     if (rows[0].reply_to_id) {
       await client.query('UPDATE posts SET reply_count = GREATEST(reply_count - 1, 0) WHERE id = $1', [rows[0].reply_to_id]);
     }
@@ -145,15 +159,21 @@ export async function deletePost(userId, id) {
   bus.emit('post:deleted', { id });
 }
 
-async function assertPostExists(client, id) {
-  const { rows } = await client.query('SELECT id, repost_of_id FROM posts WHERE id = $1', [id]);
+/** Confere que o post existe e que quem age pode interagir com o autor do original. */
+async function assertPostExists(client, id, actorId) {
+  const { rows } = await client.query(
+    `SELECT p.id, p.repost_of_id, COALESCE(o.author_id, p.author_id) AS original_author
+       FROM posts p LEFT JOIN posts o ON o.id = p.repost_of_id WHERE p.id = $1`,
+    [id],
+  );
   if (!rows[0]) throw notFound('Post não encontrado');
+  if (actorId) await assertCanInteract(actorId, rows[0].original_author, client);
   return rows[0];
 }
 
 export async function like(userId, postId) {
   await withTransaction(async (client) => {
-    await assertPostExists(client, postId);
+    await assertPostExists(client, postId, userId);
     const { rowCount } = await client.query(
       'INSERT INTO likes (user_id, post_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [userId, postId],
@@ -177,7 +197,7 @@ export async function unlike(userId, postId) {
 export async function repost(userId, postId) {
   const id = nextId();
   const created = await withTransaction(async (client) => {
-    const target = await assertPostExists(client, postId);
+    const target = await assertPostExists(client, postId, userId);
     const originalId = target.repost_of_id ?? target.id;
     const { rows } = await client.query('SELECT conversation_id FROM posts WHERE id = $1', [originalId]);
     const { rowCount } = await client.query(
@@ -190,7 +210,7 @@ export async function repost(userId, postId) {
   });
   if (created.inserted) {
     await recordSignalSafely(userId, created.originalId, 'repost');
-    const audience = await fanOut(id, userId);
+    const audience = await filterAudience(userId, await fanOut(id, userId));
     const post = await getPost(id, userId);
     bus.emit('post:created', { post, audience });
   }
@@ -221,6 +241,7 @@ export async function getThread(id, viewerId) {
     'SELECT id FROM posts WHERE conversation_id = $1 AND repost_of_id IS NULL ORDER BY id ASC LIMIT 500',
     [conversationId],
   );
-  const result = await hydrate(idRows.map((r) => r.id), viewerId);
+  // Quem abre uma thread de propósito vê também os silenciados; bloqueios continuam valendo.
+  const result = await hydrate(idRows.map((r) => r.id), viewerId, { muted: false });
   return { ...result, meta: { conversation_id: conversationId, focal_id: id, result_count: result.data.length } };
 }

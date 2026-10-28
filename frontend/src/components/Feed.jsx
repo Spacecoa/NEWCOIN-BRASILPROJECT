@@ -132,6 +132,17 @@ export default function Feed({
     remove(id);
   };
 
+  // Silenciou ou bloqueou alguém: some com os outros posts (e reposts) dessa pessoa.
+  // O post onde a ação foi feita fica, mostrando o aviso com "Desfazer".
+  const handleHideAuthor = (authorId, keepId) => {
+    const authorOf = (id) => {
+      const p = store.posts[id];
+      const ref = p?.referenced_posts.find((r) => r.type === 'reposted');
+      return [p?.author_id, ref ? store.posts[ref.id]?.author_id : null];
+    };
+    setIds((prev) => prev.filter((id) => id === keepId || !authorOf(id).includes(authorId)));
+  };
+
   return (
     <section aria-label="Feed" aria-busy={loading}>
       {header?.(prepend, meta)}
@@ -152,6 +163,7 @@ export default function Feed({
             store={store}
             onChange={merge}
             onDelete={handleDelete}
+            onHideAuthor={handleHideAuthor}
             hideMetrics={Boolean(meta?.hide_metrics)}
           />
         ) : null,

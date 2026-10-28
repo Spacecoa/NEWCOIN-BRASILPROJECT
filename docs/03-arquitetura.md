@@ -236,6 +236,9 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | POST | `/api/auth/logout` | ✔ ou cookie | Encerra a sessão deste aparelho na hora |
 | POST | `/api/auth/logout-all` | ✔ | Encerra as sessões em todos os aparelhos |
 | GET | `/api/auth/me` | ✔ | Usuário atual |
+| POST/DELETE | `/api/users/:username/mute` · `/block` | ✔ | Silenciar / bloquear (ver [`docs/11`](11-moderacao.md)) |
+| POST/GET | `/api/denuncias` | ✔ | Denunciar post ou conta; minhas denúncias |
+| GET/POST | `/api/moderacao/denuncias` · `/:id/resolver` | moderação | Fila e decisões (arquivar, remover post, suspender) |
 | GET | `/api/timeline` | ✔ | Home "Seguindo" (cronológica reversa) |
 | GET | `/api/mentions` | ✔ | Posts que mencionam o usuário |
 | GET | `/api/posts` | opc. | Timeline pública da instância |

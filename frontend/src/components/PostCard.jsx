@@ -10,6 +10,9 @@ import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
 import RichText from './RichText.jsx';
 import WhyPanel from './WhyPanel.jsx';
+import PostMenu from './PostMenu.jsx';
+import ReportDialog from './ReportDialog.jsx';
+import { block, mute } from '../lib/moderation.js';
 
 // Ação minimalista: ícone em traço, contador só quando > 0, alvo de toque de 44 px.
 function ActionButton({ label, icon, active = false, count, onClick, hideCount = false, disabled = false }) {
@@ -37,11 +40,13 @@ function ActionButton({ label, icon, active = false, count, onClick, hideCount =
  * Renderiza um post. Se for repost, mostra o original com o cabeçalho "X repostou".
  * `store` = { posts, users } normalizados; `onChange` recebe { data, includes }.
  */
-export default function PostCard({ post, store, onChange, onDelete, highlight = false, hideMetrics = false }) {
+export default function PostCard({ post, store, onChange, onDelete, onHideAuthor, highlight = false, hideMetrics = false }) {
   const { user: me } = useAuth();
   const navigate = useNavigate();
   const token = useToken();
   const [tipError, setTipError] = useState(null);
+  const [reporting, setReporting] = useState(false);
+  const [hidden, setHidden] = useState(null); // { kind: 'mute' | 'block', username }
   const repostRef = post.referenced_posts.find((r) => r.type === 'reposted');
   const shown = repostRef ? store.posts[repostRef.id] : post;
   if (!shown) return null; // original apagado
@@ -72,15 +77,63 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
     }
   }
 
+  // Silenciar/bloquear a partir do post: o cartão vira um aviso com "Desfazer" e o feed
+  // tira os outros posts da mesma pessoa.
+  async function hideAuthor(kind) {
+    await (kind === 'mute' ? mute : block)(author.username);
+    setHidden({ kind, username: author.username });
+    onHideAuthor?.(shown.author_id, post.id);
+  }
+  async function undoHide() {
+    await (hidden.kind === 'mute' ? mute : block)(hidden.username, false);
+    setHidden(null);
+  }
+
   async function remove() {
     if (!confirm('Apagar este post?')) return;
     await api(`/api/posts/${post.id}`, { method: 'DELETE' });
     onDelete?.(post.id);
   }
 
+  // A janela de denúncia fica sempre na mesma posição da árvore: se o cartão virar aviso
+  // (bloquear depois de denunciar), ela continua aberta na tela de confirmação.
+  const dialog = reporting && (
+    <ReportDialog
+      postId={shown.id}
+      username={author.username}
+      onClose={() => setReporting(false)}
+      onBlocked={() => {
+        setHidden({ kind: 'block', username: author.username });
+        onHideAuthor?.(shown.author_id, post.id);
+      }}
+    />
+  );
+
+  if (hidden) {
+    return (
+      <>
+        {dialog}
+        <div role="status" className="flex items-center justify-between gap-3 px-4 py-4 text-sm text-zinc-500">
+          <span>
+            {hidden.kind === 'mute'
+              ? `Você silenciou @${hidden.username}. Os posts dessa conta não aparecem mais nos seus feeds.`
+              : `Você bloqueou @${hidden.username}.`}
+          </span>
+          <button type="button" onClick={undoHide} className="min-h-11 shrink-0 rounded-full px-4 font-extrabold text-brand-600 hover:bg-zinc-50 dark:hover:bg-zinc-900">
+            Desfazer
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  const canModerate = me && author && shown.author_id !== me.id;
+
   return (
+    <>
+    {dialog}
     <article
-      onClick={() => !highlight && navigate(`/post/${shown.id}`)}
+      onClick={() => !highlight && !reporting && navigate(`/post/${shown.id}`)}
       className={`px-4 py-3 ${highlight ? '' : 'cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/60'}`}
     >
       {reposter && (
@@ -103,6 +156,9 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
             <time dateTime={shown.created_at} title={fullDate(shown.created_at)} className="text-sm text-zinc-400">
               {relativeTime(shown.created_at)}
             </time>
+            {canModerate && (
+              <PostMenu username={author.username} onMute={() => hideAuthor('mute')} onBlock={() => hideAuthor('block')} onReport={() => setReporting(true)} />
+            )}
           </header>
           {shown.in_reply_to_post_id && (
             <p className="text-xs text-zinc-400">
@@ -157,5 +213,6 @@ export default function PostCard({ post, store, onChange, onDelete, highlight = 
         </div>
       </div>
     </article>
+    </>
   );
 }

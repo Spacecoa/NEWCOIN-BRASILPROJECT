@@ -237,7 +237,36 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
       await db.query('UPDATE channels SET pts = $2 WHERE id = $1', [cid, pts]);
     }
 
-    log(`Seed concluído: ${users.length + NEWCOMERS.length} usuários (${NEWCOMERS.length} recém-chegadas), ${follows} follows, ${posts.length} posts, ${likes} likes, ${CHANNELS.length} canais, ${messages} mensagens.`);
+    // Moderação: a Ana modera a instância de teste, e uma conta de spam fictícia já tem
+    // duas denúncias abertas, para a fila da moderação não começar vazia.
+    let reports = 0;
+    if (ana) {
+      await db.query('UPDATE users SET is_moderator = true WHERE id = $1', [ana.id]);
+      const spamId = id();
+      await db.query(
+        'INSERT INTO users (id, username, email, password_hash, display_name, bio, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [spamId, 'promo_rapida', 'promo_rapida@exemplo.test', passwordHash, 'Promo Rápida', 'Ganhe NWC fácil!!! Link na bio.', new Date(Date.now() - 12 * 86_400_000)],
+      );
+      userByName.set('promo_rapida', spamId);
+      await insertPost({ author: { id: spamId }, text: 'GANHE 500 NWC POR DIA!!! Mande sua senha no privado e eu deposito na hora. Vagas limitadas!!!' });
+      const spamPost = posts.at(-1).id;
+      await insertPost({ author: { id: spamId }, text: 'Últimas vagas para o esquema de NWC em dobro. Chama no privado!!!' });
+      for (const [who, reason, details] of [
+        ['bruno_pesquisa', 'golpe', 'Pede senha das pessoas em troca de token. O NWC nem tem valor.'],
+        ['karen_ml', 'spam', ''],
+      ]) {
+        const reporter = userByName.get(who);
+        if (!reporter) continue;
+        await db.query(
+          `INSERT INTO reports (id, reporter_id, target_user_id, post_id, post_text, reason, details, created_at)
+           VALUES ($1,$2,$3,$4,(SELECT text FROM posts WHERE id = $4),$5,$6, now() - interval '3 hours')`,
+          [id(), reporter, spamId, spamPost, reason, details],
+        );
+        reports++;
+      }
+    }
+
+    log(`Seed concluído: ${users.length + NEWCOMERS.length + (ana ? 1 : 0)} usuários (${NEWCOMERS.length} recém-chegadas), ${reports} denúncias abertas, ${follows} follows, ${posts.length} posts, ${likes} likes, ${CHANNELS.length} canais, ${messages} mensagens.`);
   });
 
   // Timelines materializadas ficaram obsoletas: o Redis as reconstrói sob demanda.
@@ -251,7 +280,7 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   seed({ users: Number(process.env.SEED_USERS ?? PEOPLE.length) })
     .then(() => {
-      console.log(`Login de teste: qualquer usuário (ex.: ana_dev) com a senha "${SEED_PASSWORD}".`);
+      console.log(`Login de teste: e-mail <usuário>@exemplo.test (ex.: ana_dev@exemplo.test, que modera a instância) com a senha "${SEED_PASSWORD}".`);
     })
     .catch((err) => {
       console.error(err);

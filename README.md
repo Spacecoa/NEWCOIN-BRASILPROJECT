@@ -8,6 +8,7 @@
 - **Mensageria no estilo Telegram:** canais (broadcast) e grupos em tempo real, com `pts` por canal para detectar e recuperar lacunas, reações com emoji e papéis owner/admin/member.
 - **Federável:** handles `usuario@instancia`, WebFinger e um outbox ActivityStreams somente leitura.
 - **Algoritmo aberto:** aba "Para você" ordenada pelos interesses que a pessoa declara, com explicação em cada post, controles completos, aprendizado só por ações explícitas e um fim de sessão ("Você está em dia"). Popularidade vale zero por padrão. Cada pessoa escolhe **onde o feed é calculado**: no servidor da instância ou **neste aparelho**, com o mesmo código (`shared/ranking/`); no aparelho, preferências e aprendizado nunca saem do navegador.
+- **Moderação:** silenciar (privado), bloquear (nos dois sentidos) e denunciar posts ou contas pelo menu "⋯". A denúncia vai para a fila de quem modera a instância, que arquiva, remove o post ou suspende a conta, e quem denunciou acompanha o resultado.
 - **Missões diárias e token interno:** até 4 missões por dia feitas dentro do app (curtir, republicar, comentar, recompensar, tempo ativo, receber quem chegou, responder perguntas, abrir grupos, convidar), verificadas pelas ações reais. Cada uma rende **NewCoin (NWC)**, um token interno que só serve, por enquanto, para recompensar posts de outras pessoas (transferência de 1 NWC, como um like). Sem sequências nem ranking. Convites de uso único.
 
 | Início (celular) | Novo post | Canal em tempo real |
@@ -44,8 +45,9 @@ Também há uma versão publicada em https://claude.ai/artifact/1KYADm2kxRoJqg8r
 | 8 | **Missões diárias de organização popular** (crescimento orgânico, sem pontos nem sequências) e convites | [`docs/08-missoes-organizacao-popular.md`](docs/08-missoes-organizacao-popular.md) |
 | 9 | **Token interno NewCoin** (recompensa entre pessoas, emissão só por missões, utilidade nula no início) | [`docs/09-token-interno.md`](docs/09-token-interno.md) |
 | 10 | **Segurança e DoS** (análise, medições e correções propostas) | [`docs/10-seguranca-e-dos.md`](docs/10-seguranca-e-dos.md) |
-| 11 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
-| 12 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
+| 11 | **Moderação** (silenciar, bloquear, denunciar e a fila da moderação, em linguagem simples) | [`docs/11-moderacao.md`](docs/11-moderacao.md) |
+| 12 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
+| 13 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
 
 ## Stack
 
@@ -78,15 +80,15 @@ npm install
 npm run dev         # http://localhost:5173  (faz proxy de /api e /socket.io para :4000)
 ```
 
-Entre com o e-mail **`ana_dev@exemplo.test`** e a senha **`senha1234`**. Todos os usuários do seed seguem o padrão `<usuário>@exemplo.test` e usam essa senha. Para sair, use o botão **Sair** (no celular, fica no seu perfil). Para ver o tempo real, abra uma janela anônima com `bruno_pesquisa`, poste algo e veja o aviso "Mostrar 1 post novo" aparecer para a Ana. Ou converse no canal **Café ☕**.
+Entre com o e-mail **`ana_dev@exemplo.test`** e a senha **`senha1234`**. Todos os usuários do seed seguem o padrão `<usuário>@exemplo.test` e usam essa senha. Para sair, use o botão **Sair** (no celular, fica no seu perfil). A Ana modera a instância de teste: em **Perfil › Fila da moderação** há uma conta de spam fictícia (`promo_rapida`) já denunciada. Para ver o tempo real, abra uma janela anônima com `bruno_pesquisa`, poste algo e veja o aviso "Mostrar 1 post novo" aparecer para a Ana. Ou converse no canal **Café ☕**.
 
 Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL, com o mesmo resultado.
 
 ### Testes
 
 ```bash
-cd backend  && npm test   # 143 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
-cd frontend && npm test   # 46 testes: lógica e componentes (jsdom)
+cd backend  && npm test   # 159 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd frontend && npm test   # 49 testes: lógica e componentes (jsdom)
 ```
 
 Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL`. Os testes de integração **apagam** o banco de teste e o banco 1 do Redis.
