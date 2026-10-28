@@ -9,6 +9,10 @@ const ROUNDS = process.env.NODE_ENV === 'test' ? 4 : 10;
 export const hashPassword = (plain) => bcrypt.hash(plain, ROUNDS);
 export const checkPassword = (plain, hash) => bcrypt.compare(plain, hash);
 
+// Hash de uma senha aleatória, com o mesmo custo dos reais: usado quando a conta não existe.
+let dummy = null;
+export const dummyHash = () => (dummy ??= hashPassword(Math.random().toString(36)));
+
 /** Token de acesso curto, ligado a uma sessão (sid). */
 export function signToken(user, sid) {
   return jwt.sign({ sub: String(user.id), username: user.username, sid: String(sid) }, config.jwtSecret, {

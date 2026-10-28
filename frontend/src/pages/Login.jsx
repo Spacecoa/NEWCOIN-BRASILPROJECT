@@ -1,17 +1,22 @@
 import { useAuth } from '../auth/AuthContext.jsx';
-import AuthForm, { Field, Link } from './AuthForm.jsx';
+import AuthForm, { Field, Link, PasswordField } from './AuthForm.jsx';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, notice } = useAuth();
   return (
     <AuthForm
       title="Entrar"
       submitLabel="Entrar"
-      onSubmit={(f) => login(f.get('login'), f.get('password'))}
-      footer={<>Não tem conta? <Link to="/cadastro" className="text-brand-600 hover:underline">Cadastre-se</Link>. Dados de teste: <code>ana_dev</code> / <code>senha1234</code></>}
+      notice={notice}
+      onSubmit={(f) => login(String(f.get('email')).trim(), f.get('password'))}
+      footer={
+        <>
+          Não tem conta? <Link to="/cadastro" className="text-brand-600 hover:underline">Cadastre-se</Link>. Dados de teste: <code>ana_dev@exemplo.test</code> / <code>senha1234</code>
+        </>
+      }
     >
-      <Field label="E-mail ou usuário" name="login" autoComplete="username" required />
-      <Field label="Senha" name="password" type="password" autoComplete="current-password" required />
+      <Field label="E-mail" name="email" type="email" inputMode="email" autoComplete="email" required autoFocus />
+      <PasswordField label="Senha" name="password" autoComplete="current-password" required />
     </AuthForm>
   );
 }

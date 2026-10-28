@@ -353,6 +353,26 @@ span.act { pointer-events: none; }
 .specbox { background: var(--soft); border-radius: 20px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
 .specbox code { font-family: var(--mono); font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
 
+/* Entrar / sair */
+body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"] .fab { display: none !important; }
+.gate[hidden] { display: none; }
+.gate { max-width: 400px; margin: 16px auto 0; display: grid; gap: 14px; }
+.gate .brand-l { font-weight: 800; font-size: 32px; color: var(--accent); letter-spacing: -0.02em; }
+.gate h2 { margin: 0; font-size: 22px; font-weight: 800; }
+.gform { display: grid; gap: 6px; }
+.gform label { font-size: 14px; color: var(--muted); margin-top: 8px; }
+.gform input { width: 100%; min-height: 50px; border: 0; background: var(--soft); color: var(--ink); border-radius: 18px; padding: 0 16px; font: inherit; outline: none; }
+.gform input:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+.gform .primary { margin-top: 14px; min-height: 50px; width: 100%; }
+.pw { position: relative; }
+.pw input { padding-right: 104px; }
+.pw button { position: absolute; right: 5px; top: 5px; bottom: 5px; padding: 0 16px; border-radius: 999px; color: var(--muted); font-size: 14px; font-weight: 700; }
+.pw button:hover { background: var(--bg); }
+.gate .err { margin: 6px 0 0; color: var(--t-ws); font-size: 14px; font-weight: 700; }
+.gate .ok { margin: 0; background: var(--accent-soft); color: var(--accent); border-radius: 18px; padding: 12px 16px; font-size: 14px; font-weight: 700; }
+.gate .hint { margin: 0; color: var(--muted); font-size: 14px; }
+.gate code { font-family: var(--mono); font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
+
 @media (max-width: 520px) { .head.has-extra .titles { flex-basis: 100%; } }
 
 @media (min-width: 768px) {
@@ -378,11 +398,26 @@ span.act { pointer-events: none; }
 }
 </style>
 </head>
-<body>
+<body data-auth="out">
 <header class="intro">
   <h1>Ágora <span>em ação</span></h1>
   <p>Demonstração interativa com dados fictícios. Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste, recompense posts com o token NWC, cumpra as missões do dia e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
 </header>
+
+<section class="gate" id="gate" aria-label="Entrar">
+  <div class="brand-l">ágora</div>
+  <h2>Entrar</h2>
+  <p class="ok" id="gate-notice" role="status" hidden></p>
+  <form class="gform" data-login novalidate>
+    <label for="g-email">E-mail</label>
+    <input id="g-email" type="email" inputmode="email" autocomplete="email" placeholder="voce@exemplo.test">
+    <label for="g-pass">Senha</label>
+    <div class="pw"><input id="g-pass" type="password" autocomplete="current-password"><button type="button" data-pwtoggle aria-pressed="false">Mostrar</button></div>
+    <p class="err" id="gate-err" role="alert" hidden></p>
+    <button class="primary" type="submit">Entrar</button>
+  </form>
+  <p class="hint">Conta da demo: <code>ana_dev@exemplo.test</code> e senha <code>senha1234</code>. Nada sai deste navegador.</p>
+</section>
 
 <div class="app">
   <nav class="side" aria-label="Principal">
@@ -704,7 +739,7 @@ span.act { pointer-events: none; }
     log('http', `POST /api/atividade → 200${simulated ? ' (simulado ×' + count + ')' : ''}`, `{ counted: true, minutes: ${day.minutes} }  · só 1 minuto a cada 55 s, teto de 120/dia`);
     if (['missions', 'home'].includes(state.view)) render();
   }
-  setInterval(() => { if (document.visibilityState === 'visible' && Date.now() - lastInteraction < 120000) beat(1); }, 60000);
+  setInterval(() => { if (document.body.dataset.auth === 'in' && document.visibilityState === 'visible' && Date.now() - lastInteraction < 120000) beat(1); }, 60000);
 
   // ---------- Algoritmo "Para você" (porta de backend/src/lib/ranking.js) ----------
   const TOPICS = {
@@ -1010,7 +1045,7 @@ span.act { pointer-events: none; }
   }
 
   // Sessão: token de acesso de 15 min, renovado pelo cookie HttpOnly; sair vale na hora.
-  const sess = { devices: 2, confirmAll: false };
+  const sess = { devices: 1, confirmAll: false };
   function sessionPanel() {
     const other = sess.devices - 1;
     return `<section class="panel">
@@ -1019,7 +1054,7 @@ span.act { pointer-events: none; }
         ${sess.confirmAll
           ? `<p><b>Encerrar a sessão em todos os aparelhos, inclusive neste?</b> Use se perdeu um celular ou entrou num computador que não é seu.</p>
              <div class="row2"><button class="primary" data-logout-all-ok>Sair de todos</button><button class="chip" data-logout-all-cancel>Cancelar</button></div>`
-          : `<div class="row2"><button class="chip" data-sim-expire>Simular 15 min depois</button><button class="chip" data-logout-all>Sair de todos os aparelhos</button></div>`}
+          : `<div class="row2"><button class="chip" data-sim-expire>Simular 15 min depois</button><button class="chip" data-logout>Sair</button><button class="chip" data-logout-all>Sair de todos os aparelhos</button></div>`}
       </section>`;
   }
   function simulateExpiry() {
@@ -1034,12 +1069,58 @@ span.act { pointer-events: none; }
     log('http', 'POST /api/auth/logout-all → 200', `{ ended: ${n} }`);
     log('sql', `UPDATE sessions SET revoked_at = now() WHERE user_id = ana_dev AND revoked_at IS NULL → ${n} linhas`);
     log('redis', `SET revoked:sid:… 1 EX 900  (×${n})`, 'cada pedido confere esta lista: o token de quem copiou deixa de valer na hora');
-    log('ws', 'disconnectSockets(session:…) → a conexão em tempo real do outro aparelho cai');
-    log('note', 'Demo: entrando de novo como Ana para continuar');
-    log('http', 'POST /api/auth/login → 200', 'nova sessão: token de 15 min + cookie HttpOnly, SameSite=Strict');
-    sess.devices = 1; sess.confirmAll = false;
-    toast(`Sessão encerrada em ${n} aparelhos. Você entrou de novo neste.`);
-    render();
+    log('ws', 'disconnectSockets(session:…) → as conexões em tempo real de todos os aparelhos caem');
+    sess.devices = 0; sess.confirmAll = false;
+    showGate(`Você saiu da sua conta nos ${n} aparelhos.`);
+  }
+
+  // ---------- Entrar e sair (e-mail e senha) ----------
+  const gate = document.getElementById('gate');
+  const emailOf = (u) => `${u}@exemplo.test`;
+  function showGate(notice) {
+    document.body.dataset.auth = 'out';
+    gate.hidden = false;
+    const n = document.getElementById('gate-notice');
+    n.hidden = !notice; n.textContent = notice || '';
+    document.getElementById('gate-err').hidden = true;
+    document.getElementById('g-pass').value = '';
+    logPanel.classList.remove('open');
+    sheet.hidden = true;
+    window.scrollTo(0, 0);
+  }
+  function gateError(msg) {
+    const e = document.getElementById('gate-err');
+    e.textContent = msg; e.hidden = false;
+    document.getElementById('gate-notice').hidden = true;
+  }
+  function doLogin(rawEmail, pass) {
+    const email = rawEmail.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { log('http', 'POST /api/auth/login → 400', 'e-mail inválido: recusado antes de consultar o banco'); return gateError('Digite um e-mail válido.'); }
+    if (!pass) return gateError('Digite a senha.');
+    const user = Object.keys(USERS).find((u) => emailOf(u) === email);
+    log('sql', 'SELECT … FROM users WHERE email = $1', user ? '1 linha → bcrypt.compare(senha, hash)' : '0 linhas → bcrypt.compare com um hash falso (mesmo tempo de resposta: ninguém descobre quais e-mails existem)');
+    if (!user || pass !== 'senha1234') { log('http', 'POST /api/auth/login → 401', '{ error: "E-mail ou senha incorretos" }'); return gateError('E-mail ou senha incorretos.'); }
+    if (user !== ME) return gateError(`Nesta demo, entre com a conta da Ana: ${emailOf(ME)}.`);
+    sess.devices += 1;
+    log('http', 'POST /api/auth/login → 200', `{ email: "${email}" } → { token (15 min), user } + Set-Cookie: agora_refresh; HttpOnly; SameSite=Strict`);
+    log('sql', 'INSERT INTO sessions (id, user_id, refresh_hash, expires_at) → sessão de 30 dias', 'o banco guarda só o hash do cookie');
+    log('ws', 'connect (auth.token = JWT) → salas user:ana_dev e session:…', 'se a pessoa sair, a conexão deste aparelho cai junto');
+    document.body.dataset.auth = 'in';
+    gate.hidden = true;
+    document.getElementById('g-email').value = '';
+    document.getElementById('g-pass').value = '';
+    if (!day.chosen.length) startDay();
+    state.stack = [];
+    go('home');
+    toast(`Olá, ${USERS[ME].name.split(' ')[0]}!`);
+  }
+  function doLogout() {
+    log('http', 'POST /api/auth/logout → 204', 'encerra só a sessão deste aparelho');
+    log('sql', 'UPDATE sessions SET revoked_at = now() WHERE id = sid → 1 linha');
+    log('redis', 'SET revoked:sid:… 1 EX 900', 'o token deste aparelho deixa de valer na hora');
+    log('ws', 'disconnectSockets(session:…) → a conexão em tempo real deste aparelho cai');
+    sess.devices = Math.max(0, sess.devices - 1);
+    showGate('Você saiu da sua conta.');
   }
 
   const tagFor = (c) => (c.mission ? MISSIONS[c.mission]?.title : '');
@@ -1161,7 +1242,7 @@ span.act { pointer-events: none; }
     ta.form.querySelector('button[type=submit]').disabled = !ta.value.trim() || left < 0;
   }
 
-  document.getElementById('me-card').innerHTML = `${avatar(ME, 'sm')}<div><b>${USERS[ME].name}</b><small>@${ME}</small></div>`;
+  document.getElementById('me-card').innerHTML = `${avatar(ME, 'sm')}<div style="flex:1;min-width:0"><b>${USERS[ME].name}</b><small>@${ME}</small></div><button class="iconbtn" data-logout aria-label="Sair"><svg class="i sm" viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h10"/></svg></button>`;
 
   // ---------- Ações ----------
   function readTimeline(extra = '') {
@@ -1381,6 +1462,8 @@ span.act { pointer-events: none; }
     if (d.mute) { const i = algo.muted.indexOf(d.mute); i >= 0 ? algo.muted.splice(i, 1) : algo.muted.push(d.mute); log('http', 'PUT /api/feed/preferencias → 200', `muted_topics: [${algo.muted.join(', ')}]`); render(); return; }
     if (d.kwdel) { algo.keywords = algo.keywords.filter((k) => k !== d.kwdel); log('http', 'PUT /api/feed/preferencias → 200', `keywords: [${algo.keywords.join(', ')}]`); render(); return; }
     if (d.resetLearn !== undefined) { learned.topics = {}; learned.authors = {}; hiddenFy.clear(); state.fb = {}; log('http', 'DELETE /api/feed/aprendizado → 200', 'apaga learned_topics, learned_authors e hidden_posts'); toast('Aprendizado apagado.'); render(); return; }
+    if (d.pwtoggle !== undefined) { const i = document.getElementById('g-pass'); const show = i.type === 'password'; i.type = show ? 'text' : 'password'; t.textContent = show ? 'Ocultar' : 'Mostrar'; t.setAttribute('aria-pressed', String(show)); return; }
+    if (d.logout !== undefined) return doLogout();
     if (d.simExpire !== undefined) return simulateExpiry();
     if (d.logoutAll !== undefined) { sess.confirmAll = true; render(); return; }
     if (d.logoutAllCancel !== undefined) { sess.confirmAll = false; render(); return; }
@@ -1437,6 +1520,7 @@ span.act { pointer-events: none; }
   document.addEventListener('submit', (e) => {
     e.preventDefault();
     const f = e.target;
+    if (f.dataset.login !== undefined) return doLogin(document.getElementById('g-email').value, document.getElementById('g-pass').value);
     if (f.dataset.kwform !== undefined) {
       const k = f.querySelector('input').value.trim().toLowerCase();
       if (k.length >= 2 && !algo.keywords.includes(k) && algo.keywords.length < 20) { algo.keywords.push(k); putPrefs(`keywords: [${algo.keywords.join(', ')}]`); }
@@ -1460,11 +1544,10 @@ span.act { pointer-events: none; }
   });
 
   // Estado inicial: login + primeira página
-  log('http', 'POST /api/auth/login → 200', '{ login: "ana_dev" } → { token (15 min), user } + Set-Cookie: agora_refresh; HttpOnly; SameSite=Strict');
-  log('sql', 'INSERT INTO sessions (id, user_id, refresh_hash, expires_at) → sessão de 30 dias', 'o banco guarda só o hash do cookie');
-  log('ws', 'connect (auth.token = JWT) → salas user:ana_dev e session:…', 'se a pessoa sair, a conexão deste aparelho cai junto');
-  startDay();
+  // Estado inicial: tela de entrar (e-mail e senha). O app só aparece depois do login.
+  log('http', 'POST /api/auth/refresh → 401', 'sem cookie de sessão neste navegador: mostra a tela de entrar');
   go('home');
+  showGate();
 })();
 </script>
 </body>

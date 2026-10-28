@@ -231,7 +231,7 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | Método | Rota | Auth | Descrição |
 |---|---|---|---|
 | POST | `/api/auth/register` | — | Cria a conta e devolve `{token, user}` |
-| POST | `/api/auth/login` | — | `{login, password}` → `{token, user}` |
+| POST | `/api/auth/login` | — | `{email, password}` → `{token, user}` + cookie de sessão (`{login}` com e-mail ou usuário segue aceito) |
 | POST | `/api/auth/refresh` | cookie | Troca o cookie de sessão por um token novo (rotação) |
 | POST | `/api/auth/logout` | ✔ ou cookie | Encerra a sessão deste aparelho na hora |
 | POST | `/api/auth/logout-all` | ✔ | Encerra as sessões em todos os aparelhos |

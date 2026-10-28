@@ -18,7 +18,7 @@ O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limi
 | A3 | Rotas caras ou públicas sem limite de requisições | Alta | **Corrigido** (etapa 1: limite geral) |
 | M1 | Fan-out síncrono dentro da requisição de postar | Média | Proposta |
 | M2 | Missões: consultas pesadas e painel coletivo recalculado a cada pedido | Média | Proposta |
-| M3 | Enumeração de contas (cadastro e tempo de resposta do login) | Média | Proposta |
+| M3 | Enumeração de contas (cadastro e tempo de resposta do login) | Média | Parcial (login corrigido; cadastro pendente) |
 | M4 | Limite de login só por IP, e `trust proxy` não configurado | Média | Parcial (`TRUST_PROXY` configurável) |
 | M5 | WebSocket sem limites de conexões e eventos, exclusão enviada a todos | Média | Proposta |
 | M6 | Contas falsas podem minerar NWC pelas missões | Média | Proposta (antes de dar utilidade ao token) |
@@ -170,6 +170,8 @@ O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limi
 - no cadastro, diferenciar só o username (que é público por projeto) e tratar o e-mail sem confirmar existência, com verificação por e-mail;
 - manter o limite por IP.
 
+**Correção aplicada no login (28/10/2026):** o bcrypt roda sempre, contra um hash falso de mesmo custo quando a conta não existe, e a mensagem é única ("E-mail ou senha incorretos"). O login agora é por e-mail e senha. O cadastro ainda responde 409 para e-mail repetido; resolver isso exige confirmação por e-mail.
+
 ### 4.8 M4 — Limite de login só por IP · Média
 
 **Evidência:** `routes/auth.js:25` usa a chave `req.ip`, e login e cadastro dividem o mesmo contador. Não há `app.set('trust proxy', …)`.
@@ -274,7 +276,7 @@ Inundação de conexões, de pacotes ou de requisições vindas de muitas origen
 |---|---|---|---|
 | **Feito** | C1 (MMR otimizado + limite em `/api/feed/interesses`) | — | Uma conta derrubava o serviço |
 | **Feito (etapa 1)** | A1, A2, A3 (limite geral), M7, M8, B1; `trust proxy` configurável; B3 parcial | — | Autenticação e base pronta para rede aberta (§8) |
-| 2 | M3 (enumeração), M4 (limite de login por conta), M5 (WebSocket) | Médio | Fecha o que resta da autenticação e do tempo real |
+| 2 | M3 (cadastro), M4 (limite de login por conta), M5 (WebSocket) | Médio | Fecha o que resta da autenticação e do tempo real |
 | 3 | M2 (consultas e cache das missões), B2, B3 (falhar fechado), B4 | Médio | Robustez sob carga |
 | 4 | M1 (fan-out em fila e híbrido), proxy reverso e observabilidade (§5) | Maior | Escala |
 | Antes de dar utilidade ao NWC | M6 (contas falsas e teto de emissão) | Médio | O incentivo econômico muda o modelo de ameaça |
