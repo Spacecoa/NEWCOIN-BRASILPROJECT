@@ -5,6 +5,7 @@ import { parse } from '../lib/errors.js';
 import { rateLimit } from '../lib/rateLimit.js';
 import * as moderation from '../services/moderation.js';
 import { listRelations } from '../services/relations.js';
+import { listRules, replaceRules } from '../services/rules.js';
 
 const router = Router();
 const idParam = z.string().regex(/^\d{1,20}$/, 'ID inválido');
@@ -53,12 +54,70 @@ router.get('/moderacao/denuncias', requireAuth, async (req, res) => {
 });
 
 router.post('/moderacao/denuncias/:id/resolver', requireAuth, async (req, res) => {
-  const body = parse(z.object({ action: z.enum(moderation.ACTIONS), note: z.string().trim().max(500).optional().default('') }).strict(), req.body);
+  const body = parse(
+    z.object({ action: z.enum(moderation.ACTIONS), note: z.string().trim().max(500).optional().default(''), rule_id: idParam.optional() }).strict(),
+    req.body,
+  );
   res.json({ data: await moderation.resolveReport(req.user.id, parse(idParam, req.params.id), body) });
 });
 
 router.post('/moderacao/usuarios/:username/reativar', requireAuth, async (req, res) => {
   res.json({ data: await moderation.unsuspend(req.user.id, req.params.username) });
+});
+
+// ----- Regras da instância -----
+
+/** Públicas: qualquer pessoa (mesmo sem conta) pode ler antes de entrar. */
+router.get('/instancia/regras', async (_req, res) => {
+  res.json({ data: await listRules() });
+});
+
+const ruleSchema = z
+  .object({
+    id: idParam.optional(),
+    title: z.string().trim().min(3, 'título com pelo menos 3 caracteres').max(80),
+    description: z.string().trim().max(500).optional().default(''),
+  })
+  .strict();
+
+router.put('/moderacao/regras', requireAuth, async (req, res) => {
+  await moderation.assertModerator(req.user.id);
+  const { rules } = parse(z.object({ rules: z.array(ruleSchema).min(1, 'a instância precisa de pelo menos uma regra').max(15) }).strict(), req.body);
+  res.json({ data: await replaceRules(rules) });
+});
+
+// ----- Decisões sobre a própria conta e recursos -----
+
+const appealText = z.string().trim().min(10, 'explique em pelo menos 10 caracteres').max(1000, 'máximo de 1000 caracteres');
+
+router.get('/conta/decisoes', requireAuth, async (req, res) => {
+  res.json({ data: await moderation.myDecisions(req.user.id) });
+});
+
+router.post('/conta/decisoes/:id/recurso', requireAuth, async (req, res) => {
+  const { text } = parse(z.object({ text: appealText }).strict(), req.body);
+  res.status(201).json({ data: await moderation.appealDecision(req.user.id, parse(idParam, req.params.id), text) });
+});
+
+// Conta suspensa não entra: o recurso confere e-mail e senha. Limite por IP, como o login.
+const appealLimiter = rateLimit({ name: 'appeals', limit: 10, windowSec: 15 * 60, key: (req) => req.ip });
+router.post('/recursos/suspensao', appealLimiter, async (req, res) => {
+  const body = parse(
+    z.object({ email: z.string().trim().toLowerCase().pipe(z.email('e-mail inválido')), password: z.string().min(1).max(128), text: appealText }).strict(),
+    req.body,
+  );
+  res.status(201).json({ data: await moderation.appealSuspension(body) });
+});
+
+router.get('/moderacao/recursos', requireAuth, async (req, res) => {
+  await moderation.assertModerator(req.user.id);
+  const status = parse(z.enum(['aberto', 'decidido']).default('aberto'), req.query.status);
+  res.json({ data: await moderation.listAppeals(status) });
+});
+
+router.post('/moderacao/recursos/:id/decidir', requireAuth, async (req, res) => {
+  const body = parse(z.object({ decision: z.enum(['aceitar', 'negar']), note: z.string().trim().max(500).optional().default('') }).strict(), req.body);
+  res.json({ data: await moderation.decideAppeal(req.user.id, parse(idParam, req.params.id), body) });
 });
 
 export default router;

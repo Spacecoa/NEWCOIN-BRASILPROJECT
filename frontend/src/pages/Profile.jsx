@@ -146,6 +146,9 @@ export default function Profile() {
             <Link to="/privacidade" className="flex min-h-11 items-center gap-2 rounded-full bg-zinc-50 px-4 hover:bg-zinc-100 dark:bg-zinc-900">
               <Icon name="block" className="h-4 w-4" /> Bloqueios e denúncias
             </Link>
+            <Link to="/regras" className="flex min-h-11 items-center gap-2 rounded-full bg-zinc-50 px-4 hover:bg-zinc-100 dark:bg-zinc-900">
+              <Icon name="book" className="h-4 w-4" /> Regras da instância
+            </Link>
             {me.is_moderator && (
               <Link to="/moderacao" className="flex min-h-11 items-center gap-2 rounded-full bg-zinc-50 px-4 hover:bg-zinc-100 dark:bg-zinc-900">
                 <Icon name="shield" className="h-4 w-4" /> Fila da moderação

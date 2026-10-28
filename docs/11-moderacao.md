@@ -91,5 +91,5 @@ O perfil (`GET /api/users/:username`) traz `relationship.{blocking, blocked_by, 
 
 - **Grupos e canais:** mensagens de quem você bloqueou ainda aparecem em grupos dos quais os dois participam. O bloqueio vale para o feed, as menções e as interações com posts.
 - **Federação:** bloquear ou silenciar uma instância inteira ainda não existe; a federação, por enquanto, é só de leitura.
-- **Regras da instância:** ainda não há uma página com as regras, que a moderação citaria nas decisões, nem como recorrer de uma suspensão.
+- **Regras da instância e recursos:** feito em [`docs/12-regras-e-recursos.md`](12-regras-e-recursos.md). As decisões agora citam a regra quebrada e podem ser contestadas.
 - **Mais de um servidor:** a queda imediata das sessões da conta suspensa (WebSocket) precisa de Redis Pub/Sub entre processos.

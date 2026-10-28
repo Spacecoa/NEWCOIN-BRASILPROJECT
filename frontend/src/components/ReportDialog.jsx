@@ -58,7 +58,10 @@ export default function ReportDialog({ postId, username, onClose, onBlocked }) {
           <form onSubmit={send} className="space-y-4">
             <div>
               <h2 id="report-title" className="text-lg font-extrabold">{postId ? 'Denunciar post' : `Denunciar @${username}`}</h2>
-              <p className="text-sm text-zinc-500">A moderação desta instância vai analisar. @{username} não fica sabendo quem denunciou.</p>
+              <p className="text-sm text-zinc-500">
+                A moderação desta instância vai analisar com base nas{' '}
+                <a href="/regras" target="_blank" rel="noreferrer" className="text-brand-600 underline">regras</a>. @{username} não fica sabendo quem denunciou.
+              </p>
             </div>
             <fieldset className="space-y-1">
               <legend className="mb-1 text-sm font-semibold">Qual é o problema?</legend>

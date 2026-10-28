@@ -124,7 +124,7 @@ const DEFS = {
       (
         await query(
           `SELECT p.id, p.text, u.username FROM posts p JOIN users u ON u.id = p.author_id
-           WHERE p.author_id <> $1 AND p.author_id NOT IN ${HIDDEN} AND p.repost_of_id IS NULL AND p.reply_count = 0
+           WHERE p.author_id <> $1 AND p.author_id NOT IN ${HIDDEN} AND p.repost_of_id IS NULL AND p.removed_at IS NULL AND p.reply_count = 0
              AND p.text LIKE '%?%' AND p.created_at > now() - interval '3 days'
            ORDER BY p.id DESC LIMIT 3`,
           [me],
@@ -169,7 +169,7 @@ const DEFS = {
         await query(
           `SELECT p.id, p.text, u.username FROM posts p JOIN users u ON u.id = p.author_id
            WHERE p.author_id <> $1 AND p.author_id NOT IN ${HIDDEN} AND NOT ${UNDER_REVIEW('p.author_id')}
-             AND p.repost_of_id IS NULL AND p.created_at > now() - interval '3 days'
+             AND p.repost_of_id IS NULL AND p.removed_at IS NULL AND p.created_at > now() - interval '3 days'
              AND (SELECT count(*) FROM follows f WHERE f.followee_id = p.author_id AND f.follower_id <> $1) < 5
              AND NOT EXISTS (SELECT 1 FROM posts r WHERE r.repost_of_id = p.id AND r.author_id = $1)
            ORDER BY p.id DESC LIMIT 3`,

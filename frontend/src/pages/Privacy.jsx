@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
 import { block, mute, RESOLUTION_LABEL, STATUS_LABEL } from '../lib/moderation.js';
+import { ruleLabel } from '../lib/rules.js';
 import { relativeTime } from '../lib/time.js';
 
 function Section({ title, hint, children }) {
@@ -35,21 +36,82 @@ function PeopleList({ people, empty, actionLabel, onAction }) {
   );
 }
 
+const KIND_LABEL = { post_removido: 'Post removido', suspensao: 'Conta suspensa' };
+const APPEAL_STATUS = { aberto: 'Recurso em análise', aceito: 'Recurso aceito: decisão desfeita', negado: 'Recurso negado: decisão mantida' };
+
+/** Uma decisão da moderação sobre a própria conta, com a regra citada e o recurso. */
+function Decision({ d, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [error, setError] = useState(null);
+  async function send(e) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api(`/api/conta/decisoes/${d.id}/recurso`, { method: 'POST', body: { text } });
+      onChange({ ...d, appeal_status: 'aberto', appeal_text: text });
+    } catch (err) {
+      setError(err.details?.map((x) => x.message).join(' · ') || err.message);
+    }
+  }
+  return (
+    <li className="rounded-2xl bg-zinc-50 p-4 text-sm dark:bg-zinc-900">
+      <div className="flex items-center justify-between gap-2">
+        <b>{KIND_LABEL[d.kind]}</b>
+        <span className="text-xs text-zinc-500">{relativeTime(d.created_at)}</span>
+      </div>
+      {d.post_text && <p className="mt-1 text-zinc-500">“{d.post_text}”</p>}
+      <p className="mt-1">Motivo: <b>{ruleLabel(d.rule)}</b>{d.note ? ` · ${d.note}` : ''}</p>
+      {d.appeal_status && (
+        <p className="mt-1 font-semibold">{APPEAL_STATUS[d.appeal_status]}{d.appeal_note ? <span className="font-normal text-zinc-500"> · {d.appeal_note}</span> : ''}</p>
+      )}
+      {d.reverted_at && !d.appeal_status && <p className="mt-1 font-semibold">A moderação desfez esta decisão.</p>}
+      {!d.appeal_status && !d.reverted_at && !open && (
+        <button type="button" onClick={() => setOpen(true)} className="mt-2 min-h-11 rounded-full bg-white px-4 font-extrabold dark:bg-zinc-950">Recorrer</button>
+      )}
+      {open && !d.appeal_status && (
+        <form onSubmit={send} className="mt-2 space-y-2">
+          <label className="block">
+            <span className="mb-1 block text-zinc-500">Por que a decisão deveria ser revista? (um recurso por decisão)</span>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} minLength={10} maxLength={1000} rows={3} required className="w-full rounded-2xl bg-white px-4 py-3 text-base outline-none dark:bg-zinc-950" />
+          </label>
+          {error && <p role="alert" className="text-rose-600">{error}</p>}
+          <div className="flex gap-2">
+            <button className="min-h-11 rounded-full bg-brand-600 px-5 font-extrabold text-white">Enviar recurso</button>
+            <button type="button" onClick={() => setOpen(false)} className="min-h-11 rounded-full px-4 text-zinc-600 dark:text-zinc-300">Cancelar</button>
+          </div>
+        </form>
+      )}
+    </li>
+  );
+}
+
 /** Bloqueados, silenciados e o andamento das denúncias que a pessoa fez. */
 export default function Privacy() {
   const [blocks, setBlocks] = useState(null);
   const [mutes, setMutes] = useState(null);
   const [reports, setReports] = useState(null);
+  const [decisions, setDecisions] = useState(null);
 
   useEffect(() => {
     api('/api/conta/bloqueados').then((r) => setBlocks(r.data));
     api('/api/conta/silenciados').then((r) => setMutes(r.data));
     api('/api/denuncias').then((r) => setReports(r.data));
+    api('/api/conta/decisoes').then((r) => setDecisions(r.data));
   }, []);
 
   return (
     <>
       <PageHeader back title="Bloqueios e denúncias" subtitle="Só você vê esta página" />
+      {decisions?.length > 0 && (
+        <Section title="Decisões sobre sua conta" hint="O que a moderação decidiu sobre seus posts, com a regra citada. Cada decisão aceita um recurso.">
+          <ul className="space-y-3">
+            {decisions.map((d) => (
+              <Decision key={d.id} d={d} onChange={(nd) => setDecisions((list) => list.map((x) => (x.id === nd.id ? nd : x)))} />
+            ))}
+          </ul>
+        </Section>
+      )}
       <Section title="Bloqueados" hint="Vocês não veem os posts um do outro e ninguém consegue seguir, responder ou curtir o outro.">
         <PeopleList
           people={blocks}
@@ -89,7 +151,11 @@ export default function Privacy() {
                 </div>
                 {r.post_text && <p className="mt-1 line-clamp-2 text-zinc-500">“{r.post_text}”</p>}
                 <p className="mt-1 text-zinc-500">Enviada {relativeTime(r.created_at)}</p>
-                {r.resolution && <p className="mt-1">{RESOLUTION_LABEL[r.resolution]} {r.resolution_note && <span className="text-zinc-500">Nota: {r.resolution_note}</span>}</p>}
+                {r.resolution && (
+                  <p className="mt-1">
+                    {RESOLUTION_LABEL[r.resolution]} {r.rule && <b>{ruleLabel(r.rule)}.</b>} {r.resolution_note && <span className="text-zinc-500">Nota: {r.resolution_note}</span>}
+                  </p>
+                )}
               </li>
             ))}
           </ul>

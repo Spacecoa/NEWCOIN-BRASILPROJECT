@@ -60,7 +60,9 @@ export default function AuthForm({ title, submitLabel, onSubmit, footer, notice,
           {submitLabel}
         </button>
         <p className="text-sm text-zinc-500">{footer}</p>
-        <p className="text-xs text-zinc-400">Protótipo de pesquisa — uso local, não comercial.</p>
+        <p className="text-xs text-zinc-400">
+          <Link to="/regras" className="underline">Regras da instância</Link> · Protótipo de pesquisa — uso local, não comercial.
+        </p>
       </form>
     </div>
   );

@@ -35,6 +35,7 @@ export class ApiError extends Error {
     super(body?.error ?? `Erro ${status}`);
     this.status = status;
     this.details = body?.details;
+    this.body = body; // ex.: { suspension } no login de conta suspensa
   }
 }
 

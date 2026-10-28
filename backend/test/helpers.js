@@ -3,13 +3,15 @@ import { createApp } from '../src/app.js';
 import { getRedis } from '../src/cache.js';
 import { query } from '../src/db.js';
 import { migrate } from '../src/migrate.js';
+import { ensureDefaultRules } from '../src/services/rules.js';
 
 export const app = createApp();
 export const api = () => request(app);
 
 export async function resetDb() {
   await migrate();
-  await query('TRUNCATE users, sessions, mutes, blocks, reports, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
+  await query('TRUNCATE users, sessions, mutes, blocks, reports, sanctions, instance_rules, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
+  await ensureDefaultRules();
   const redis = getRedis();
   if (redis) await redis.flushdb();
 }
@@ -18,7 +20,7 @@ export async function resetDb() {
 export async function signup(username, extra = {}) {
   const res = await api()
     .post('/api/auth/register')
-    .send({ username, email: `${username}@exemplo.test`, password: 'senha1234', ...extra });
+    .send({ username, email: `${username}@exemplo.test`, password: 'senha1234', accept_rules: true, ...extra });
   if (res.status !== 201) throw new Error(`signup falhou: ${res.status} ${JSON.stringify(res.body)}`);
   return { user: res.body.user, token: res.body.token, auth: { Authorization: `Bearer ${res.body.token}` } };
 }
