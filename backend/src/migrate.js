@@ -1,12 +1,15 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { pool } from './db.js';
+import { ensureDefaultRules } from './services/rules.js';
 
 const schemaPath = fileURLToPath(new URL('../sql/schema.sql', import.meta.url));
 
 export async function migrate() {
   const sql = await readFile(schemaPath, 'utf8');
   await pool.query(sql);
+  // Uma instância nova já nasce com regras (a moderação pode editar depois).
+  await ensureDefaultRules();
 }
 
 // Execução direta: `npm run migrate`

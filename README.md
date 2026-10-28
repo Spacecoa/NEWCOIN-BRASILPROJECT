@@ -8,7 +8,7 @@
 - **Mensageria no estilo Telegram:** canais (broadcast) e grupos em tempo real, com `pts` por canal para detectar e recuperar lacunas, reações com emoji e papéis owner/admin/member.
 - **Federável:** handles `usuario@instancia`, WebFinger e um outbox ActivityStreams somente leitura.
 - **Algoritmo aberto:** aba "Para você" ordenada pelos interesses que a pessoa declara, com explicação em cada post, controles completos, aprendizado só por ações explícitas e um fim de sessão ("Você está em dia"). Popularidade vale zero por padrão. Cada pessoa escolhe **onde o feed é calculado**: no servidor da instância ou **neste aparelho**, com o mesmo código (`shared/ranking/`); no aparelho, preferências e aprendizado nunca saem do navegador.
-- **Moderação:** silenciar (privado), bloquear (nos dois sentidos) e denunciar posts ou contas pelo menu "⋯". A denúncia vai para a fila de quem modera a instância, que arquiva, remove o post ou suspende a conta, e quem denunciou acompanha o resultado.
+- **Moderação:** silenciar (privado), bloquear (nos dois sentidos) e denunciar posts ou contas pelo menu "⋯". A denúncia vai para a fila de quem modera a instância, que arquiva, remove o post ou suspende a conta, e quem denunciou acompanha o resultado. As **regras da instância** são públicas, aceitas no cadastro e citadas em toda decisão; quem foi afetado pode **recorrer** uma vez (até quem foi suspenso, pela tela de entrar).
 - **Missões diárias e token interno:** até 4 missões por dia feitas dentro do app (curtir, republicar, comentar, recompensar, tempo ativo, receber quem chegou, responder perguntas, abrir grupos, convidar), verificadas pelas ações reais. Cada uma rende **NewCoin (NWC)**, um token interno que só serve, por enquanto, para recompensar posts de outras pessoas (transferência de 1 NWC, como um like). Sem sequências nem ranking. Convites de uso único.
 
 | Início (celular) | Novo post | Canal em tempo real |
@@ -46,8 +46,9 @@ Também há uma versão publicada em https://claude.ai/artifact/1KYADm2kxRoJqg8r
 | 9 | **Token interno NewCoin** (recompensa entre pessoas, emissão só por missões, utilidade nula no início) | [`docs/09-token-interno.md`](docs/09-token-interno.md) |
 | 10 | **Segurança e DoS** (análise, medições e correções propostas) | [`docs/10-seguranca-e-dos.md`](docs/10-seguranca-e-dos.md) |
 | 11 | **Moderação** (silenciar, bloquear, denunciar e a fila da moderação, em linguagem simples) | [`docs/11-moderacao.md`](docs/11-moderacao.md) |
-| 12 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
-| 13 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
+| 12 | **Regras da instância e recursos** (decisões citam a regra; recurso aceito desfaz a decisão) | [`docs/12-regras-e-recursos.md`](docs/12-regras-e-recursos.md) |
+| 13 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
+| 14 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
 
 ## Stack
 
@@ -87,8 +88,8 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 ### Testes
 
 ```bash
-cd backend  && npm test   # 159 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
-cd frontend && npm test   # 49 testes: lógica e componentes (jsdom)
+cd backend  && npm test   # 168 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd frontend && npm test   # 50 testes: lógica e componentes (jsdom)
 ```
 
 Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL`. Os testes de integração **apagam** o banco de teste e o banco 1 do Redis.

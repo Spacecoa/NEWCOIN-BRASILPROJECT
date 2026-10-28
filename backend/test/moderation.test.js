@@ -145,9 +145,14 @@ describe('denunciar', () => {
 });
 
 describe('decisões da moderação', () => {
-  beforeEach(() => promoteModerators(['carol']));
+  let ruleId;
+  beforeEach(async () => {
+    await promoteModerators(['carol']);
+    ruleId = (await api().get('/api/instancia/regras')).body.data.rules[0].id;
+  });
   const report = async (who, body) => (await api().post('/api/denuncias').set(who.auth).send(body)).body.data.id;
-  const resolve = (id, action, note) => api().post(`/api/moderacao/denuncias/${id}/resolver`).set(carol.auth).send({ action, note });
+  const resolve = (id, action, note) =>
+    api().post(`/api/moderacao/denuncias/${id}/resolver`).set(carol.auth).send({ action, note, ...(action === 'arquivar' ? {} : { rule_id: ruleId }) });
 
   it('arquivar: nada acontece com a conta e quem denunciou vê o resultado', async () => {
     const id = await report(alice, { username: 'bob', reason: 'spam' });

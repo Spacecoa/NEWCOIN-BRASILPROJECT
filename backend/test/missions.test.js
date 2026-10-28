@@ -205,12 +205,12 @@ describe('convites', () => {
     expect(code).toMatch(/^[a-z0-9]{8}$/);
     expect(path).toBe(`/cadastro?convite=${code}`);
 
-    const reg = await api().post('/api/auth/register').send({ username: 'nina', email: 'nina@x.io', password: 'senha1234', invite_code: code.toUpperCase() });
+    const reg = await api().post('/api/auth/register').send({ username: 'nina', email: 'nina@x.io', password: 'senha1234', accept_rules: true, invite_code: code.toUpperCase() });
     expect(reg.status).toBe(201);
     const following = await api().get('/api/users/nina/following');
     expect(following.body.data.map((u) => u.username)).toEqual(['ana']);
 
-    const again = await api().post('/api/auth/register').send({ username: 'otavio', email: 'o@x.io', password: 'senha1234', invite_code: code });
+    const again = await api().post('/api/auth/register').send({ username: 'otavio', email: 'o@x.io', password: 'senha1234', accept_rules: true, invite_code: code });
     expect(again.status).toBe(400);
     expect((await api().get('/api/users/otavio')).status).toBe(404); // nada foi criado
 
@@ -224,7 +224,7 @@ describe('convites', () => {
   });
 
   it('código malformado é recusado e há limite de convites abertos', async () => {
-    const bad = await api().post('/api/auth/register').send({ username: 'nina', email: 'n@x.io', password: 'senha1234', invite_code: 'x' });
+    const bad = await api().post('/api/auth/register').send({ username: 'nina', email: 'n@x.io', password: 'senha1234', accept_rules: true, invite_code: 'x' });
     expect(bad.status).toBe(400);
     for (let i = 0; i < 10; i++) expect((await api().post('/api/convites').set(ana.auth)).status).toBe(201);
     expect((await api().post('/api/convites').set(ana.auth)).status).toBe(409);

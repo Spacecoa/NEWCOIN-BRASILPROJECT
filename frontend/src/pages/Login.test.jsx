@@ -64,4 +64,36 @@ describe('<Login> com e-mail e senha', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('E-mail ou senha incorretos');
     expect(screen.queryByRole('status')).not.toBeInTheDocument(); // sem aviso de "sessão terminou" na primeira visita
   });
+
+  it('conta suspensa: mostra a regra e a nota, e o recurso usa o mesmo e-mail e senha', async () => {
+    const calls = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, init = {}) => {
+        calls.push({ url, init });
+        if (url.endsWith('/login'))
+          return {
+            ok: false,
+            status: 403,
+            json: async () => ({
+              error: 'Esta conta foi suspensa pela moderação da instância.',
+              suspension: { since: '2026-10-28T10:00:00Z', rule: { id: '3', position: 3, title: 'Sem golpes' }, note: 'Pedia senhas', can_appeal: true, appeal_status: null },
+            }),
+          };
+        if (url === '/api/recursos/suspensao') return { ok: true, status: 201, json: async () => ({ data: { appeal_status: 'aberto' } }) };
+        return { ok: false, status: 401, json: async () => ({ error: 'Sessão inválida' }) };
+      }),
+    );
+    renderApp();
+    await userEvent.type(await screen.findByLabelText('E-mail'), 'bob@exemplo.test');
+    await userEvent.type(screen.getByLabelText('Senha'), 'senha1234');
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    expect(await screen.findByText(/Regra 3: Sem golpes/)).toBeInTheDocument();
+    expect(screen.getByText(/Pedia senhas/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Recorrer da decisão'), 'Minha conta foi invadida.');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar recurso' }));
+    expect(await screen.findByText('Seu recurso está em análise.')).toBeInTheDocument();
+    const body = JSON.parse(calls.find((c) => c.url === '/api/recursos/suspensao').init.body);
+    expect(body).toEqual({ email: 'bob@exemplo.test', password: 'senha1234', text: 'Minha conta foi invadida.' });
+  });
 });

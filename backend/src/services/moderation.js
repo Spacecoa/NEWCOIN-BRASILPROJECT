@@ -1,7 +1,9 @@
 import { query, withTransaction } from '../db.js';
-import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
+import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
-import { deletePost } from './posts.js';
+import { checkPassword, dummyHash } from '../lib/auth.js';
+import { bus } from '../realtime/bus.js';
+import { getActiveRule } from './rules.js';
 import { revokeAllSessions } from './sessions.js';
 
 // Denúncias e a fila da moderação da instância.
@@ -11,7 +13,9 @@ import { revokeAllSessions } from './sessions.js';
 //   arquivar      — não viola as regras; nada acontece com a conta denunciada;
 //   remover_post  — o post sai do ar (para todos);
 //   suspender     — a conta não entra mais e some para todos; as sessões caem na hora.
-// Toda decisão fica registrada (quem, quando, nota) e quem denunciou vê o resultado.
+// Remover e suspender exigem citar uma regra da instância (services/rules.js) e geram
+// uma "sanção" que a pessoa afetada vê e pode contestar uma vez (recurso).
+// Toda decisão fica registrada (quem, quando, regra, nota) e quem denunciou vê o resultado.
 // A pessoa denunciada nunca vê quem a denunciou.
 
 export const REASONS = {
@@ -63,7 +67,8 @@ export async function createReport(reporterId, { post_id: postId, username, reas
 }
 
 const REPORT_COLS = `r.id, r.reason, r.details, r.status, r.resolution, r.resolution_note, r.created_at, r.resolved_at,
-  r.post_id, r.post_text, t.username AS target_username, t.display_name AS target_display_name`;
+  r.post_id, r.post_text, t.username AS target_username, t.display_name AS target_display_name,
+  (SELECT json_build_object('id', ru.id::text, 'position', ru.position, 'title', ru.title) FROM instance_rules ru WHERE ru.id = r.rule_id) AS rule`;
 
 /** Denúncias feitas pela pessoa, com o andamento (sem dizer quem da moderação decidiu). */
 export async function myReports(reporterId) {
@@ -86,7 +91,7 @@ export async function listQueue(status = 'aberta') {
   const { rows } = await query(
     `SELECT ${REPORT_COLS}, rep.username AS reporter_username, mod.username AS resolved_by_username,
        (t.suspended_at IS NOT NULL) AS target_suspended,
-       (r.post_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.id = r.post_id)) AS post_exists,
+       (r.post_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.id = r.post_id AND p.removed_at IS NULL)) AS post_exists,
        (SELECT count(*)::int FROM reports o WHERE o.target_user_id = r.target_user_id AND o.status = 'aberta') AS open_against_target
      FROM reports r
      JOIN users t ON t.id = r.target_user_id
@@ -99,8 +104,11 @@ export async function listQueue(status = 'aberta') {
 }
 
 /** Decide uma denúncia. Remover ou suspender também resolve as outras denúncias abertas do mesmo alvo. */
-export async function resolveReport(moderatorId, reportId, { action, note = '' }) {
+export async function resolveReport(moderatorId, reportId, { action, note = '', rule_id: ruleId = null }) {
   await assertModerator(moderatorId);
+  // Tirar conteúdo do ar ou suspender alguém precisa dizer qual regra foi quebrada.
+  const rule = action === 'arquivar' ? null : ruleId ? await getActiveRule(ruleId) : null;
+  if (action !== 'arquivar' && !rule) throw badRequest('Cite a regra da instância que foi quebrada');
   const { rows } = await query(
     `SELECT r.*, t.is_moderator AS target_is_moderator FROM reports r JOIN users t ON t.id = r.target_user_id WHERE r.id = $1`,
     [reportId],
@@ -112,28 +120,39 @@ export async function resolveReport(moderatorId, reportId, { action, note = '' }
   const close = (c, where, params, status) =>
     c.query(
       `UPDATE reports SET status = '${status}', resolution = $${params.length + 1}, resolution_note = $${params.length + 2},
-         resolved_by = $${params.length + 3}, resolved_at = now()
+         resolved_by = $${params.length + 3}, resolved_at = now(), rule_id = $${params.length + 4}
        WHERE status = 'aberta' AND ${where}`,
-      [...params, action, note.trim() || null, moderatorId],
+      [...params, action, note.trim() || null, moderatorId, rule?.id ?? null],
+    );
+  const sanction = (c, kind, postId, postText) =>
+    c.query(
+      `INSERT INTO sanctions (id, user_id, kind, post_id, post_text, rule_id, note, moderator_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [nextId(), report.target_user_id, kind, postId, postText, rule.id, note.trim() || null, moderatorId],
     );
 
   if (action === 'arquivar') {
     await withTransaction((c) => close(c, 'id = $1', [reportId], 'arquivada'));
   } else if (action === 'remover_post') {
     if (!report.post_id) throw conflict('Esta denúncia não tem post para remover (ou ele já foi apagado)');
-    // Guarda antes quais denúncias são deste post: ao apagá-lo, post_id vira NULL (ON DELETE SET NULL).
-    const { rows: same } = await query("SELECT id FROM reports WHERE post_id = $1 AND status = 'aberta'", [report.post_id]);
-    await deletePost(moderatorId, report.post_id, { byModerator: true });
-    await withTransaction((c) => close(c, 'id = ANY($1::bigint[])', [same.map((r) => r.id)], 'acatada'));
+    // Remover esconde (removed_at) em vez de apagar: se o recurso for aceito, o post volta.
+    await withTransaction(async (c) => {
+      const { rowCount } = await c.query('UPDATE posts SET removed_at = now() WHERE id = $1 AND removed_at IS NULL', [report.post_id]);
+      if (!rowCount) throw conflict('Este post já foi apagado ou removido');
+      await close(c, 'post_id = $1', [report.post_id], 'acatada');
+      await sanction(c, 'post_removido', report.post_id, report.post_text);
+    });
+    bus.emit('post:deleted', { id: report.post_id });
   } else if (action === 'suspender') {
     if (report.target_user_id === moderatorId) throw conflict('Não é possível suspender a própria conta');
     if (report.target_is_moderator) throw conflict('Contas da moderação não podem ser suspensas por aqui');
     await withTransaction(async (c) => {
       await c.query('UPDATE users SET suspended_at = now(), suspension_reason = $2 WHERE id = $1', [
         report.target_user_id,
-        note.trim() || REASONS[report.reason],
+        note.trim() || rule.title,
       ]);
       await close(c, 'target_user_id = $1', [report.target_user_id], 'acatada');
+      await sanction(c, 'suspensao', report.post_id, report.post_text);
     });
     await revokeAllSessions(report.target_user_id);
   } else {
@@ -146,12 +165,116 @@ export async function resolveReport(moderatorId, reportId, { action, note = '' }
 /** Desfaz uma suspensão (a decisão também pode ser revista). */
 export async function unsuspend(moderatorId, username) {
   await assertModerator(moderatorId);
-  const { rowCount } = await query(
-    'UPDATE users SET suspended_at = NULL, suspension_reason = NULL WHERE username = $1 AND suspended_at IS NOT NULL',
-    [username],
-  );
-  if (!rowCount) throw notFound('Não há conta suspensa com esse nome');
+  await withTransaction(async (c) => {
+    const { rows } = await c.query(
+      'UPDATE users SET suspended_at = NULL, suspension_reason = NULL WHERE username = $1 AND suspended_at IS NOT NULL RETURNING id',
+      [username],
+    );
+    if (!rows[0]) throw notFound('Não há conta suspensa com esse nome');
+    await c.query("UPDATE sanctions SET reverted_at = now() WHERE user_id = $1 AND kind = 'suspensao' AND reverted_at IS NULL", [rows[0].id]);
+  });
   return { suspended: false };
+}
+
+// ---------------------------------------------------------------------------
+// Decisões sobre a própria conta e recursos
+// ---------------------------------------------------------------------------
+
+const SANCTION_COLS = `s.id, s.kind, s.post_text, s.note, s.created_at, s.reverted_at,
+  s.appeal_text, s.appeal_at, s.appeal_status, s.appeal_note, s.appeal_resolved_at,
+  json_build_object('id', ru.id::text, 'position', ru.position, 'title', ru.title, 'description', ru.description, 'archived', ru.archived_at IS NOT NULL) AS rule`;
+
+/** Decisões que afetaram a pessoa (posts removidos, suspensões), com a regra citada. */
+export async function myDecisions(userId) {
+  const { rows } = await query(
+    `SELECT ${SANCTION_COLS} FROM sanctions s JOIN instance_rules ru ON ru.id = s.rule_id
+     WHERE s.user_id = $1 ORDER BY s.id DESC LIMIT 100`,
+    [userId],
+  );
+  return rows;
+}
+
+const APPEAL_MAX = 1000;
+
+async function openAppeal(sanctionId, userId, text) {
+  const { rows } = await query(
+    `UPDATE sanctions SET appeal_text = $3, appeal_at = now(), appeal_status = 'aberto'
+     WHERE id = $1 AND user_id = $2 AND appeal_status IS NULL AND reverted_at IS NULL
+     RETURNING id`,
+    [sanctionId, userId, text.trim().slice(0, APPEAL_MAX)],
+  );
+  if (!rows[0]) {
+    const { rows: s } = await query('SELECT appeal_status, reverted_at FROM sanctions WHERE id = $1 AND user_id = $2', [sanctionId, userId]);
+    if (!s[0]) throw notFound('Decisão não encontrada');
+    if (s[0].reverted_at) throw conflict('Esta decisão já foi desfeita');
+    throw conflict('Você já recorreu desta decisão. Cada decisão aceita um recurso.');
+  }
+  return { id: sanctionId, appeal_status: 'aberto' };
+}
+
+/** Recurso de quem está logado (ex.: post removido). */
+export function appealDecision(userId, sanctionId, text) {
+  return openAppeal(sanctionId, userId, text);
+}
+
+/** Suspensão ativa (a mais recente) de um usuário, para mostrar no login. */
+export async function activeSuspension(userId) {
+  const { rows } = await query(
+    `SELECT ${SANCTION_COLS} FROM sanctions s JOIN instance_rules ru ON ru.id = s.rule_id
+     WHERE s.user_id = $1 AND s.kind = 'suspensao' AND s.reverted_at IS NULL ORDER BY s.id DESC LIMIT 1`,
+    [userId],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Recurso de quem foi suspenso: não dá para entrar, então a pessoa prova quem é com
+ * e-mail e senha (mesma mensagem e mesmo custo do login para não revelar contas).
+ */
+export async function appealSuspension({ email, password, text }) {
+  const { rows } = await query('SELECT id, password_hash, suspended_at FROM users WHERE email = $1', [email]);
+  const ok = await checkPassword(password, rows[0]?.password_hash ?? (await dummyHash()));
+  if (!rows[0] || !ok) throw unauthorized('E-mail ou senha incorretos');
+  if (!rows[0].suspended_at) throw conflict('Esta conta não está suspensa');
+  const s = await activeSuspension(rows[0].id);
+  if (!s) throw notFound('Não há decisão de suspensão para recorrer');
+  return openAppeal(s.id, rows[0].id, text);
+}
+
+/** Recursos para a moderação decidir (abertos primeiro, os mais antigos antes). */
+export async function listAppeals(status = 'aberto') {
+  const { rows } = await query(
+    `SELECT ${SANCTION_COLS}, u.username, u.display_name, (u.suspended_at IS NOT NULL) AS suspended,
+            m.username AS decided_by_username, rv.username AS appeal_resolved_by_username
+     FROM sanctions s
+     JOIN instance_rules ru ON ru.id = s.rule_id
+     JOIN users u ON u.id = s.user_id
+     LEFT JOIN users m ON m.id = s.moderator_id
+     LEFT JOIN users rv ON rv.id = s.appeal_resolved_by
+     WHERE ${status === 'aberto' ? "s.appeal_status = 'aberto'" : "s.appeal_status IN ('aceito', 'negado')"}
+     ORDER BY s.appeal_at ${status === 'aberto' ? 'ASC' : 'DESC'} LIMIT 200`,
+  );
+  return rows;
+}
+
+/** Aceitar desfaz a decisão (o post volta ou a conta é reativada); negar mantém. */
+export async function decideAppeal(moderatorId, sanctionId, { decision, note = '' }) {
+  await assertModerator(moderatorId);
+  const result = await withTransaction(async (c) => {
+    const { rows } = await c.query("SELECT * FROM sanctions WHERE id = $1 AND appeal_status = 'aberto' FOR UPDATE", [sanctionId]);
+    const s = rows[0];
+    if (!s) throw notFound('Recurso não encontrado ou já decidido');
+    const accepted = decision === 'aceitar';
+    await c.query(
+      `UPDATE sanctions SET appeal_status = $2, appeal_note = $3, appeal_resolved_by = $4, appeal_resolved_at = now()
+         ${accepted ? ', reverted_at = now()' : ''} WHERE id = $1`,
+      [sanctionId, accepted ? 'aceito' : 'negado', note.trim() || null, moderatorId],
+    );
+    if (accepted && s.kind === 'post_removido' && s.post_id) await c.query('UPDATE posts SET removed_at = NULL WHERE id = $1', [s.post_id]);
+    if (accepted && s.kind === 'suspensao') await c.query('UPDATE users SET suspended_at = NULL, suspension_reason = NULL WHERE id = $1', [s.user_id]);
+    return { id: sanctionId, appeal_status: accepted ? 'aceito' : 'negado', reverted: accepted };
+  });
+  return result;
 }
 
 /** Promove as contas listadas em MODERATORS (lista separada por vírgulas) ao iniciar. */

@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { authenticate, checkPassword, dummyHash, requireAuth, signToken } from '../lib/auth.js';
-import { forbidden, parse, unauthorized } from '../lib/errors.js';
+import { parse, unauthorized } from '../lib/errors.js';
 import { rateLimit } from '../lib/rateLimit.js';
 import { registerWithInvite } from '../services/invites.js';
+import { activeSuspension } from '../services/moderation.js';
 import { createSession, revokeAllSessions, revokeByRefresh, revokeSession, rotateSession } from '../services/sessions.js';
 import { createUser, findUserForLogin, formatUser, getUserById } from '../services/users.js';
 
@@ -55,6 +56,8 @@ const registerSchema = z.object({
   password: z.string().min(8, 'mínimo de 8 caracteres').max(128),
   display_name: z.string().trim().min(1).max(50).optional(),
   invite_code: z.string().trim().toLowerCase().regex(/^[a-z0-9]{8}$/, 'código de convite inválido').optional(),
+  // Entrar na instância é aceitar as regras dela (GET /api/instancia/regras).
+  accept_rules: z.literal(true, { error: 'é preciso ler e aceitar as regras da instância' }),
 });
 
 // O app entra com e-mail e senha. "login" (e-mail ou usuário) continua aceito para scripts antigos.
@@ -70,7 +73,7 @@ const loginSchema = z
 const authLimiter = rateLimit({ name: 'auth', limit: 20, windowSec: 15 * 60, key: (req) => req.ip });
 
 router.post('/register', authLimiter, async (req, res) => {
-  const { invite_code: inviteCode, ...input } = parse(registerSchema, req.body);
+  const { invite_code: inviteCode, accept_rules: _accepted, ...input } = parse(registerSchema, req.body);
   const user = inviteCode ? await registerWithInvite(input, inviteCode) : await createUser(input);
   await startSession(req, res, user, 201);
 });
@@ -83,7 +86,21 @@ router.post('/login', authLimiter, async (req, res) => {
   // quais e-mails estão cadastrados medindo a demora da resposta.
   const ok = await checkPassword(password, row?.password_hash ?? (await dummyHash()));
   if (!row || !ok) throw unauthorized('E-mail ou senha incorretos');
-  if (row.suspended_at) throw forbidden('Esta conta foi suspensa pela moderação da instância.');
+  if (row.suspended_at) {
+    // Senha certa: a pessoa tem direito de saber por quê, qual regra, e como recorrer.
+    const s = await activeSuspension(row.id);
+    return res.status(403).json({
+      error: 'Esta conta foi suspensa pela moderação da instância.',
+      suspension: {
+        since: s?.created_at ?? row.suspended_at,
+        rule: s?.rule ?? null,
+        note: s?.note ?? null,
+        appeal_status: s?.appeal_status ?? null,
+        appeal_note: s?.appeal_note ?? null,
+        can_appeal: Boolean(s && !s.appeal_status),
+      },
+    });
+  }
   await startSession(req, res, formatUser(row));
 });
 

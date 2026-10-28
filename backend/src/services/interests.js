@@ -108,7 +108,7 @@ export async function recordSignalSafely(userId, postId, signal) {
 function candidateRows(userId) {
   return query(
     `SELECT p.id, p.author_id, p.text, p.created_at, p.like_count, p.repost_count FROM posts p
-     WHERE p.repost_of_id IS NULL AND p.author_id <> $1
+     WHERE p.repost_of_id IS NULL AND p.removed_at IS NULL AND p.author_id <> $1
        AND p.created_at > now() - make_interval(days => $2)
        AND NOT EXISTS (SELECT 1 FROM hidden_posts h WHERE h.user_id = $1 AND h.post_id = p.id)
        AND p.author_id NOT IN ${hiddenAuthorsSql('$1')}

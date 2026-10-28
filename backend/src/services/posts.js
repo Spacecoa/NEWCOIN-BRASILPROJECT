@@ -47,7 +47,7 @@ async function fetchPostRows(ids, viewerId) {
        EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $2) AS liked,
        EXISTS (SELECT 1 FROM posts r WHERE r.repost_of_id = p.id AND r.author_id = $2) AS reposted,
        EXISTS (SELECT 1 FROM tips t WHERE t.post_id = p.id AND t.user_id = $2) AS tipped
-     FROM posts p WHERE p.id = ANY($1::bigint[])`,
+     FROM posts p WHERE p.id = ANY($1::bigint[]) AND p.removed_at IS NULL`,
     [ids, viewerId ?? null],
   );
   return rows;
@@ -105,7 +105,7 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
     if (replyToId) {
       // FOR UPDATE serializa o incremento de reply_count no post pai.
       const { rows } = await client.query(
-        'SELECT conversation_id, author_id, repost_of_id FROM posts WHERE id = $1 FOR UPDATE',
+        'SELECT conversation_id, author_id, repost_of_id FROM posts WHERE id = $1 AND removed_at IS NULL FOR UPDATE',
         [replyToId],
       );
       if (!rows[0]) throw notFound('Post respondido não existe');
@@ -141,12 +141,12 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
   return post;
 }
 
-/** Apaga um post. Só o autor, ou a moderação (byModerator) ao acatar uma denúncia. */
-export async function deletePost(userId, id, { byModerator = false } = {}) {
+/** Apaga um post (só o autor). A moderação não apaga: esconde (removed_at), para poder desfazer. */
+export async function deletePost(userId, id) {
   await withTransaction(async (client) => {
     const { rows } = await client.query('SELECT author_id, reply_to_id, repost_of_id FROM posts WHERE id = $1 FOR UPDATE', [id]);
     if (!rows[0]) throw notFound('Post não encontrado');
-    if (rows[0].author_id !== userId && !byModerator) throw forbidden('Só o autor pode apagar o post');
+    if (rows[0].author_id !== userId) throw forbidden('Só o autor pode apagar o post');
     if (rows[0].reply_to_id) {
       await client.query('UPDATE posts SET reply_count = GREATEST(reply_count - 1, 0) WHERE id = $1', [rows[0].reply_to_id]);
     }
@@ -163,7 +163,8 @@ export async function deletePost(userId, id, { byModerator = false } = {}) {
 async function assertPostExists(client, id, actorId) {
   const { rows } = await client.query(
     `SELECT p.id, p.repost_of_id, COALESCE(o.author_id, p.author_id) AS original_author
-       FROM posts p LEFT JOIN posts o ON o.id = p.repost_of_id WHERE p.id = $1`,
+       FROM posts p LEFT JOIN posts o ON o.id = p.repost_of_id
+      WHERE p.id = $1 AND p.removed_at IS NULL AND o.removed_at IS NULL`,
     [id],
   );
   if (!rows[0]) throw notFound('Post não encontrado');
@@ -234,7 +235,7 @@ export async function unrepost(userId, postId) {
  * (No X, o equivalente é a busca `conversation_id:<id>` na API v2.)
  */
 export async function getThread(id, viewerId) {
-  const { rows } = await query('SELECT conversation_id FROM posts WHERE id = $1 AND repost_of_id IS NULL', [id]);
+  const { rows } = await query('SELECT conversation_id FROM posts WHERE id = $1 AND repost_of_id IS NULL AND removed_at IS NULL', [id]);
   if (!rows[0]) throw notFound('Post não encontrado');
   const conversationId = rows[0].conversation_id;
   const { rows: idRows } = await query(

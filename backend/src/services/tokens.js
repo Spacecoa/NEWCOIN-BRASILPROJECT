@@ -87,7 +87,7 @@ export async function rewardMission(userId, day, mission, amount) {
 /** Recompensa o autor de um post com 1 token (transferência). Uma vez por post, como o like. */
 export async function tipPost(userId, postId) {
   const result = await withTransaction(async (client) => {
-    const { rows } = await client.query('SELECT id, author_id, repost_of_id FROM posts WHERE id = $1', [postId]);
+    const { rows } = await client.query('SELECT id, author_id, repost_of_id FROM posts WHERE id = $1 AND removed_at IS NULL', [postId]);
     if (!rows[0]) throw notFound('Post não encontrado');
     const target = rows[0].repost_of_id ?? rows[0].id; // recompensa vai para o original
     const { rows: orig } = await client.query('SELECT author_id FROM posts WHERE id = $1', [target]);

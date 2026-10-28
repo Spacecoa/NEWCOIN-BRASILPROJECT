@@ -301,3 +301,50 @@ CREATE UNIQUE INDEX IF NOT EXISTS reports_unique_open_post
   ON reports (reporter_id, post_id) WHERE status = 'aberta' AND post_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS reports_unique_open_account
   ON reports (reporter_id, target_user_id) WHERE status = 'aberta' AND post_text IS NULL;
+
+-- ---------------------------------------------------------------------------
+-- Regras da instância, decisões da moderação e recursos
+-- ---------------------------------------------------------------------------
+
+-- Regras públicas. Editar não apaga: uma regra retirada fica arquivada, porque
+-- decisões antigas continuam citando o texto que valia na época.
+CREATE TABLE IF NOT EXISTS instance_rules (
+  id          BIGINT PRIMARY KEY,
+  position    INT    NOT NULL,
+  title       TEXT   NOT NULL CHECK (char_length(title) BETWEEN 3 AND 80),
+  description TEXT   NOT NULL DEFAULT '' CHECK (char_length(description) <= 500),
+  archived_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Quem se cadastra aceita as regras (registro de quando).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS rules_accepted_at TIMESTAMPTZ;
+
+-- Remover um post pela moderação esconde em vez de apagar: se o recurso for aceito, ele volta.
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS removed_at TIMESTAMPTZ;
+
+-- Cada decisão que afeta uma pessoa (post removido ou conta suspensa), com a regra
+-- citada, e o recurso que ela pode abrir uma vez.
+CREATE TABLE IF NOT EXISTS sanctions (
+  id                 BIGINT PRIMARY KEY,
+  user_id            BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind               TEXT   NOT NULL CHECK (kind IN ('post_removido', 'suspensao')),
+  post_id            BIGINT REFERENCES posts(id) ON DELETE SET NULL,
+  post_text          TEXT,
+  rule_id            BIGINT NOT NULL REFERENCES instance_rules(id),
+  note               TEXT,
+  moderator_id       BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  reverted_at        TIMESTAMPTZ,
+  appeal_text        TEXT CHECK (char_length(appeal_text) <= 1000),
+  appeal_at          TIMESTAMPTZ,
+  appeal_status      TEXT CHECK (appeal_status IN ('aberto', 'aceito', 'negado')),
+  appeal_note        TEXT,
+  appeal_resolved_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  appeal_resolved_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS sanctions_user_idx ON sanctions (user_id, id DESC);
+CREATE INDEX IF NOT EXISTS sanctions_appeals_idx ON sanctions (appeal_at) WHERE appeal_status = 'aberto';
+-- A regra citada na decisão também fica na denúncia, para quem denunciou ver.
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS rule_id BIGINT REFERENCES instance_rules(id);

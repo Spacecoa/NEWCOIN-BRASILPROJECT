@@ -27,8 +27,8 @@ export async function createUser({ username, email, password, display_name }, db
   const passwordHash = await hashPassword(password);
   try {
     const { rows } = await db.query(
-      `INSERT INTO users (id, username, email, password_hash, display_name)
-       VALUES ($1, $2, $3, $4, $5) RETURNING ${USER_COLS}`,
+      `INSERT INTO users (id, username, email, password_hash, display_name, rules_accepted_at)
+       VALUES ($1, $2, $3, $4, $5, now()) RETURNING ${USER_COLS}`,
       [id, username, email, passwordHash, display_name ?? username],
     );
     return formatUser(rows[0]);
@@ -69,7 +69,7 @@ export async function getProfile(username, viewerId) {
     `SELECT u.${USER_COLS.split(', ').join(', u.')},
        (SELECT count(*)::int FROM follows WHERE followee_id = u.id) AS followers_count,
        (SELECT count(*)::int FROM follows WHERE follower_id = u.id) AS following_count,
-       (SELECT count(*)::int FROM posts   WHERE author_id  = u.id) AS post_count,
+       (SELECT count(*)::int FROM posts   WHERE author_id  = u.id AND removed_at IS NULL) AS post_count,
        EXISTS (SELECT 1 FROM follows WHERE follower_id = $2 AND followee_id = u.id) AS following,
        EXISTS (SELECT 1 FROM follows WHERE follower_id = u.id AND followee_id = $2) AS followed_by,
        EXISTS (SELECT 1 FROM blocks WHERE user_id = $2 AND target_id = u.id) AS blocking,
