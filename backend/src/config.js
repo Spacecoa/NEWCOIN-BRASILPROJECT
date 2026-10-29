@@ -72,7 +72,8 @@ export const config = {
   missionTimezone: env.MISSION_TZ ?? 'America/Sao_Paulo',
   timelineCacheSize: Number(env.TIMELINE_CACHE_SIZE ?? 800),
   // Contas que moderam a instância (usernames separados por vírgula), promovidas ao iniciar.
-  // Coleta das fontes oficiais da aba "Brasil em dados" (minutos; 0 desliga).
-  officialDataRefreshMin: num(env.OFFICIAL_DATA_REFRESH_MIN, env.NODE_ENV === 'test' ? 0 : 360),
+  // Coleta automática das fontes oficiais da aba "Brasil em dados" (minutos). Desligada por
+  // padrão: a aba usa o registro conferido à mão (src/official/registro.js).
+  officialDataRefreshMin: num(env.OFFICIAL_DATA_REFRESH_MIN, 0),
   moderators: (env.MODERATORS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
 };

@@ -9,6 +9,13 @@ export function periodLabel(p) {
   return `${MONTHS[Number(p.slice(4, 6)) - 1]}/${p.slice(0, 4)}`;
 }
 
+/** '2026-10-09' → '9 out 2026' · '2026-10' → 'out/2026' (datas do registro conferido). */
+export function dateLabel(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return day ? `${Number(day)} ${MONTHS[Number(m) - 1]} ${y}` : `${MONTHS[Number(m) - 1]}/${y}`;
+}
+
 export function formatValue(v, unit, decimals = 1) {
   if (v === null || v === undefined) return '—';
   const n = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(v);

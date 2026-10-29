@@ -258,7 +258,7 @@ Em vez de deixar as pessoas anexarem dados aos posts (§7.1), a primeira versão
 **Como funciona:**
 - **Catálogo:** `backend/src/official/catalog.js` lista os indicadores, as fontes, o papel de cada uma (origem, cópia ou independente), as tolerâncias e o texto "por que importa".
 - **Leitura:** os leitores ficam em `backend/src/official/adapters.js`. Cada indicador tem uma **trava de código**: o nome que a fonte devolve precisa conter o trecho esperado. Se um código estiver errado, o cartão mostra o problema em vez de um número trocado.
-- **Coleta:** `backend/src/official/service.js` busca as fontes a cada 6 horas (`OFFICIAL_DATA_REFRESH_MIN`; 0 desliga). Guarda a resposta original com sha256, registra revisões (valor anterior e data) e, se a fonte cair, mantém o último dado bom.
+- **Coleta:** `backend/src/official/service.js` sabe buscar as APIs do IBGE e do Banco Central (`OFFICIAL_DATA_REFRESH_MIN`, em minutos). Essa busca vem **desligada**: a aba usa o registro conferido à mão (§13). Nos dois casos, guarda o original com sha256, registra revisões (valor anterior e data) e, se a fonte cair, mantém o último dado bom.
 - **Selos:** calculados como na §3.3: Confirmado, Fonte única, Fontes divergem, Desatualizado, Parcial e Sem dados.
 - **Rotas:**
   - `GET /api/dados` e `GET /api/dados/:id` são públicas;
@@ -272,3 +272,33 @@ Em vez de deixar as pessoas anexarem dados aos posts (§7.1), a primeira versão
 3. **Cesta básica.** O DIEESE não tem API documentada: publica a pesquisa em páginas e PDFs mensais. O leitor do DIEESE fica pendente até ser possível ver o formato real com acesso à rede. Até lá, o cartão mostra "fonte ainda não conectada" e, como complemento, a alta dos alimentos no IPCA. **Nenhum valor é inventado.**
 
 Os testes usam respostas **sintéticas** no formato documentado de cada API (`test/official-data.test.js`) e não dependem de internet.
+
+## 13. Registro conferido à mão (outubro de 2026)
+
+A aba não precisa se atualizar sozinha. Os últimos números publicados por cada fonte foram pesquisados e ficam em `backend/src/official/registro.js`. O servidor carrega esse registro ao iniciar, guarda cada entrada com sha256 (como faria com uma resposta de API) e não grava de novo se nada mudou. A busca automática continua no código, desligada por padrão.
+
+**Regras do registro:**
+- só entra número que aparece na publicação da própria fonte (campo `url`);
+- `evidence` lista onde mais o mesmo número aparece: outra página da mesma instituição ou a imprensa;
+- fonte sem número confirmado fica de fora, e o cartão mostra "ainda não conferida" em vez de uma estimativa;
+- divergência encontrada vai em `note`, com a escolha feita e o porquê;
+- os selos são calculados pelas mesmas regras da §3.3. Sem atualização, o dado envelhece e o selo passa a "Desatualizado".
+
+**O que foi conferido em 29/10/2026:**
+
+| Indicador | Número | Período | Publicado | Selo |
+|---|---|---|---|---|
+| Inflação (IPCA) em 12 meses | 4,58% (antes 4,22%) | set/2026 | IBGE, 09/10/2026 | Fonte única |
+| Cesta básica em São Paulo | R$ 922,51 (antes R$ 900,59) | set/2026 | DIEESE, out/2026 | Parcial |
+| Desemprego | 5,3% (mar–mai 5,6%; abr–jun 5,4%) | jun–ago/2026 | IBGE, 29/09/2026 | Fonte única |
+| PIB, contra o mesmo trimestre de 2025 | +2,0% | 2º tri/2026 | IBGE, 01/09/2026 | Confirmado (IBC-Br de agosto: +1,2%) |
+| Selic (meta) | 13,75% ao ano (antes 14,00% e 14,25%) | set/2026 | Copom, 16/09/2026 | Fonte única |
+
+**Como foi conferido:** as páginas das fontes não puderam ser abertas daqui, porque a rede do ambiente bloqueia esses domínios. Cada número foi conferido em resultados de busca restritos ao site oficial (agenciadenoticias.ibge.gov.br, biblioteca.ibge.gov.br, bcb.gov.br, dieese.org.br) e em pelo menos mais uma publicação. O que ficou de fora e por quê:
+- **Cópias do Banco Central** (SGS 13522 e 24369): não foram conferidas. O cartão diz isso e não acusa divergência.
+- **Alta dos alimentos no IPCA em 12 meses** (fonte independente da cesta): não foi encontrada publicada. O IBGE divulgou só a do mês (+0,83%) e a do ano (+4,37%). Por isso a cesta tem selo "Parcial".
+- **IBC-Br de agosto:** um agregador informa +1,45%, mas o Banco Central e a imprensa informam +1,2%. Ficou o número do Banco Central, com a divergência anotada.
+- **Desemprego de mai–jul (5,3%):** apareceu só na imprensa, não numa página do IBGE, e ficou de fora do histórico.
+
+**Para atualizar:** quando a fonte publicar dado novo, confira na publicação oficial e em mais um lugar, edite `registro.js` (número, `published`, `url`, `evidence` e `checked_at`) e reinicie o servidor. Um número corrigido aparece como revisão, com o valor anterior.
+

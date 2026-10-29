@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
+import { config } from '../config.js';
 import { query, withTransaction } from '../db.js';
 import { notFound } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
 import { readSource } from './adapters.js';
 import { byId, CATALOG } from './catalog.js';
+import { REGISTRO } from './registro.js';
 
 // Coleta e verificação tripla da aba "Brasil em dados" (docs/13 §3).
 //   A. origem        — a fonte produtora respondeu e o código confere;
@@ -25,33 +27,13 @@ export async function refreshAll({ fetchImpl, now = new Date(), only } = {}) {
 }
 
 async function refreshSource(src, opts) {
-  const rawId = nextId();
   try {
     const r = await readSource(src, opts);
-    await withTransaction(async (c) => {
-      await c.query('INSERT INTO official_raw (id, source_key, url, ok, sha256, body) VALUES ($1, $2, $3, true, $4, $5)', [
-        rawId,
-        src.key,
-        r.url,
-        sha256(r.body),
-        r.body,
-      ]);
-      for (const o of r.observations) {
-        // Revisão: se o período já existia com outro valor, guarda o anterior.
-        await c.query(
-          `INSERT INTO official_observations (source_key, period, value, raw_id) VALUES ($1, $2, $3, $4)
-           ON CONFLICT (source_key, period) DO UPDATE SET
-             previous_value = CASE WHEN official_observations.value <> EXCLUDED.value THEN official_observations.value ELSE official_observations.previous_value END,
-             revised_at     = CASE WHEN official_observations.value <> EXCLUDED.value THEN now() ELSE official_observations.revised_at END,
-             value = EXCLUDED.value, raw_id = EXCLUDED.raw_id, updated_at = now()`,
-          [src.key, o.period, o.value, rawId],
-        );
-      }
-    });
+    await store(src, r);
     return { source: src.key, ok: true, observations: r.observations.length };
   } catch (err) {
     await query('INSERT INTO official_raw (id, source_key, url, ok, sha256, body, error) VALUES ($1, $2, $3, false, $4, $5, $6)', [
-      rawId,
+      nextId(),
       src.key,
       err.url ?? null,
       err.body ? sha256(err.body) : null,
@@ -60,6 +42,55 @@ async function refreshSource(src, opts) {
     ]);
     return { source: src.key, ok: false, error: err.message, pending: Boolean(err.pending) };
   }
+}
+
+/** Guarda o original (com hash) e as observações; revisões ficam registradas. */
+async function store(src, r) {
+  const rawId = nextId();
+  await withTransaction(async (c) => {
+    await c.query('INSERT INTO official_raw (id, source_key, url, ok, sha256, body) VALUES ($1, $2, $3, true, $4, $5)', [
+      rawId,
+      src.key,
+      r.url,
+      sha256(r.body),
+      r.body,
+    ]);
+    for (const o of r.observations) {
+      // Revisão: se o período já existia com outro valor, guarda o anterior.
+      await c.query(
+        `INSERT INTO official_observations (source_key, period, value, raw_id) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (source_key, period) DO UPDATE SET
+           previous_value = CASE WHEN official_observations.value <> EXCLUDED.value THEN official_observations.value ELSE official_observations.previous_value END,
+           revised_at     = CASE WHEN official_observations.value <> EXCLUDED.value THEN now() ELSE official_observations.revised_at END,
+           value = EXCLUDED.value, raw_id = EXCLUDED.raw_id, updated_at = now()`,
+        [src.key, o.period, o.value, rawId],
+      );
+    }
+  });
+}
+
+const sourceByKey = (key) => CATALOG.flatMap((i) => i.sources.map((s) => ({ ...s, frequency: i.frequency }))).find((s) => s.key === key);
+
+/**
+ * Carrega o registro conferido à mão (registro.js). Cada entrada é guardada como um
+ * "original" com sha256; se nada mudou desde a última carga, não grava de novo.
+ */
+export async function loadRegistro(registro = REGISTRO) {
+  const report = [];
+  for (const [key, entry] of Object.entries(registro.sources)) {
+    const src = sourceByKey(key);
+    if (!src) throw new Error(`registro: fonte desconhecida "${key}"`);
+    const body = JSON.stringify({ checked_at: registro.checked_at, ...entry });
+    const hash = sha256(body);
+    const { rows } = await query('SELECT sha256 FROM official_raw WHERE source_key = $1 AND ok ORDER BY id DESC LIMIT 1', [key]);
+    if (rows[0]?.sha256 === hash) {
+      report.push({ source: key, ok: true, unchanged: true });
+      continue;
+    }
+    await store(src, { url: entry.url, body, observations: entry.observations });
+    report.push({ source: key, ok: true, observations: entry.observations.length });
+  }
+  return report;
 }
 
 async function sourceState(src) {
@@ -72,6 +103,12 @@ async function sourceState(src) {
   );
   const { rows: last } = await query('SELECT ok, error, fetched_at FROM official_raw WHERE source_key = $1 ORDER BY id DESC LIMIT 1', [src.key]);
   return { obs, lastAttempt: last[0] ?? null };
+}
+
+/** Dados do registro conferido de uma fonte (só se o número mostrado veio dele). */
+function regEntry(key, latest) {
+  const e = REGISTRO.sources[key];
+  return e && latest?.url === e.url ? { checked_at: REGISTRO.checked_at, published: e.published, url: e.url, evidence: e.evidence ?? [] } : null;
 }
 
 const sameSign = (a, b, deadZone = 0.5) => (Math.abs(a) <= deadZone && Math.abs(b) <= deadZone) || Math.sign(a) === Math.sign(b);
@@ -112,6 +149,7 @@ export async function indicator(id, { now = new Date() } = {}) {
       page: s.page,
       latest: latest && { period: latest.period, value: latest.value, previous_value: latest.previous_value, revised_at: latest.revised_at },
       original: latest && { url: latest.url, sha256: latest.sha256, fetched_at: latest.fetched_at },
+      registro: regEntry(s.key, latest),
       last_attempt: lastAttempt && { ok: lastAttempt.ok, error: lastAttempt.error, at: lastAttempt.fetched_at },
       _obs: obs,
     };
@@ -129,26 +167,38 @@ export async function indicator(id, { now = new Date() } = {}) {
   const reps = sources.filter((s) => s.role === 'republicacao');
   if (origin?.latest) {
     const issues = [];
+    let compared = 0;
     for (const r of reps) {
+      // Cópia que ainda não foi lida não é divergência: só não dá para comparar.
+      if (!r._obs.length) {
+        notes.push(`A cópia do ${r.institution} ainda não foi conferida.`);
+        continue;
+      }
       const mine = new Map(r._obs.map((o) => [o.period, o.value]));
       const common = origin._obs.filter((o) => mine.has(o.period)).slice(-12);
       if (!common.length) {
         issues.push(`${r.institution} ainda sem período em comum para comparar`);
         continue;
       }
+      compared++;
       const bad = common.filter((o) => Math.abs(o.value - mine.get(o.period)) > (ind.tolerance ?? 0.01));
       if (bad.length) issues.push(`${r.institution} difere da origem em ${bad.length} de ${common.length} períodos (ex.: ${bad[0].period}: ${bad[0].value} × ${mine.get(bad[0].period)})`);
     }
     const age = monthsSince(origin.latest.period, now);
     const stale = age > (STALE_MONTHS[ind.frequency] ?? 6);
     if (stale) issues.push(`o dado mais recente é de ${age} meses atrás`);
-    checks.consistencia = issues.length ? 'falhou' : reps.length ? 'ok' : 'sem_republicacao';
+    checks.consistencia = issues.length ? 'falhou' : compared ? 'ok' : 'sem_republicacao';
     if (issues.length) notes.push(`Consistência: ${issues.join('; ')}.`);
     checks.stale = stale;
   }
 
   // B. Independente: outra instituição/método concorda.
   const indeps = sources.filter((s) => s.role === 'independente');
+  // Observação de quem conferiu o registro (contexto do número, divergências encontradas).
+  for (const s of sources) {
+    const n = s.registro && REGISTRO.sources[s.key]?.note;
+    if (n) notes.push(n);
+  }
   if (!indeps.length) {
     checks.independente = 'nao_existe';
     if (ind.single) notes.push(ind.single);
@@ -198,7 +248,8 @@ export async function indicator(id, { now = new Date() } = {}) {
 export async function allIndicators(opts) {
   const list = await Promise.all(CATALOG.map((i) => indicator(i.id, opts)));
   const { rows } = await query('SELECT max(fetched_at) AS at FROM official_raw WHERE ok');
-  return { indicators: list, updated_at: rows[0].at };
+  const auto = config.officialDataRefreshMin > 0;
+  return { indicators: list, updated_at: rows[0].at, mode: auto ? 'automatico' : 'registro', checked_at: auto ? null : REGISTRO.checked_at };
 }
 
 // ---------- Atualização periódica ----------

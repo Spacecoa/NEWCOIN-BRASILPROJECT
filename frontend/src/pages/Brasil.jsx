@@ -3,7 +3,7 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import Sparkline from '../components/Sparkline.jsx';
 import { api } from '../lib/api.js';
-import { BADGES, changeLabel, formatValue, periodLabel, ROLE_LABEL } from '../lib/officialData.js';
+import { BADGES, changeLabel, dateLabel, formatValue, periodLabel, ROLE_LABEL } from '../lib/officialData.js';
 import { relativeTime } from '../lib/time.js';
 
 const TONE = {
@@ -14,17 +14,19 @@ const TONE = {
 };
 
 const CHECK_TEXT = {
-  origem: { ok: 'A origem respondeu e o código confere', sem_dados: 'A origem ainda não respondeu' },
+  origem: { ok: 'A origem respondeu e o código confere', registro: 'O número foi conferido na publicação da origem', sem_dados: 'A origem ainda não respondeu' },
   consistencia: { ok: 'A cópia de outra instituição bate com a origem', falhou: 'A cópia ou a data não conferem', sem_republicacao: 'Não há quem republique para conferir a cópia' },
   independente: { concorda: 'Uma fonte independente concorda', diverge: 'Uma fonte independente discorda', nao_existe: 'Não existe fonte independente para este dado', sem_dados: 'A fonte independente ainda não respondeu' },
 };
+// No registro conferido à mão, o que falta não "deixou de responder": ainda não foi conferido.
+const CHECK_TEXT_REGISTRO = { independente: { sem_dados: 'A fonte independente ainda não foi conferida' } };
 
 function Badge({ badge }) {
   const b = BADGES[badge];
   return <span title={b.help} className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-extrabold ${TONE[b.tone]}`}>{b.label}</span>;
 }
 
-function SourceRow({ s, decimals }) {
+function SourceRow({ s, decimals, registro }) {
   return (
     <li className="space-y-0.5 py-2">
       <p className="text-xs font-extrabold uppercase tracking-wide text-zinc-500">{ROLE_LABEL[s.role]}</p>
@@ -38,22 +40,43 @@ function SourceRow({ s, decimals }) {
           {s.latest.revised_at && <span className="text-amber-700 dark:text-amber-300"> · revisado (antes: {formatValue(s.latest.previous_value, s.unit, decimals)})</span>}
         </p>
       ) : (
-        <p className="text-zinc-500">{s.last_attempt?.error ? `Sem dado: ${s.last_attempt.error}` : 'Ainda não lida'}</p>
+        <p className="text-zinc-500">{registro ? 'Ainda não conferida: sem número confirmado nesta fonte' : s.last_attempt?.error ? `Sem dado: ${s.last_attempt.error}` : 'Ainda não lida'}</p>
       )}
-      {s.original && (
-        <p className="break-all text-xs text-zinc-400">
-          Lido {relativeTime(s.original.fetched_at)} · original guardado (sha256 {s.original.sha256.slice(0, 12)}…)
-        </p>
+      {s.registro ? (
+        <>
+          <p className="text-xs text-zinc-500">
+            Publicado pela fonte em {dateLabel(s.registro.published)} · conferido em {dateLabel(s.registro.checked_at)}
+          </p>
+          {s.registro.evidence.length > 0 && (
+            <p className="text-xs text-zinc-500">
+              Mesmo número também em:{' '}
+              {s.registro.evidence.map((e, i) => (
+                <span key={e.url}>
+                  {i > 0 && ', '}
+                  <a href={e.url} target="_blank" rel="noreferrer" className="underline">
+                    {e.label}
+                  </a>
+                </span>
+              ))}
+            </p>
+          )}
+        </>
+      ) : (
+        s.original && (
+          <p className="break-all text-xs text-zinc-400">
+            Lido {relativeTime(s.original.fetched_at)} · original guardado (sha256 {s.original.sha256.slice(0, 12)}…)
+          </p>
+        )
       )}
-      {s.last_attempt && !s.last_attempt.ok && s.latest && <p className="text-xs text-amber-700 dark:text-amber-300">A última tentativa falhou: {s.last_attempt.error}. Mostrando o último dado bom.</p>}
-      <a href={s.page} target="_blank" rel="noreferrer" className="inline-block min-h-9 py-2 text-sm font-extrabold text-brand-600">
-        Ver na fonte ↗
+      {!registro && s.last_attempt && !s.last_attempt.ok && s.latest && <p className="text-xs text-amber-700 dark:text-amber-300">A última tentativa falhou: {s.last_attempt.error}. Mostrando o último dado bom.</p>}
+      <a href={s.registro?.url ?? s.page} target="_blank" rel="noreferrer" className="inline-block min-h-9 py-2 text-sm font-extrabold text-brand-600">
+        {s.registro ? 'Ver a publicação ↗' : 'Ver na fonte ↗'}
       </a>
     </li>
   );
 }
 
-function IndicatorCard({ ind }) {
+function IndicatorCard({ ind, registro }) {
   const [open, setOpen] = useState(false);
   const change = changeLabel(ind.latest, ind.previous, ind.unit, ind.decimals);
   const others = ind.sources.filter((s) => s.role !== 'origem' && s.latest);
@@ -93,12 +116,13 @@ function IndicatorCard({ ind }) {
         <div className="mt-1 space-y-3 text-sm">
           <ul className="space-y-1">
             {Object.entries(CHECK_TEXT).map(([k, text]) => {
-              const v = ind.checks[k];
-              const good = v === 'ok' || v === 'concorda';
+              const fromRegistro = k === 'origem' && ind.checks.origem === 'ok' && ind.sources.find((s) => s.role === 'origem')?.registro;
+              const v = fromRegistro ? 'registro' : ind.checks[k];
+              const good = v === 'ok' || v === 'concorda' || v === 'registro';
               return (
                 <li key={k} className="flex gap-2">
                   <span aria-hidden="true">{good ? '✓' : v === 'nao_existe' || v === 'sem_republicacao' ? '•' : '!'}</span>
-                  <span>{text[v] ?? '—'}</span>
+                  <span>{(registro && CHECK_TEXT_REGISTRO[k]?.[v]) || text[v] || '—'}</span>
                 </li>
               );
             })}
@@ -109,7 +133,7 @@ function IndicatorCard({ ind }) {
             </div>
           )}
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {ind.sources.map((s) => <SourceRow key={s.key} s={s} decimals={ind.decimals} />)}
+            {ind.sources.map((s) => <SourceRow key={s.key} s={s} decimals={ind.decimals} registro={registro} />)}
           </ul>
           <p className="text-xs text-zinc-500">Frequência: {ind.frequency}.</p>
         </div>
@@ -143,15 +167,23 @@ export default function Brasil() {
 
   const sections = data ? [...new Set(data.indicators.map((i) => i.section))] : [];
   const nothing = data && data.indicators.every((i) => !i.latest);
+  const registro = data?.mode === 'registro';
+  const subtitle = registro && data.checked_at ? `Conferido em ${dateLabel(data.checked_at)}` : data?.updated_at ? `Atualizado ${relativeTime(data.updated_at)}` : 'Fontes oficiais e independentes';
 
   return (
     <>
-      <PageHeader title="Brasil em dados" subtitle={data?.updated_at ? `Atualizado ${relativeTime(data.updated_at)}` : 'Fontes oficiais e independentes'} />
+      <PageHeader title="Brasil em dados" subtitle={subtitle} />
       <div className="space-y-6 px-4 pb-10">
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
           Números sobre preços, comida, trabalho e economia, lidos direto de quem os produz e conferidos três vezes. Aqui não há opinião nem ranking: só o dado, a
           data e de onde ele vem.
         </p>
+        {registro && data.checked_at && (
+          <p className="rounded-2xl bg-sky-50 p-4 text-sm text-sky-900 dark:bg-zinc-900 dark:text-sky-200">
+            Estes são os últimos números publicados pelas fontes até {dateLabel(data.checked_at)}, conferidos à mão. Eles não se atualizam sozinhos: quando sair
+            dado novo, o registro é conferido de novo.
+          </p>
+        )}
         <details className="rounded-2xl bg-zinc-50 p-4 text-sm dark:bg-zinc-900">
           <summary className="cursor-pointer font-extrabold">Como conferimos</summary>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-zinc-600 dark:text-zinc-300">
@@ -173,7 +205,7 @@ export default function Brasil() {
             cada cartão, em &quot;De onde vem este número?&quot;.
           </p>
         )}
-        {user?.is_moderator && (
+        {user?.is_moderator && !registro && (
           <button type="button" onClick={refresh} disabled={busy} className="min-h-11 rounded-full bg-zinc-100 px-5 text-sm font-extrabold disabled:opacity-50 dark:bg-zinc-900">
             {busy ? 'Buscando nas fontes…' : 'Atualizar agora'}
           </button>
@@ -181,7 +213,7 @@ export default function Brasil() {
         {sections.map((sec) => (
           <section key={sec} aria-label={sec} className="space-y-3">
             <h2 className="text-sm font-extrabold uppercase tracking-wide text-zinc-500">{sec}</h2>
-            {data.indicators.filter((i) => i.section === sec).map((ind) => <IndicatorCard key={ind.id} ind={ind} />)}
+            {data.indicators.filter((i) => i.section === sec).map((ind) => <IndicatorCard key={ind.id} ind={ind} registro={registro} />)}
           </section>
         ))}
         {data && (
