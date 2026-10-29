@@ -5,6 +5,7 @@ import { authenticate, checkPassword, dummyHash, requireAuth, signToken } from '
 import { parse, unauthorized } from '../lib/errors.js';
 import { failureCounter, rateLimit } from '../lib/rateLimit.js';
 import { registerWithInvite } from '../services/invites.js';
+import { touchActivity } from '../services/evaporation.js';
 import { activeSuspension } from '../services/moderation.js';
 import { createSession, revokeAllSessions, revokeByRefresh, revokeSession, rotateSession } from '../services/sessions.js';
 import { createUser, findUserForLogin, formatUser, getUserById } from '../services/users.js';
@@ -46,6 +47,7 @@ function readCookie(req, name) {
 /** Abre uma sessão e responde com o token de acesso (corpo) e o refresh (cookie). */
 async function startSession(req, res, user, status = 200) {
   const { sid, refreshToken } = await createSession(user.id, req.get('user-agent'));
+  await touchActivity(user.id).catch(() => {}); // entrar é usar o app (evaporação do NWC)
   setRefreshCookie(res, refreshToken);
   res.status(status).json({ token: signToken(user, sid), expires_in: config.accessTokenTtlSec, user });
 }

@@ -16,14 +16,13 @@ describe('federação (somente leitura)', () => {
     expect((await api().get('/.well-known/webfinger?resource=alice')).status).toBe(400);
   });
 
-  it('outbox publica posts como atividades Create/Note', async () => {
+  it('outbox não entrega posts: eles só são lidos por quem entrou na instância', async () => {
     const alice = { auth: { Authorization: `Bearer ${(await api().post('/api/auth/login').send({ login: 'alice', password: 'senha1234' })).body.token}` } };
-    const p = await post(alice, 'federado!');
+    await post(alice, 'só para quem tem conta');
     const res = await api().get('/federation/users/alice/outbox');
-    expect(res.body.type).toBe('OrderedCollection');
-    expect(res.body.orderedItems[0]).toMatchObject({
-      type: 'Create',
-      object: { type: 'Note', content: '<p>federado!</p>', id: `http://agora.test/posts/${p.id}` },
-    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ type: 'OrderedCollection', totalItems: 0, orderedItems: [] });
+    expect(res.body.summary).toMatch(/quem tem conta/);
+    expect(JSON.stringify(res.body)).not.toContain('só para quem tem conta');
   });
 });

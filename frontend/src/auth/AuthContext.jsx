@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, refreshSession, tokenStore } from '../lib/api.js';
-import { resetCachedMode } from '../lib/rankingMode.js';
+import { resetDeviceAlgorithmSync } from '../lib/rankingMode.js';
 import { closeSocket, getSocket } from '../lib/socket.js';
 
 const AuthContext = createContext(null);
@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
 
   const endLocal = useCallback((message) => {
     closeSocket();
-    resetCachedMode();
+    resetDeviceAlgorithmSync();
     setUser(null);
     tokenStore.set(null);
     setNotice(message);

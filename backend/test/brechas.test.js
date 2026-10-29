@@ -217,12 +217,16 @@ describe('M-4 · ninguém decide o próprio caso quando há outra pessoa na mode
   });
 });
 
-describe('F-1 · outbox federado', () => {
-  it('o texto vai escapado como HTML', async () => {
-    const a = await signup('federa');
-    await post(a, '<b>oi</b> & "tchau"');
-    const out = (await api().get('/federation/users/federa/outbox')).body;
-    expect(out.orderedItems[0].object.content).toBe('<p>&lt;b&gt;oi&lt;/b&gt; &amp; &quot;tchau&quot;</p>');
+describe('Posts só com login (decisão do projeto)', () => {
+  it('sem login, nenhuma rota entrega post: timeline, post, thread, perfil e federação', async () => {
+    const a = await signup('autora');
+    const p = await post(a, 'só para quem entrou');
+    for (const path of ['/api/posts', `/api/posts/${p.id}`, `/api/posts/${p.id}/thread`, '/api/users/autora/posts']) {
+      expect((await api().get(path)).status, path).toBe(401);
+    }
+    expect(JSON.stringify((await api().get('/federation/users/autora/outbox')).body)).not.toContain('só para quem entrou');
+    // Com login, tudo continua igual.
+    expect((await api().get(`/api/posts/${p.id}`).set(a.auth)).status).toBe(200);
   });
 });
 

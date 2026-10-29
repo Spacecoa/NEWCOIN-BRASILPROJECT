@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { migrate } from './migrate.js';
 import { promoteModerators } from './services/moderation.js';
 import { loadRegistro, startRefreshLoop } from './official/service.js';
+import { startEvaporationLoop } from './services/evaporation.js';
 import { attachRealtime } from './realtime/socket.js';
 
 await migrate();
@@ -21,6 +22,7 @@ attachRealtime(httpServer);
 const reg = await loadRegistro();
 console.log(`[dados] registro conferido carregado (${reg.filter((r) => !r.unchanged).length} fonte(s) novas ou alteradas de ${reg.length})`);
 startRefreshLoop({ minutes: config.officialDataRefreshMin });
+startEvaporationLoop();
 httpServer.listen(config.port, () => {
   console.log(`Ágora backend em http://localhost:${config.port} (instância ${config.instanceDomain})`);
 });

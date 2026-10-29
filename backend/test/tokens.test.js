@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { query } from '../src/db.js';
 import { rewardMission } from '../src/services/tokens.js';
-import { api, post, resetDb, signup } from './helpers.js';
+import { api, post, resetDb, signup, asReader } from './helpers.js';
 
 const age = (who) => query("UPDATE users SET created_at = now() - interval '60 days' WHERE id = $1", [who.user.id]);
 const wallet = async (who) => (await api().get('/api/carteira').set(who.auth)).body;
@@ -88,7 +88,7 @@ describe('token interno', () => {
   it('recompensar um repost paga o autor do original', async () => {
     const p = await post(carla, 'original da carla');
     await api().post(`/api/posts/${p.id}/repost`).set(bruno.auth);
-    const repostId = (await api().get('/api/users/bruno/posts')).body.data[0].id;
+    const repostId = (await api().get('/api/users/bruno/posts').set(await asReader())).body.data[0].id;
     await tip(ana, repostId);
     expect((await wallet(carla)).balance).toBe(4);
     expect((await wallet(bruno)).balance).toBe(3);

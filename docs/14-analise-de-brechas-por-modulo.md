@@ -270,10 +270,7 @@ As correções ficam no código do app e nos servidores de desenvolvimento e de 
   - **F-2:** HTTPS nas URLs federadas;
   - **I-1:** senhas do Postgres e do Redis da produção;
   - **W-1 na produção:** cabeçalhos do servidor do frontend.
-- **Dependem de decisão de produto:**
-  - **T-2:** contas falsas e o NWC; tratar antes de dar utilidade ao token;
-  - **P-2 e F-3:** posts públicos legíveis sem login;
-  - **W-2:** apagar ao sair o algoritmo que só existe no aparelho faria a pessoa perdê-lo.
+- **Decididos depois, e já feitos (ver a seção seguinte):** T-2, P-2, F-3 e W-2.
 - **Baixos, que ficam para depois:**
   - **A-5:** responder o cadastro sem revelar contas atrapalha o uso normal;
   - **A-7 e A-8:** revogação e janela de 30 segundos;
@@ -282,4 +279,12 @@ As correções ficam no código do app e nos servidores de desenvolvimento e de 
   - **T-3 e T-4:** missão desfeita e tempo no app por script;
   - **M-5 e M-6:** fila inundada e conta nova depois de suspensão;
   - **I-2:** janela fixa do limite.
+
+## Decisões do projeto (feitas depois da análise)
+
+| # | Decisão | O que mudou |
+|---|---|---|
+| T-2 | **O NWC evapora com a inatividade.** | Cada dia sem usar o app leva uma parte do saldo, até zerar em 7 dias. Voltar ao app para a evaporação, e o que evaporou sai de circulação. Detalhes em `docs/09` e `backend/src/services/evaporation.js`. |
+| P-2, F-3 | **Posts só com login.** | Timeline, post, thread e posts do perfil exigem login (401 sem ele). O outbox federado não entrega posts: devolve a coleção vazia e diz o motivo. Perfis (nome e bio) continuam visíveis. |
+| W-2 | **O algoritmo fica só no aparelho de cada pessoa e é carregado de lá ao voltar ao app.** | O servidor não guarda nem calcula mais o algoritmo: `/api/feed/interesses` responde 410, `/preferencias` só aceita as opções que não são do algoritmo, e as interações não ensinam nada ao servidor. Sair não apaga o algoritmo do aparelho. Contas antigas: na primeira volta, o app importa o que o servidor tinha (se o aparelho ainda não tiver um algoritmo) e o servidor apaga a cópia. Detalhes em `docs/07` §2.10. |
 

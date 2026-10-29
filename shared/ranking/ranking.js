@@ -11,7 +11,7 @@
 //  6. Diversidade obrigatória: evita sequências do mesmo autor ou tema.
 //
 // Este arquivo é puro (sem banco, sem Node, sem DOM), para ser lido, testado e auditado
-// isoladamente, e roda igual no servidor e no navegador (modo "neste aparelho").
+// isoladamente. Ele roda no navegador de cada pessoa: o algoritmo dela fica só no aparelho.
 
 import { extractTopics, matchKeywords, TOPICS } from './topics.js';
 
@@ -36,7 +36,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   hide_metrics: false, // esconder contadores no feed de interesses
   missions_enabled: true, // mostrar as missões diárias (ver lib/missions.js)
   count_time: true, // contar minutos ativos no app para a missão de tempo (nunca usado no ranking)
-  ranking_mode: 'server', // 'server' = a instância calcula; 'device' = o navegador calcula e guarda as preferências
+  // O algoritmo de cada pessoa fica só no aparelho dela: o navegador guarda as preferências e o
+  // aprendizado e faz a conta. 'server' só aparece em contas antigas, até o app importar os dados.
+  ranking_mode: 'device',
 });
 
 export const LEARNING = Object.freeze({
@@ -221,9 +223,6 @@ export function describeAlgorithm() {
     exclusions: ['seus próprios posts', 'reposts (o original pode aparecer)', 'tópicos silenciados', 'posts marcados com "menos disto"'],
     candidates: 'posts originais e respostas dos últimos 7 dias (até 500)',
     codigo_fonte: 'shared/ranking/ranking.js',
-    modos: {
-      servidor: 'a instância calcula o feed com as preferências guardadas nela',
-      aparelho: 'o navegador baixa os candidatos e calcula o feed; preferências e aprendizado ficam só no aparelho',
-    },
+    onde: 'só no aparelho de cada pessoa: o navegador baixa os candidatos (iguais para todo mundo), guarda as preferências e o aprendizado e calcula o feed. A instância não sabe do que a pessoa gosta.',
   };
 }

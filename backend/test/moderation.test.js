@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { query } from '../src/db.js';
 import { promoteModerators } from '../src/services/moderation.js';
 import { filterAudience } from '../src/services/relations.js';
-import { api, post, resetDb, signup } from './helpers.js';
+import { api, post, resetDb, signup, asReader } from './helpers.js';
 
 const ids = (res) => res.body.data.map((p) => p.id);
 
@@ -171,7 +171,7 @@ describe('decisões da moderação', () => {
     const other = await report(alice, { username: 'bob', reason: 'spam' });
     const rr = await resolve(r1, 'remover_post');
     expect(rr.body.data.status).toBe('acatada');
-    expect((await api().get(`/api/posts/${p.id}`)).status).toBe(404);
+    expect((await api().get(`/api/posts/${p.id}`).set(await asReader())).status).toBe(404);
     const { rows } = await query("SELECT count(*)::int AS n FROM reports WHERE status = 'aberta'");
     expect(rows[0].n).toBe(1); // só a denúncia da conta, que é outro assunto
     expect((await resolve(other, 'remover_post')).status).toBe(409);
@@ -187,7 +187,7 @@ describe('decisões da moderação', () => {
     expect(login.status).toBe(403);
     expect(login.body.error).toMatch(/suspensa/);
     expect((await api().get('/api/users/bob')).status).toBe(404);
-    expect(ids(await api().get('/api/posts'))).not.toContain(p.id);
+    expect(ids(await api().get('/api/posts').set(await asReader()))).not.toContain(p.id);
     expect((await api().get('/api/users?q=bo')).body.data).toEqual([]);
     const { rows } = await query("SELECT count(*)::int AS n FROM reports WHERE status = 'aberta'");
     expect(rows[0].n).toBe(0); // as outras denúncias contra o Bob foram resolvidas junto

@@ -3,7 +3,6 @@ import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
 import { extractMentions } from '../lib/text.js';
 import { bus } from '../realtime/bus.js';
-import { recordSignalSafely } from './interests.js';
 import { assertCanInteract, filterAudience, hiddenAuthors } from './relations.js';
 import { fanOut } from './timeline.js';
 import { getUsersByIds } from './users.js';
@@ -135,7 +134,6 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
 
   // Quem silenciou ou tem bloqueio com o autor não recebe o aviso em tempo real nem notificação.
   const audience = await filterAudience(authorId, await fanOut(id, authorId));
-  if (replyToId) await recordSignalSafely(authorId, replyToId, 'reply');
   const post = await getPost(id, authorId);
   bus.emit('post:created', { post, audience });
   const notify = new Set(mentionedIds);
@@ -200,7 +198,7 @@ export async function like(userId, postId) {
     );
     if (rowCount) await client.query('UPDATE posts SET like_count = like_count + 1 WHERE id = $1', [postId]);
     return rowCount > 0;
-  }).then((added) => added && recordSignalSafely(userId, postId, 'like'));
+  });
   return getPost(postId, userId);
 }
 
@@ -209,7 +207,7 @@ export async function unlike(userId, postId) {
     const { rowCount } = await client.query('DELETE FROM likes WHERE user_id = $1 AND post_id = $2', [userId, postId]);
     if (rowCount) await client.query('UPDATE posts SET like_count = GREATEST(like_count - 1, 0) WHERE id = $1', [postId]);
     return rowCount > 0;
-  }).then((removed) => removed && recordSignalSafely(userId, postId, 'unlike'));
+  });
   return getPost(postId, userId);
 }
 
@@ -229,7 +227,6 @@ export async function repost(userId, postId) {
     return { inserted: rowCount > 0, originalId };
   });
   if (created.inserted) {
-    await recordSignalSafely(userId, created.originalId, 'repost');
     const audience = await filterAudience(userId, await fanOut(id, userId));
     const post = await getPost(id, userId);
     bus.emit('post:created', { post, audience });

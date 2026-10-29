@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { query } from '../src/db.js';
 import { promoteModerators } from '../src/services/moderation.js';
 import { DEFAULT_RULES } from '../src/services/rules.js';
-import { api, post, resetDb, signup } from './helpers.js';
+import { api, post, resetDb, signup, asReader } from './helpers.js';
 
 let alice, bob, mod, rules;
 beforeEach(async () => {
@@ -76,7 +76,7 @@ describe('quem foi afetado vê a decisão e pode recorrer', () => {
     const p = await post(bob, 'post contestável');
     const rid = await report(alice, { post_id: p.id, reason: 'assedio' });
     await resolve(rid, 'remover_post', rules[0].id, 'Ataque pessoal');
-    expect((await api().get(`/api/posts/${p.id}`)).status).toBe(404);
+    expect((await api().get(`/api/posts/${p.id}`).set(await asReader())).status).toBe(404);
 
     const decisions = (await api().get('/api/conta/decisoes').set(bob.auth)).body.data;
     expect(decisions).toHaveLength(1);
@@ -98,7 +98,7 @@ describe('quem foi afetado vê a decisão e pode recorrer', () => {
 
     const dec = await api().post(`/api/moderacao/recursos/${sid}/decidir`).set(mod.auth).send({ decision: 'aceitar', note: 'Revisado: crítica legítima' });
     expect(dec.body.data).toEqual({ id: sid, appeal_status: 'aceito', reverted: true });
-    expect((await api().get(`/api/posts/${p.id}`)).status).toBe(200);
+    expect((await api().get(`/api/posts/${p.id}`).set(await asReader())).status).toBe(200);
     const after = (await api().get('/api/conta/decisoes').set(bob.auth)).body.data[0];
     expect(after).toMatchObject({ appeal_status: 'aceito', appeal_note: 'Revisado: crítica legítima' });
     expect(after.reverted_at).toBeTruthy();

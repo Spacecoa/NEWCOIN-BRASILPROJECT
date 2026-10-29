@@ -398,3 +398,22 @@ CREATE TABLE IF NOT EXISTS channel_bans (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (channel_id, user_id)
 );
+
+-- Evaporação do NWC: quem fica sem usar o app perde o saldo aos poucos, até zerar em 7 dias.
+-- last_active_at marca o último uso; evaporated_days conta quantos dias de inatividade já
+-- foram descontados (volta a zero quando a pessoa volta).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE token_balances ADD COLUMN IF NOT EXISTS evaporated_days INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS users_last_active ON users (last_active_at);
+-- O extrato ganha o tipo 'evaporated' (só troca a regra se ainda não aceitar).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'token_ledger_kind_check' AND pg_get_constraintdef(oid) LIKE '%evaporated%'
+  ) THEN
+    ALTER TABLE token_ledger DROP CONSTRAINT IF EXISTS token_ledger_kind_check;
+    ALTER TABLE token_ledger ADD CONSTRAINT token_ledger_kind_check
+      CHECK (kind IN ('grant', 'mission', 'tip_sent', 'tip_received', 'evaporated'));
+  END IF;
+END $$;

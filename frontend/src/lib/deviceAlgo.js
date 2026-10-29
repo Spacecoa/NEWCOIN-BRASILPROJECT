@@ -12,6 +12,15 @@ const memory = new Map(); // reserva quando o armazenamento do navegador não es
 
 const empty = () => ({ v: VERSION, settings: mergeSettings({}), learned: { topics: {}, authors: {} }, hidden: [] });
 
+/** true se este aparelho já guarda um algoritmo desta conta. */
+export function hasLocalState(userId) {
+  try {
+    return localStorage.getItem(key(userId)) !== null || memory.has(userId);
+  } catch {
+    return memory.has(userId);
+  }
+}
+
 export function loadState(userId) {
   let raw;
   try {

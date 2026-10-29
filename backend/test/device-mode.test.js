@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { query } from '../src/db.js';
 import { decayed, mergeSettings, rank } from '../../shared/ranking/ranking.js';
-import { api, post, resetDb, signup } from './helpers.js';
+import { api, post, resetDb, signup, asReader } from './helpers.js';
 
 const candidatos = (who) => api().get('/api/feed/candidatos').set(who.auth);
 const prefs = async (who) => (await api().get('/api/feed/preferencias').set(who.auth)).body;
@@ -52,41 +52,39 @@ describe('ranking neste aparelho', () => {
   it('o conjunto de candidatos não depende das preferências (não revela gostos à instância)', async () => {
     for (let i = 0; i < 4; i++) await post(i % 2 ? bruno : carla, `post ${i} sobre ${i % 2 ? 'Postgres' : 'React'}`);
     const before = (await candidatos(ana)).body.data.map((p) => p.id);
-    await api().put('/api/feed/preferencias').set(ana.auth).send({ topics: { frontend: 1 }, muted_topics: ['bancos'], keywords: ['react'] });
+    // O servidor nem aceita preferências do algoritmo: elas ficam no aparelho.
+    expect((await api().put('/api/feed/preferencias').set(ana.auth).send({ topics: { frontend: 1 } })).status).toBe(400);
+    await api().post(`/api/posts/${before[0]}/like`).set(ana.auth);
     const after = (await candidatos(ana)).body.data.map((p) => p.id);
     expect(after).toEqual(before);
   });
 
-  it('mesma entrada, mesma ordem: rank() no aparelho reproduz o feed do servidor', async () => {
+  it('o ranking no aparelho segue as preferências e silencia tópicos (mesma função rank() compartilhada)', async () => {
     const texts = ['Postgres com índices', 'Componente React acessível', 'Deploy no Kubernetes', 'Aula sobre federação e WebFinger', 'Cache Redis', 'CSS moderno'];
     for (const [i, t] of texts.entries()) await post([bruno, carla][i % 2], t);
-    await api().post('/api/users/carla/follow').set(ana.auth);
-    const settings = { topics: { frontend: 0.9, bancos: 0.4 }, keywords: ['webfinger'], muted_topics: ['infra'], diversity: 0.3 };
-    await api().put('/api/feed/preferencias').set(ana.auth).send(settings);
-    const p = (await candidatos(ana)).body.data.find((x) => x.text === 'Cache Redis');
-    await api().post(`/api/posts/${p.id}/like`).set(ana.auth); // aprendizado no servidor
-
-    const server = (await api().get('/api/feed/interesses?max_results=50').set(ana.auth)).body.data.map((x) => x.id);
-    const { settings: saved, learned } = await prefs(ana);
-    const device = rankOnDevice((await candidatos(ana)).body, saved, learned);
-    expect(device).toEqual(server);
-    expect(server).toHaveLength(5); // infra silenciado
+    const body = (await candidatos(ana)).body;
+    const order = (settings) => rankOnDevice(body, settings).map((id) => body.data.find((p) => p.id === id).text);
+    const tuned = order({ topics: { frontend: 1 }, muted_topics: ['infra'] });
+    expect(tuned[0]).toMatch(/React|CSS/);
+    expect(tuned).not.toContain('Deploy no Kubernetes');
+    expect(order({ keywords: ['webfinger'] })[0]).toBe('Aula sobre federação e WebFinger');
   });
 
-  it('ir para o aparelho apaga do servidor as preferências do algoritmo, o aprendizado e os escondidos', async () => {
+  it('conta antiga: levar ao aparelho entrega uma última vez o que o servidor tinha e apaga tudo de lá', async () => {
+    // Dados que contas antigas ainda têm no servidor (de antes do algoritmo ficar só no aparelho).
     const p = await post(bruno, 'Postgres e cache');
-    await api().put('/api/feed/preferencias').set(ana.auth).send({ topics: { bancos: 1 }, keywords: ['x1'], missions_enabled: false });
-    await api().post(`/api/posts/${p.id}/like`).set(ana.auth);
-    await api().post(`/api/posts/${(await post(carla, 'React')).id}/feedback`).set(ana.auth).send({ kind: 'less' });
-    let before = await prefs(ana);
-    expect(before.learned.topics.length).toBeGreaterThan(0);
-    expect(before.hidden_post_ids).toHaveLength(1);
+    await query(`INSERT INTO feed_settings (user_id, settings) VALUES ($1, $2)`, [ana.user.id, JSON.stringify({ ranking_mode: 'server', topics: { bancos: 1 }, missions_enabled: false })]);
+    await query(`INSERT INTO learned_topics (user_id, topic, value) VALUES ($1, 'bancos', 0.3)`, [ana.user.id]);
+    await query(`INSERT INTO hidden_posts (user_id, post_id) VALUES ($1, $2)`, [ana.user.id, p.id]);
+    const before = await prefs(ana);
+    expect(before.settings).toMatchObject({ ranking_mode: 'server', topics: { bancos: 1 } });
+    expect(before.learned.topics[0]).toMatchObject({ topic: 'bancos' });
+    expect(before.hidden_post_ids).toEqual([p.id]);
 
     const res = await setMode(ana, 'device');
     expect(res.status).toBe(200);
-    expect(res.body.mode).toBe('device');
     const after = await prefs(ana);
-    expect(after.settings).toMatchObject({ ranking_mode: 'device', topics: {}, keywords: [], missions_enabled: false });
+    expect(after.settings).toMatchObject({ ranking_mode: 'device', topics: {}, missions_enabled: false });
     expect(after.learned).toEqual({ topics: [], authors: [] });
     expect(after.hidden_post_ids).toEqual([]);
     for (const t of ['learned_topics', 'learned_authors', 'hidden_posts']) {
@@ -94,8 +92,11 @@ describe('ranking neste aparelho', () => {
     }
   });
 
-  it('no aparelho, curtir e "menos disto" não deixam rastro de aprendizado no servidor', async () => {
-    await setMode(ana, 'device');
+  it('conta nova já nasce com o algoritmo no aparelho', async () => {
+    expect((await prefs(ana)).settings.ranking_mode).toBe('device');
+  });
+
+  it('curtir, repostar, responder e "menos disto" não deixam rastro de aprendizado no servidor', async () => {
     const p = await post(bruno, 'Postgres e Redis');
     await api().post(`/api/posts/${p.id}/like`).set(ana.auth);
     await api().post(`/api/posts/${p.id}/repost`).set(ana.auth);
@@ -106,16 +107,12 @@ describe('ranking neste aparelho', () => {
     expect(after.learned).toEqual({ topics: [], authors: [] });
     expect(after.hidden_post_ids).toEqual([]);
     // a curtida em si continua sendo pública e contada normalmente
-    expect((await api().get(`/api/posts/${p.id}`)).body.data.public_metrics.like_count).toBe(1);
+    expect((await api().get(`/api/posts/${p.id}`).set(await asReader())).body.data.public_metrics.like_count).toBe(1);
   });
 
-  it('voltar para o servidor retoma o aprendizado lá', async () => {
-    await setMode(ana, 'device');
-    const back = await setMode(ana, 'server');
-    expect(back.body.settings.ranking_mode).toBe('server');
-    const p = await post(bruno, 'Postgres');
-    await api().post(`/api/posts/${p.id}/like`).set(ana.auth);
-    expect((await prefs(ana)).learned.topics.map((t) => t.topic)).toEqual(['bancos']);
+  it('não existe mais voltar o algoritmo para o servidor', async () => {
+    expect((await setMode(ana, 'server')).status).toBe(400);
+    expect((await api().get('/api/feed/interesses').set(ana.auth)).status).toBe(410);
   });
 
   it('valida o modo e não deixa trocá-lo pelas preferências', async () => {

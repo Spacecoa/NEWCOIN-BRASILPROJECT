@@ -1,8 +1,6 @@
 import { Router } from 'express';
 import { config } from '../config.js';
 import { badRequest, notFound } from '../lib/errors.js';
-import { hydrate } from '../services/posts.js';
-import { userTimelineIds } from '../services/timeline.js';
 import { getProfile, getUserIdByUsername } from '../services/users.js';
 
 // Camada de federação MÍNIMA e somente leitura. Ela demonstra como uma instância
@@ -11,7 +9,6 @@ import { getProfile, getUserIdByUsername } from '../services/users.js';
 // server-to-server — ver docs/03-arquitetura.md, seção "Caminho para federação".
 
 const router = Router();
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const base = () => `http://${config.instanceDomain}`;
 
 router.get('/.well-known/webfinger', async (req, res) => {
@@ -46,30 +43,20 @@ router.get('/federation/users/:username', async (req, res) => {
   });
 });
 
-/** Últimos 20 posts públicos do usuário como uma OrderedCollection simplificada. */
+/**
+ * Outbox: os posts desta instância só são lidos por quem tem conta e entrou nela.
+ * Outra instância (ou alguém sem login) recebe a coleção vazia, com o motivo.
+ */
 router.get('/federation/users/:username/outbox', async (req, res) => {
-  const userId = await getUserIdByUsername(req.params.username);
-  const ids = await userTimelineIds(userId, { sinceId: null, untilId: null, limit: 20 }, { excludeReposts: true });
-  const { data } = await hydrate(ids, null);
+  await getUserIdByUsername(req.params.username);
   const actor = `${base()}/federation/users/${req.params.username}`;
   res.type('application/activity+json').json({
     '@context': 'https://www.w3.org/ns/activitystreams',
     type: 'OrderedCollection',
     id: `${actor}/outbox`,
-    totalItems: data.length,
-    orderedItems: data.map((p) => ({
-      type: 'Create',
-      actor,
-      object: {
-        type: 'Note',
-        id: `${base()}/posts/${p.id}`,
-        attributedTo: actor,
-        // ActivityStreams trata `content` como HTML: o texto vai escapado (docs/14, F-1).
-        content: `<p>${escapeHtml(p.text)}</p>`,
-        published: p.created_at,
-        inReplyTo: p.in_reply_to_post_id ? `${base()}/posts/${p.in_reply_to_post_id}` : null,
-      },
-    })),
+    totalItems: 0,
+    orderedItems: [],
+    summary: 'Os posts desta instância só podem ser lidos por quem tem conta e entrou nela.',
   });
 });
 

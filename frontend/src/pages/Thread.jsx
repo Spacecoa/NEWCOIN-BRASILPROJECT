@@ -6,7 +6,6 @@ import PostCard from '../components/PostCard.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { learnLocal } from '../lib/deviceAlgo.js';
-import { getCachedMode } from '../lib/rankingMode.js';
 import { buildThread } from '../lib/thread.js';
 import { usePostStore } from '../lib/usePostStore.js';
 
@@ -65,7 +64,7 @@ export default function Thread() {
         placeholder={`Responder a @${store.users[focal.author_id]?.username ?? ''}`}
         onPosted={(result) => {
           merge(result);
-          if (getCachedMode() === 'device') learnLocal(me.id, focal, 'reply', store.users[focal.author_id]?.username);
+          learnLocal(me.id, focal, 'reply', store.users[focal.author_id]?.username);
           setOrder((prev) => [...prev, result.data.id]);
         }}
       />
