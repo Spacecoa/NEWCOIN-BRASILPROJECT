@@ -12,7 +12,9 @@
     "seed": "node src/seed.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "moderacao:promover": "node src/promote.js"
+    "moderacao:promover": "node src/promote.js",
+    "sim:api": "node sim/run-api.mjs",
+    "sim:ui": "node sim/ui.cjs"
   },
   "engines": {
     "node": ">=20"

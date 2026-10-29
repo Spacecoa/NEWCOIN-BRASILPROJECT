@@ -91,11 +91,13 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 ### Testes
 
 ```bash
-cd backend  && npm test   # 183 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
-cd frontend && npm test   # 53 testes: lógica e componentes (jsdom)
+cd backend  && npm test   # 213 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd frontend && npm test   # 64 testes: lógica e componentes (jsdom)
 ```
 
 Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL`. Os testes de integração **apagam** o banco de teste e o banco 1 do Redis.
+
+As 100 simulações de usabilidade (76 de API, 24 de interface) ficam em `backend/sim/`: `npm run sim:api` e `npm run sim:ui` (com o app rodando). Resultado e achados em [`docs/15`](docs/15-simulacoes-de-usabilidade.md).
 
 ## Exemplos de API
 
