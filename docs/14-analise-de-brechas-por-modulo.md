@@ -235,3 +235,51 @@ Arquivos: `frontend/src`, `vite.config.js`.
 4. **P-1 e W-1:** limite de menções e cabeçalho contra iframe.
 5. **A-3 e A-4, C-4, T-2:** os itens médios já conhecidos do `docs/10`.
 6. **O restante:** os itens baixos.
+
+## Correções feitas (pré-produção)
+
+As correções ficam no código do app e nos servidores de desenvolvimento e de pré-visualização. Nada exige mudar a configuração da produção oficial: uma instalação que já esteja no ar continua iniciando como antes. Os testes ficam em `backend/test/brechas.test.js` e `frontend/src/pages/Channel.test.jsx`.
+
+| # | O que mudou |
+|---|---|
+| M-1 | `MODERATORS` só promove contas que já existem. Um nome ainda livre fica anotado (`moderator_names_missing`), e uma conta criada depois com esse nome não é promovida: o servidor avisa no log. A promoção da pessoa certa é manual: `npm run moderacao:promover -- <usuario>`. |
+| A-1 | `TRUST_PROXY=true` impede o servidor de iniciar fora de produção. Em produção, só gera um aviso, para não mudar nada no ar. |
+| A-2 | O seed recusa `NODE_ENV=production`, porque apaga o banco. Usa `senha1234` só em domínio local; em qualquer outro, a senha vem de `SEED_PASSWORD` (12 caracteres ou mais) ou é sorteada e mostrada uma vez. |
+| T-1 | Não dá mais para interagir com conta suspensa pelo ID direto: recompensar, curtir, responder, repostar, seguir e reagir devolvem 404, e o saldo não sai da carteira. O original removido de um repost também não recebe recompensa. Isso fecha também U-2 e P-4. |
+| M-2 | O recurso de suspensão dá a mesma resposta para senha errada, conta inexistente e conta não suspensa, e conta no mesmo limite do login. |
+| M-3 | Post com denúncia aberta ou já removido não é mais apagado de vez. Sai do ar, fica marcado como apagado pelo autor (`deleted_by_author_at`), a moderação ainda decide, e um recurso aceito não o traz de volta. Sem denúncia, apagar continua apagando. |
+| C-1 | Grupo é só de quem entrou: histórico, `/difference` e assinatura ao vivo exigem ser membro. Canal de transmissão segue com prévia, como no Telegram. Quem sai ou é removido para de receber na hora. |
+| C-2 | Dono e admins removem pessoas (`DELETE /api/channels/:slug/members/:usuario`), e quem foi removido não entra de novo até a remoção ser desfeita (`DELETE /api/channels/:slug/bans/:usuario`). Admin não remove outro admin nem o dono. Na tela, o botão "Remover" aparece nas mensagens de outras pessoas. |
+| C-3 | Reações só com 8 emojis, no máximo 3 por pessoa em cada mensagem, e limite de 60 por minuto. |
+| P-1 | No máximo 10 menções por post. |
+| W-1 | Os servidores do Vite (desenvolvimento e `vite preview`) mandam `X-Frame-Options: DENY` e `frame-ancestors 'none'`. **Produção:** o servidor que hospeda o frontend oficial precisa mandar os mesmos dois cabeçalhos; isso não foi alterado aqui. |
+| A-4 | Até 10 senhas erradas por conta a cada 15 minutos, contando só os erros. Acertar não gasta tentativa. |
+| C-4 | No WebSocket: no máximo 10 conexões por conta, 50 canais por conexão, 30 pedidos de assinatura por minuto, e mensagens de até 16 KB. |
+| C-5 | Até 5 canais ou grupos novos por dia por conta. |
+| U-1 | Conta suspensa não mostra listas de seguidores; quem tem bloqueio recebe lista vazia; contas escondidas não aparecem. |
+| M-4 | Com mais de uma pessoa na moderação, ninguém decide a própria denúncia nem o recurso contra a própria decisão. |
+| T-5 | `GET /api/missoes` tem limite próprio (60 a cada 5 minutos). |
+| F-1 | O texto do post vai escapado no outbox federado. |
+| D-1 | A resposta das fontes oficiais tem teto de 2 MB, quando a busca automática estiver ligada. |
+
+**Não alterado, e por quê:**
+- **Dependem da produção oficial:**
+  - **A-3:** configurar `TRUST_PROXY` com os saltos do proxy da produção;
+  - **A-6:** confirmar e-mail, o que exige um serviço de envio;
+  - **A-9:** `COOKIE_SECURE`;
+  - **F-2:** HTTPS nas URLs federadas;
+  - **I-1:** senhas do Postgres e do Redis da produção;
+  - **W-1 na produção:** cabeçalhos do servidor do frontend.
+- **Dependem de decisão de produto:**
+  - **T-2:** contas falsas e o NWC; tratar antes de dar utilidade ao token;
+  - **P-2 e F-3:** posts públicos legíveis sem login;
+  - **W-2:** apagar ao sair o algoritmo que só existe no aparelho faria a pessoa perdê-lo.
+- **Baixos, que ficam para depois:**
+  - **A-5:** responder o cadastro sem revelar contas atrapalha o uso normal;
+  - **A-7 e A-8:** revogação e janela de 30 segundos;
+  - **C-6 e C-7:** socket depois de o token vencer e aviso de exclusão para todos;
+  - **P-3:** thread com mais de 500 respostas;
+  - **T-3 e T-4:** missão desfeita e tempo no app por script;
+  - **M-5 e M-6:** fila inundada e conta nova depois de suspensão;
+  - **I-2:** janela fixa do limite.
+

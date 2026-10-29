@@ -377,3 +377,24 @@ CREATE TABLE IF NOT EXISTS official_observations (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (source_key, period)
 );
+
+-- Nomes da variável MODERATORS que ainda não existiam quando o servidor iniciou.
+-- Uma conta criada DEPOIS com esse nome não é promovida sozinha (alguém poderia
+-- registrar o nome antes da pessoa certa): a promoção passa a ser manual.
+CREATE TABLE IF NOT EXISTS moderator_names_missing (
+  username      CITEXT PRIMARY KEY,
+  missing_since TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Exclusão pelo autor de um post removido ou com denúncia aberta: o post sai do ar,
+-- mas a linha fica para a moderação decidir (a prova não some).
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS deleted_by_author_at TIMESTAMPTZ;
+
+-- Banidos de um grupo ou canal: saíram por decisão de quem administra e não entram de novo.
+CREATE TABLE IF NOT EXISTS channel_bans (
+  channel_id BIGINT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  banned_by  BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (channel_id, user_id)
+);

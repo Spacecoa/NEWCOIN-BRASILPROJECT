@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { config } from '../config.js';
 import { authenticate, checkPassword, dummyHash, requireAuth, signToken } from '../lib/auth.js';
 import { parse, unauthorized } from '../lib/errors.js';
-import { rateLimit } from '../lib/rateLimit.js';
+import { failureCounter, rateLimit } from '../lib/rateLimit.js';
 import { registerWithInvite } from '../services/invites.js';
 import { activeSuspension } from '../services/moderation.js';
 import { createSession, revokeAllSessions, revokeByRefresh, revokeSession, rotateSession } from '../services/sessions.js';
@@ -78,14 +78,28 @@ router.post('/register', authLimiter, async (req, res) => {
   await startSession(req, res, user, 201);
 });
 
+// Além do limite por IP, um limite de SENHAS ERRADAS por conta: quem testa a senha de uma
+// pessoa a partir de muitos IPs para em 10 erros a cada 15 min (docs/14, A-4). Só erros
+// contam; ainda assim, quem atacar uma conta pode atrasar o login dela nessa janela.
+const accountFailures = failureCounter({ name: 'auth:account', limit: 10, windowSec: 15 * 60 });
+
 router.post('/login', authLimiter, async (req, res) => {
   const { email, login, password } = parse(loginSchema, req.body);
+  const accountKey = String(email ?? login).toLowerCase();
+  const gate = await accountFailures.check(accountKey);
+  if (gate.blocked) {
+    res.set('retry-after', String(gate.retryAfter));
+    return res.status(429).json({ error: 'Muitas tentativas com senha errada para esta conta. Tente de novo em alguns minutos.', retry_after: gate.retryAfter });
+  }
   const row = await findUserForLogin(email ?? login);
   // Mesma mensagem E o mesmo tempo para conta inexistente e senha errada: o bcrypt roda
   // sempre (contra um hash falso quando a conta não existe), então ninguém descobre
   // quais e-mails estão cadastrados medindo a demora da resposta.
   const ok = await checkPassword(password, row?.password_hash ?? (await dummyHash()));
-  if (!row || !ok) throw unauthorized('E-mail ou senha incorretos');
+  if (!row || !ok) {
+    await accountFailures.fail(accountKey);
+    throw unauthorized('E-mail ou senha incorretos');
+  }
   if (row.suspended_at) {
     // Senha certa: a pessoa tem direito de saber por quê, qual regra, e como recorrer.
     const s = await activeSuspension(row.id);

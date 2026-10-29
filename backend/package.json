@@ -11,7 +11,8 @@
     "migrate": "node src/migrate.js",
     "seed": "node src/seed.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "moderacao:promover": "node src/promote.js"
   },
   "engines": {
     "node": ">=20"

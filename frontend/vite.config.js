@@ -25,12 +25,20 @@ const cspOnBuild = {
   transformIndexHtml: () => [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: CSP }, injectTo: 'head-prepend' }],
 };
 
+// Proteção contra iframe (clickjacking, docs/14 W-1). A CSP em <meta> não aceita
+// frame-ancestors, então ela precisa vir como cabeçalho. Vale para o servidor de
+// desenvolvimento e o de pré-visualização (`vite preview`, usado na pré-produção).
+// O servidor da produção oficial precisa mandar os mesmos dois cabeçalhos por conta própria.
+const noFraming = { 'X-Frame-Options': 'DENY', 'Content-Security-Policy': "frame-ancestors 'none'" };
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), cspOnBuild],
   // O algoritmo "Para você" é o mesmo arquivo no servidor e no navegador (shared/ranking).
   resolve: { alias: { '@shared': fileURLToPath(new URL('../shared', import.meta.url)) } },
+  preview: { headers: noFraming },
   server: {
     port: 5173,
+    headers: noFraming,
     fs: { allow: [fileURLToPath(new URL('..', import.meta.url))] },
     // Em desenvolvimento o frontend fala com o backend pela mesma origem (sem CORS).
     proxy: {

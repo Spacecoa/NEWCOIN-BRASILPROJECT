@@ -58,6 +58,7 @@ function ReportCard({ r, reasons, rules, onDone }) {
         <blockquote className="mt-2 rounded-2xl bg-white p-3 text-sm dark:bg-zinc-950">
           {r.post_text}
           {!r.post_exists && <span className="mt-1 block text-xs text-zinc-500">(o post já não existe)</span>}
+          {r.post_deleted_by_author && <span className="mt-1 block text-xs text-zinc-500">(o autor apagou o post depois da denúncia; ele está fora do ar e guardado para a decisão)</span>}
         </blockquote>
       )}
       {r.details && <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">“{r.details}” — @{r.reporter_username}</p>}

@@ -131,7 +131,8 @@ describe('quem foi afetado vê a decisão e pode recorrer', () => {
 
     const send = (body) => api().post('/api/recursos/suspensao').send(body);
     expect((await send({ email: 'bob@exemplo.test', password: 'errada123', text: 'quero recorrer da suspensão' })).status).toBe(401);
-    expect((await send({ email: 'alice@exemplo.test', password: 'senha1234', text: 'quero recorrer da suspensão' })).status).toBe(409);
+    // Conta não suspensa com a senha certa recebe a mesma resposta da senha errada (docs/14, M-2).
+    expect((await send({ email: 'alice@exemplo.test', password: 'senha1234', text: 'quero recorrer da suspensão' })).status).toBe(401);
     expect((await send({ email: 'bob@exemplo.test', password: 'senha1234', text: 'Minha conta foi invadida naquele dia.' })).status).toBe(201);
     expect((await send({ email: 'bob@exemplo.test', password: 'senha1234', text: 'mais uma vez por favor' })).status).toBe(409);
     const again = await api().post('/api/auth/login').send({ email: 'bob@exemplo.test', password: 'senha1234' });

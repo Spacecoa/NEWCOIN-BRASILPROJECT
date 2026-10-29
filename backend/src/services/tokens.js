@@ -90,7 +90,9 @@ export async function tipPost(userId, postId) {
     const { rows } = await client.query('SELECT id, author_id, repost_of_id FROM posts WHERE id = $1 AND removed_at IS NULL', [postId]);
     if (!rows[0]) throw notFound('Post não encontrado');
     const target = rows[0].repost_of_id ?? rows[0].id; // recompensa vai para o original
-    const { rows: orig } = await client.query('SELECT author_id FROM posts WHERE id = $1', [target]);
+    // O original de um repost também precisa estar no ar.
+    const { rows: orig } = await client.query('SELECT author_id FROM posts WHERE id = $1 AND removed_at IS NULL', [target]);
+    if (!orig[0]) throw notFound('Post não encontrado');
     const authorId = orig[0].author_id;
     if (authorId === userId) throw conflict('Você não pode recompensar o próprio post');
     await assertCanInteract(userId, authorId, client);

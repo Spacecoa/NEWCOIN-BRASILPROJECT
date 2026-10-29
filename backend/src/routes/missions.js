@@ -6,7 +6,9 @@ import { getMissions, skipMission } from '../services/missions.js';
 
 const router = Router();
 
-router.get('/missoes', requireAuth, async (req, res) => {
+// Cada pedido grava o dia e roda as consultas coletivas: limite próprio (docs/14, T-5).
+const missionsLimiter = rateLimit({ name: 'missions', limit: 60, windowSec: 5 * 60 });
+router.get('/missoes', requireAuth, missionsLimiter, async (req, res) => {
   res.json(await getMissions(req.user.id));
 });
 

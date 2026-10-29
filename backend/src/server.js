@@ -7,8 +7,14 @@ import { loadRegistro, startRefreshLoop } from './official/service.js';
 import { attachRealtime } from './realtime/socket.js';
 
 await migrate();
-const promoted = await promoteModerators(config.moderators);
-if (promoted) console.log(`[moderação] ${promoted} conta(s) promovida(s) a moderação: ${config.moderators.join(', ')}`);
+const mods = await promoteModerators(config.moderators);
+if (mods.promoted) console.log(`[moderação] ${mods.promoted} conta(s) promovida(s) a moderação.`);
+if (mods.missing.length) console.warn(`[moderação] MODERATORS cita conta(s) que não existem: ${mods.missing.join(', ')}. Elas não serão promovidas sozinhas quando forem criadas.`);
+if (mods.refused.length) {
+  console.warn(
+    `[moderação] Não promovidas: ${mods.refused.join(', ')} (criadas depois que o nome apareceu em MODERATORS). Se for a pessoa certa: npm run moderacao:promover -- <usuario>`,
+  );
+}
 const httpServer = createServer(createApp());
 attachRealtime(httpServer);
 // Aba "Brasil em dados": números conferidos à mão; a busca automática só roda se configurada.

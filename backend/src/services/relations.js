@@ -48,8 +48,16 @@ export async function isBlockedEitherWay(a, b, db = { query }) {
   return rows.length > 0;
 }
 
-/** Recusa interagir (seguir, responder, curtir, repostar, recompensar) com quem tem bloqueio. */
+/**
+ * Recusa interagir (seguir, responder, curtir, repostar, recompensar, reagir) com quem tem
+ * bloqueio ou com conta suspensa. A suspensa some para todos: interagir pelo ID direto
+ * não pode continuar funcionando (antes, uma recompensa saía da carteira; docs/14, T-1).
+ */
 export async function assertCanInteract(actorId, otherId, db = { query }) {
+  if (otherId && otherId !== actorId) {
+    const { rows } = await db.query('SELECT suspended_at IS NOT NULL AS suspended FROM users WHERE id = $1', [otherId]);
+    if (rows[0]?.suspended) throw notFound('Esta conta foi suspensa pela moderação da instância');
+  }
   if (await isBlockedEitherWay(actorId, otherId, db)) throw forbidden('Não é possível interagir com esta conta');
 }
 

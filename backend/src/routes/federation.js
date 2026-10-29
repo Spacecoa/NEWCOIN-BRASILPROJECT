@@ -11,6 +11,7 @@ import { getProfile, getUserIdByUsername } from '../services/users.js';
 // server-to-server — ver docs/03-arquitetura.md, seção "Caminho para federação".
 
 const router = Router();
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const base = () => `http://${config.instanceDomain}`;
 
 router.get('/.well-known/webfinger', async (req, res) => {
@@ -63,7 +64,8 @@ router.get('/federation/users/:username/outbox', async (req, res) => {
         type: 'Note',
         id: `${base()}/posts/${p.id}`,
         attributedTo: actor,
-        content: p.text,
+        // ActivityStreams trata `content` como HTML: o texto vai escapado (docs/14, F-1).
+        content: `<p>${escapeHtml(p.text)}</p>`,
         published: p.created_at,
         inReplyTo: p.in_reply_to_post_id ? `${base()}/posts/${p.in_reply_to_post_id}` : null,
       },

@@ -23,7 +23,7 @@ describe('federação (somente leitura)', () => {
     expect(res.body.type).toBe('OrderedCollection');
     expect(res.body.orderedItems[0]).toMatchObject({
       type: 'Create',
-      object: { type: 'Note', content: 'federado!', id: `http://agora.test/posts/${p.id}` },
+      object: { type: 'Note', content: '<p>federado!</p>', id: `http://agora.test/posts/${p.id}` },
     });
   });
 });

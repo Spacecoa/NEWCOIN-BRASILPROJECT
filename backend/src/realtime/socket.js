@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { config } from '../config.js';
 import { authenticate } from '../lib/auth.js';
-import { getChannel, hiddenMessage } from '../services/channels.js';
+import { assertCanRead, getChannel, hiddenMessage } from '../services/channels.js';
 import { authorRelations } from '../services/relations.js';
 import { bus } from './bus.js';
 
@@ -11,15 +11,30 @@ import { bus } from './bus.js';
 // O cliente só escreve via REST; o WebSocket é usado apenas para "push" do servidor,
 // o que mantém um único caminho de escrita (mais fácil de validar e testar).
 
+// Limites por conexão (docs/14, C-4): uma conta não abre conexões sem fim, uma conexão não
+// assina canais sem fim, e pedidos de assinatura têm ritmo máximo.
+export const WS_LIMITS = { connectionsPerUser: 10, channelsPerSocket: 50, subscribesPerMinute: 30 };
+
 export function attachRealtime(httpServer) {
-  const io = new Server(httpServer, { cors: { origin: config.corsOrigin } });
+  const io = new Server(httpServer, { cors: { origin: config.corsOrigin }, maxHttpBufferSize: 16 * 1024 });
 
   io.use(async (socket, next) => {
     const user = await authenticate(String(socket.handshake.auth?.token ?? ''));
     if (!user) return next(new Error('unauthorized'));
+    const open = await io.in(`user:${user.id}`).fetchSockets();
+    if (open.length >= WS_LIMITS.connectionsPerUser) return next(new Error('too_many_connections'));
     socket.data.user = user;
+    socket.data.channels = new Set();
+    socket.data.subscribes = { windowStart: Date.now(), count: 0 };
     next();
   });
+
+  const subscribeAllowed = (socket) => {
+    const w = socket.data.subscribes;
+    if (Date.now() - w.windowStart > 60_000) Object.assign(w, { windowStart: Date.now(), count: 0 });
+    w.count++;
+    return w.count <= WS_LIMITS.subscribesPerMinute;
+  };
 
   io.on('connection', (socket) => {
     socket.join(`user:${socket.data.user.id}`);
@@ -28,7 +43,14 @@ export function attachRealtime(httpServer) {
 
     socket.on('channel:subscribe', async ({ slug } = {}, ack) => {
       try {
+        if (!subscribeAllowed(socket)) return ack?.({ ok: false, error: 'Muitos pedidos de assinatura. Tente em instantes.' });
         const channel = await getChannel(String(slug), socket.data.user.id);
+        // Grupo: só quem é membro recebe as mensagens ao vivo (docs/14, C-1).
+        assertCanRead(channel);
+        if (!socket.data.channels.has(channel.id) && socket.data.channels.size >= WS_LIMITS.channelsPerSocket) {
+          return ack?.({ ok: false, error: `Limite de ${WS_LIMITS.channelsPerSocket} canais por conexão` });
+        }
+        socket.data.channels.add(channel.id);
         await socket.join(`channel:${channel.id}`);
         ack?.({ ok: true, pts: channel.pts });
       } catch (err) {
@@ -39,6 +61,7 @@ export function attachRealtime(httpServer) {
     socket.on('channel:unsubscribe', async ({ slug } = {}) => {
       try {
         const channel = await getChannel(String(slug), socket.data.user.id);
+        socket.data.channels.delete(channel.id);
         await socket.leave(`channel:${channel.id}`);
       } catch {
         /* ignora */
@@ -66,6 +89,14 @@ export function attachRealtime(httpServer) {
       for (const s of await io.in(room).fetchSockets()) {
         const uid = s.data.user?.id;
         s.emit('message:new', rel.blocked.has(uid) ? hidden : rel.muted.has(uid) ? muted : message);
+      }
+    },
+    // Removido de um grupo: as conexões dessa pessoa saem da sala na hora.
+    'channel:removed': async ({ channelId, userId }) => {
+      for (const s of await io.in(`user:${userId}`).fetchSockets()) {
+        s.leave(`channel:${channelId}`);
+        s.data.channels?.delete(channelId);
+        s.emit('channel:removed', { channel_id: channelId });
       }
     },
     'message:reactions': ({ channelId, messageId, reactions }) =>

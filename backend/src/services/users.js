@@ -3,7 +3,7 @@ import { query } from '../db.js';
 import { conflict, notFound } from '../lib/errors.js';
 import { hashPassword } from '../lib/auth.js';
 import { nextId } from '../lib/ids.js';
-import { assertCanInteract, hiddenAuthorsSql } from './relations.js';
+import { assertCanInteract, hiddenAuthorsSql, isBlockedEitherWay } from './relations.js';
 import { invalidateHomeTimeline } from './timeline.js';
 
 export function formatUser(row) {
@@ -116,16 +116,24 @@ export async function unfollow(followerId, username) {
   return { following: false };
 }
 
-export async function listFollows(username, direction, { untilId, limit }) {
-  const userId = await getUserIdByUsername(username);
+/**
+ * Seguidores / seguindo. Conta suspensa não mostra listas (como o perfil), quem tem bloqueio
+ * com quem pede recebe lista vazia, e contas escondidas para quem pede não aparecem (docs/14, U-1).
+ */
+export async function listFollows(username, direction, { untilId, limit }, viewerId = null) {
+  const { rows: who } = await query('SELECT id, suspended_at FROM users WHERE username = $1', [username]);
+  if (!who[0] || who[0].suspended_at) throw notFound('Usuário não encontrado');
+  const userId = who[0].id;
+  if (await isBlockedEitherWay(viewerId, userId)) return [];
   // followers: quem segue `username`; following: quem `username` segue.
   const [matchCol, otherCol] = direction === 'followers' ? ['followee_id', 'follower_id'] : ['follower_id', 'followee_id'];
   const { rows } = await query(
     `SELECT u.${USER_COLS.split(', ').join(', u.')} FROM follows f
      JOIN users u ON u.id = f.${otherCol}
      WHERE f.${matchCol} = $1 AND ($2::bigint IS NULL OR u.id < $2)
+       AND u.id NOT IN ${hiddenAuthorsSql('$4', { muted: false })}
      ORDER BY u.id DESC LIMIT $3`,
-    [userId, untilId, limit],
+    [userId, untilId, limit, viewerId ?? 0],
   );
   return rows.map(formatUser);
 }

@@ -5,6 +5,7 @@
 // Os IDs são gerados com um relógio simulado que avança ao longo dos últimos dias,
 // para que o feed tenha timestamps variados e a paginação por cursor seja exercitada.
 
+import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { getRedis, closeRedis } from './cache.js';
 import { pool, withTransaction } from './db.js';
@@ -13,7 +14,28 @@ import { createSnowflake, snowflakeToDate } from './lib/snowflake.js';
 import { extractMentions } from './lib/text.js';
 import { migrate } from './migrate.js';
 
-export const SEED_PASSWORD = 'senha1234';
+// Senha das contas de teste. Só é a senha conhecida ("senha1234", citada no README) quando a
+// instância é local. Em qualquer outro domínio (pré-produção acessível pela rede), vem de
+// SEED_PASSWORD ou é sorteada e mostrada uma vez: senão qualquer pessoa entraria como
+// ana_dev, que modera a instância (docs/14, A-2).
+const LOCAL_DOMAIN = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+export const DEFAULT_SEED_PASSWORD = 'senha1234';
+
+export function seedPassword({ domain = process.env.INSTANCE_DOMAIN ?? 'localhost:4000', fromEnv = process.env.SEED_PASSWORD } = {}) {
+  if (fromEnv) {
+    if (fromEnv.length < 12) throw new Error('SEED_PASSWORD precisa de pelo menos 12 caracteres.');
+    return fromEnv;
+  }
+  if (LOCAL_DOMAIN.test(domain)) return DEFAULT_SEED_PASSWORD;
+  return randomBytes(12).toString('base64url');
+}
+
+/** O seed APAGA o banco: nunca roda em produção. */
+export function assertSeedAllowed(nodeEnv = process.env.NODE_ENV) {
+  if (nodeEnv === 'production') throw new Error('O seed apaga todos os dados e não roda com NODE_ENV=production.');
+}
+
+export const SEED_PASSWORD = seedPassword();
 
 const PEOPLE = [
   ['ana_dev', 'Ana Souza', 'Engenheira de backend. Café e Postgres.'],
@@ -92,6 +114,7 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
     return nextId();
   };
 
+  assertSeedAllowed();
   await migrate();
   const passwordHash = await hashPassword(SEED_PASSWORD);
 
