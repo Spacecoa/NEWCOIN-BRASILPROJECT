@@ -192,6 +192,12 @@ describe('registro conferido à mão', () => {
     expect({ mode, checked_at }).toEqual({ mode: 'registro', checked_at: REGISTRO.checked_at });
     const by = Object.fromEntries(indicators.map((i) => [i.id, i]));
     expect(by.inflacao.latest.value).toBe(REGISTRO.sources.ibge_ipca_12m.observations.at(-1).value);
+    // Histórico de 5 anos: todos os pontos do registro, em ordem, começando em 2021.
+    for (const [id, key] of [['inflacao', 'ibge_ipca_12m'], ['comida', 'dieese_cesta_sp'], ['emprego', 'ibge_desocupacao'], ['economia', 'ibge_pib'], ['juros', 'bcb_selic_meta']]) {
+      const obs = REGISTRO.sources[key].observations;
+      expect(by[id].history, id).toHaveLength(obs.length);
+      expect(by[id].history[0].period.startsWith('2021'), id).toBe(true);
+    }
     // A cópia do Banco Central não foi conferida: não é divergência, só não há comparação.
     expect(by.inflacao).toMatchObject({ badge: 'fonte_unica', checks: { consistencia: 'sem_republicacao' } });
     expect(by.inflacao.notes.join(' ')).toMatch(/cópia do Banco Central ainda não foi conferida/);

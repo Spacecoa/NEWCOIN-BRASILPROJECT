@@ -108,7 +108,9 @@ async function sourceState(src) {
 /** Dados do registro conferido de uma fonte (só se o número mostrado veio dele). */
 function regEntry(key, latest) {
   const e = REGISTRO.sources[key];
-  return e && latest?.url === e.url ? { checked_at: REGISTRO.checked_at, published: e.published, url: e.url, evidence: e.evidence ?? [] } : null;
+  return e && latest?.url === e.url
+    ? { checked_at: REGISTRO.checked_at, published: e.published, url: e.url, evidence: e.evidence ?? [], history_evidence: e.history_evidence ?? [] }
+    : null;
 }
 
 const sameSign = (a, b, deadZone = 0.5) => (Math.abs(a) <= deadZone && Math.abs(b) <= deadZone) || Math.sign(a) === Math.sign(b);
