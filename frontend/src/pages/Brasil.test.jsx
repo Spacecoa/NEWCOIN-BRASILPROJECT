@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../auth/AuthContext.jsx';
 import { mockFetch, users } from '../test/fixtures.js';
-import { changeLabel, formatValue, periodLabel } from '../lib/officialData.js';
+import { changeLabel, dateLabel, formatValue, periodLabel } from '../lib/officialData.js';
 import Brasil from './Brasil.jsx';
 
 vi.mock('../lib/socket.js', () => ({ getSocket: () => ({ on: vi.fn(), off: vi.fn() }), closeSocket: vi.fn() }));
@@ -36,10 +36,10 @@ const DATA = {
   ],
 };
 
-function renderPage() {
+function renderPage(data = DATA) {
   mockFetch([
     [/\/api\/auth\/refresh$/, { token: 't', user: users.ana }],
-    [/\/api\/dados$/, { data: DATA }],
+    [/\/api\/dados$/, { data }],
   ]);
   render(
     <MemoryRouter>
@@ -57,6 +57,8 @@ describe('formatação', () => {
     expect(formatValue(750.1, 'R$', 2)).toBe('R$ 750,10');
     expect(formatValue(4.23, '%', 2)).toBe('4,23%');
     expect(changeLabel({ value: 2.1 }, { value: 1.6, period: '2026T1' }, '%', 1)).toBe('+0,5 ponto desde 1º tri/2026');
+    expect(dateLabel('2026-10-09')).toBe('9 out 2026');
+    expect(dateLabel('2026-10')).toBe('out/2026');
   });
 });
 
@@ -77,5 +79,26 @@ describe('<Brasil>', () => {
     expect(within(cesta).getByText(/Alta dos alimentos no IPCA \(12 meses\)/)).toBeInTheDocument();
     await userEvent.click(within(cesta).getByRole('button', { name: 'De onde vem este número?' }));
     expect(within(cesta).getByText(/Sem dado: fonte ainda não conectada/)).toBeInTheDocument();
+  });
+
+  it('registro conferido à mão: diz a data, que não se atualiza sozinho, e onde mais o número aparece', async () => {
+    const reg = { checked_at: '2026-10-29', published: '2026-09-01', url: 'https://agenciadenoticias.ibge.gov.br/release-pib', evidence: [{ label: 'Agência Brasil', url: 'https://agenciabrasil.ebc.com.br/x' }] };
+    const pib = DATA.indicators[0];
+    const data = {
+      ...DATA,
+      mode: 'registro',
+      checked_at: '2026-10-29',
+      indicators: [{ ...pib, sources: [{ ...pib.sources[0], registro: reg }, pib.sources[1]] }],
+    };
+    renderPage(data);
+    expect(await screen.findByText('Conferido em 29 out 2026')).toBeInTheDocument();
+    expect(screen.getByText(/não se atualizam sozinhos/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Atualizar agora' })).not.toBeInTheDocument();
+    const card = screen.getByRole('article', { name: 'Crescimento da economia (PIB)' });
+    await userEvent.click(within(card).getByRole('button', { name: 'De onde vem este número?' }));
+    expect(within(card).getByText('O número foi conferido na publicação da origem')).toBeInTheDocument();
+    expect(within(card).getByText(/Publicado pela fonte em 1 set 2026 · conferido em 29 out 2026/)).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'Agência Brasil' })).toHaveAttribute('href', 'https://agenciabrasil.ebc.com.br/x');
+    expect(within(card).getByRole('link', { name: /Ver a publicação/ })).toHaveAttribute('href', reg.url);
   });
 });

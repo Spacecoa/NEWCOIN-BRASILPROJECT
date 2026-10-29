@@ -422,7 +422,7 @@ span.act { pointer-events: none; }
 .bdbadge { font-size: 12px; font-weight: 800; border-radius: 999px; padding: 2px 10px; background: var(--bg); color: var(--muted); }
 .bdbadge.ok { background: var(--accent-soft); color: var(--accent); }
 .bdbadge.warn { background: color-mix(in srgb, var(--t-redis) 16%, transparent); color: var(--t-redis); }
-.bdcard .ribbon { position: absolute; top: 10px; right: -34px; transform: rotate(35deg); background: var(--t-ws); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .08em; padding: 3px 40px; }
+.bdchecks { list-style: none; margin: 8px 0 0; padding: 0; font-size: 14px; display: grid; gap: 4px; }
 .bdsrc { list-style: none; margin: 8px 0 0; padding: 0; font-size: 14px; }
 .bdsrc li { padding: 8px 0; border-top: 1px solid var(--line); }
 .bdsrc .role { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); }
@@ -476,7 +476,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
 <body data-auth="out">
 <header class="intro">
   <h1>Ágora <span>em ação</span></h1>
-  <p>Demonstração interativa com dados fictícios. Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste, recompense posts com o token NWC, cumpra as missões do dia, veja os números do país na aba Brasil, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância, cita as regras e decide recursos) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
+  <p>Demonstração interativa com dados fictícios (só a aba Brasil traz números reais, das fontes oficiais). Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste, recompense posts com o token NWC, cumpra as missões do dia, veja os últimos números oficiais do país na aba Brasil, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância, cita as regras e decide recursos) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
 </header>
 
 <section class="gate" id="gate" aria-label="Entrar">
@@ -1163,45 +1163,80 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     return `<div class="mylinks"><button class="chip" data-nav="privacy">${svgI('block', 'sm')} Bloqueios e denúncias</button><button class="chip" data-nav="rules">${svgI('book', 'sm')} Regras da instância</button>${MODERATORS.has(ME) ? `<button class="chip" data-nav="moderation">${svgI('shield', 'sm')} Fila da moderação</button>` : ''}</div>`;
   }
 
-  // Aba "Brasil em dados": a demo roda sem internet, então não lê as fontes. Ela mostra a
-  // estrutura real (indicadores, fontes, papéis, selos) e, se a pessoa pedir, o layout com
-  // valores de EXEMPLO marcados em cada cartão. Nenhum número é apresentado como real.
+  // Aba "Brasil em dados": os mesmos números do registro conferido à mão do app
+  // (backend/src/official/registro.js), pesquisados nas publicações oficiais em 29/10/2026.
+  // Não se atualizam sozinhos. Fonte sem número confirmado aparece como "ainda não conferida".
+  const BD_CHECKED = '29 out 2026';
   const BD = [
-    { id: 'inflacao', section: 'Preços', title: 'Inflação (IPCA) em 12 meses', unit: '%', why: 'Quanto os preços subiram, em média, no último ano. Se o seu salário subiu menos do que isso, ele compra menos.', badge: ['Fonte única, conferida', 'info'],
-      sources: [['Origem (quem produz)', 'IBGE', 'https://sidra.ibge.gov.br/tabela/1737'], ['Confere a cópia', 'Banco Central', 'https://www3.bcb.gov.br/sgspub/']], ex: 4.5 },
-    { id: 'comida', section: 'Comida', title: 'Custo da cesta básica', unit: 'R$', why: 'Quanto custa, por mês, a cesta de alimentos básicos de uma pessoa adulta na capital. Comparar com o salário mínimo mostra quanto do salário vai para comer.', badge: ['Confirmado por 3 conferências', 'ok'],
-      sources: [['Origem (quem produz)', 'DIEESE', 'https://www.dieese.org.br/cesta/'], ['Fonte independente', 'IBGE (alimentos no IPCA)', 'https://sidra.ibge.gov.br/']], ex: 700 },
-    { id: 'emprego', section: 'Trabalho', title: 'Desemprego', unit: '%', why: 'Parte das pessoas que querem trabalhar e procuraram emprego, mas não acharam. Não conta quem desistiu de procurar.', badge: ['Fonte única, conferida', 'info'],
-      sources: [['Origem (quem produz)', 'IBGE (PNAD Contínua)', 'https://sidra.ibge.gov.br/tabela/6381'], ['Confere a cópia', 'Banco Central', 'https://www3.bcb.gov.br/sgspub/']], ex: 7 },
-    { id: 'economia', section: 'Desenvolvimento', title: 'Crescimento da economia (PIB)', unit: '%', why: 'Quanto a produção do país cresceu em relação ao mesmo trimestre do ano anterior. Crescer não garante que a vida melhore para todos, mas sem crescer fica mais difícil.', badge: ['Fontes divergem', 'warn'],
-      sources: [['Origem (quem produz)', 'IBGE (Contas Nacionais)', 'https://sidra.ibge.gov.br/tabela/5932'], ['Fonte independente', 'Banco Central (IBC-Br)', 'https://www3.bcb.gov.br/sgspub/']], ex: 2 },
-    { id: 'juros', section: 'Dinheiro', title: 'Juros básicos (Selic)', unit: '% ao ano', why: 'A taxa que serve de base para os juros de empréstimos, financiamentos e do cartão. Quando sobe, comprar a prazo fica mais caro.', badge: ['Fonte única, conferida', 'info'],
-      sources: [['Origem (quem produz)', 'Banco Central (Copom)', 'https://www.bcb.gov.br/controleinflacao/historicotaxasjuros']], ex: 10 },
+    { id: 'inflacao', section: 'Preços', title: 'Inflação (IPCA) em 12 meses', unit: '%', dec: 2, why: 'Quanto os preços subiram, em média, no último ano. Se o seu salário subiu menos do que isso, ele compra menos.', badge: ['Fonte única, conferida', 'info'],
+      hist: [['ago/2026', 4.22], ['set/2026', 4.58]], change: '+0,36 ponto desde ago/2026',
+      checks: ['✓ O número foi conferido na publicação da origem', '• A cópia do Banco Central ainda não foi conferida', '• Não existe fonte independente para este dado'],
+      note: 'No mês, o IPCA de setembro foi 0,82%; no ano, 3,95%.',
+      sources: [
+        { role: 'Origem (quem produz)', inst: 'IBGE', val: '4,58% em set/2026', pub: '9 out 2026', url: 'https://agenciadenoticias.ibge.gov.br/agencia-sala-de-imprensa/2013-agencia-de-noticias/releases/48246-ipca-fica-em-0-82-em-setembro', ev: [['IBGE, caderno do IPCA', 'https://biblioteca.ibge.gov.br/visualizacao/periodicos/236/inpc_ipca_2026_set.pdf'], ['Investidor10', 'https://investidor10.com.br/indices/ipca/']] },
+        { role: 'Confere a cópia', inst: 'Banco Central', url: 'https://www3.bcb.gov.br/sgspub/' },
+      ] },
+    { id: 'comida', section: 'Comida', title: 'Custo da cesta básica', unit: 'R$', dec: 2, why: 'Quanto custa, por mês, a cesta de alimentos básicos de uma pessoa adulta na capital. Comparar com o salário mínimo mostra quanto do salário vai para comer.', badge: ['Conferência parcial', 'info'],
+      hist: [['ago/2026', 900.59], ['set/2026', 922.51]], change: '+2,43% desde ago/2026 · São Paulo',
+      checks: ['✓ O número foi conferido na publicação da origem', '• Não há quem republique para conferir a cópia', '! A fonte independente ainda não foi conferida'],
+      note: 'Em São Paulo, a cesta subiu 2,43% no mês e 9,53% em 12 meses (DIEESE). Foi a mais cara entre as 27 capitais.',
+      sources: [
+        { role: 'Origem (quem produz)', inst: 'DIEESE', val: 'R$ 922,51 em set/2026', pub: 'out/2026', url: 'https://www.dieese.org.br/analisecestabasica/2026/202609cestabasica.pdf', ev: [['InfoMoney', 'https://www.infomoney.com.br/economia/dieese-custo-da-cesta-basica-sobe-em-todas-as-27-capitais-pela-2a-vez-consecutiva/'], ['Mix Vale', 'https://www.mixvale.com.br/2026/10/18/cesta-basica-em-2026-sobe-nas-27-capitais-atinge-r-92251-em-sao-paulo/']] },
+        { role: 'Fonte independente', inst: 'IBGE (alimentos no IPCA, 12 meses)', url: 'https://sidra.ibge.gov.br/' },
+      ] },
+    { id: 'emprego', section: 'Trabalho', title: 'Desemprego', unit: '%', dec: 1, why: 'Parte das pessoas que querem trabalhar e procuraram emprego, mas não acharam. Não conta quem desistiu de procurar.', badge: ['Fonte única, conferida', 'info'],
+      hist: [['mar–mai/2026', 5.6], ['abr–jun/2026', 5.4], ['jun–ago/2026', 5.3]], change: '−0,1 ponto desde abr–jun/2026', per: 'jun–ago/2026',
+      checks: ['✓ O número foi conferido na publicação da origem', '• A cópia do Banco Central ainda não foi conferida', '• Não existe fonte independente para este dado'],
+      note: 'Cerca de 5,8 milhões de pessoas procurando trabalho. O trimestre até setembro ainda não tinha sido divulgado.',
+      sources: [
+        { role: 'Origem (quem produz)', inst: 'IBGE (PNAD Contínua)', val: '5,3% em jun–ago/2026', pub: '29 set 2026', url: 'https://agenciadenoticias.ibge.gov.br/agencia-sala-de-imprensa/2013-agencia-de-noticias/releases/48148-pnad-continua-taxa-de-desocupacao-e-de-5-3-e-taxa-de-subutilizacao-e-de-13-1-no-trimestre-encerrado-em-agosto', ev: [['IBGE, PNAD do 2º trimestre', 'https://agenciadenoticias.ibge.gov.br/agencia-sala-de-imprensa/2013-agencia-de-noticias/releases/47774-pnad-continua-trimestral-desocupacao-cai-em-13-das-27-ufs-no-2-trimestre-de-2026'], ['ADVFN', 'https://br.advfn.com/jornal/2026/09/pnad-continua-desocupacao-fica-em-5-3-no-brasil-no-trimestre-ate-agosto-diz-ibge']] },
+        { role: 'Confere a cópia', inst: 'Banco Central', url: 'https://www3.bcb.gov.br/sgspub/' },
+      ] },
+    { id: 'economia', section: 'Desenvolvimento', title: 'Crescimento da economia (PIB)', unit: '%', dec: 1, why: 'Quanto a produção do país cresceu em relação ao mesmo trimestre do ano anterior. Crescer não garante que a vida melhore para todos, mas sem crescer fica mais difícil.', badge: ['Confirmado por 3 conferências', 'ok'],
+      hist: [['2º tri/2026', 2.0]], change: 'contra o 2º tri/2025', per: '2º tri/2026',
+      checks: ['✓ O número foi conferido na publicação da origem', '• Não há quem republique para conferir a cópia', '✓ Uma fonte independente concorda (IBC-Br de agosto: +1,2%)'],
+      note: 'Contra o 1º trimestre de 2026 (com ajuste sazonal), o PIB cresceu 0,5%. IBC-Br: um agregador informa 1,45%; ficamos com o 1,2% do Banco Central.',
+      sources: [
+        { role: 'Origem (quem produz)', inst: 'IBGE (Contas Nacionais)', val: '+2,0% no 2º tri/2026', pub: '1 set 2026', url: 'https://agenciadenoticias.ibge.gov.br/agencia-sala-de-imprensa/2013-agencia-de-noticias/releases/47902-pib-cresce-0-5-no-segundo-trimestre-de-2026', ev: [['Agência Brasil', 'https://agenciabrasil.ebc.com.br/economia/noticia/2026-09/pib-do-brasil-cresce-05-no-segundo-trimestre-mostra-ibge'], ['CNN Brasil', 'https://www.cnnbrasil.com.br/economia/money/macroeconomia/pib-economia-brasileira-cresce-05-no-2o-trimestre-de-2026-aponta-ibge/']] },
+        { role: 'Fonte independente', inst: 'Banco Central (IBC-Br)', val: '+1,2% em ago/2026, contra ago/2025', pub: '16 out 2026', url: 'https://www.bcb.gov.br/en/statistics/ibc-br-en', ev: [['Correio Braziliense', 'https://www.correiobraziliense.com.br/economia/2026/10/7521927-previa-do-pib-ibc-br-sobe-03-em-agosto.html']] },
+      ] },
+    { id: 'juros', section: 'Dinheiro', title: 'Juros básicos (Selic)', unit: '% ao ano', dec: 2, why: 'A taxa que serve de base para os juros de empréstimos, financiamentos e do cartão. Quando sobe, comprar a prazo fica mais caro.', badge: ['Fonte única, conferida', 'info'],
+      hist: [['jun/2026', 14.25], ['ago/2026', 14.0], ['set/2026', 13.75]], change: '−0,25 ponto desde ago/2026',
+      checks: ['✓ O número foi conferido na publicação da origem', '• É uma decisão do Banco Central, não uma medição: só existe uma fonte'],
+      note: 'Corte de 0,25 ponto na 281ª reunião do Copom (16/09/2026), o quinto seguido.',
+      sources: [
+        { role: 'Origem (quem produz)', inst: 'Banco Central (Copom)', val: '13,75% ao ano desde set/2026', pub: '16 set 2026', url: 'https://www.bcb.gov.br/en/monetarypolicy/copomstatements', ev: [['Banco Central, corte para 14,00%', 'https://www.bcb.gov.br/en/pressdetail/2680/nota'], ['CNN Brasil', 'https://www.cnnbrasil.com.br/economia/money/macroeconomia/bc-copom-selic-juros-setembro-2026/']] },
+      ] },
   ];
-  const bd = { example: false, open: new Set() };
-  const fmtBR = (v, unit) => { const n = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: unit === 'R$' ? 2 : 1, maximumFractionDigits: unit === 'R$' ? 2 : 1 }).format(v); return unit === 'R$' ? `R$ ${n}` : unit === '%' ? `${n}%` : `${n} ${unit}`; };
-  function spark(seed) {
-    const pts = Array.from({ length: 12 }, (_, i) => 0.5 + 0.35 * Math.sin(i / 2 + seed));
-    const xy = pts.map((v, i) => [4 + (i / 11) * 232, 44 - v * 36]);
+  const bd = { open: new Set() };
+  const fmtBR = (v, unit, dec) => { const n = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec }).format(v); return unit === 'R$' ? `R$ ${n}` : unit === '%' ? `${n}%` : `${n} ${unit}`; };
+  // Linha do histórico com os pontos reais do registro (só desenha com 2 ou mais).
+  function spark(hist, title) {
+    if (hist.length < 2) return '';
+    const vals = hist.map(([, v]) => v);
+    const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+    const xy = vals.map((v, i) => [4 + (i / (vals.length - 1)) * 232, 40 - ((v - lo) / span) * 32]);
     const d = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
     const [lx, ly] = xy.at(-1);
-    return `<svg class="spark" viewBox="0 0 240 48" aria-hidden="true"><path d="${d} L${lx},48 L4,48 Z" fill="currentColor" opacity=".08"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="${lx}" cy="${ly}" r="3.5" fill="currentColor"/></svg>`;
+    return `<svg class="spark" viewBox="0 0 240 48" role="img" aria-label="Histórico de ${esc(title)}: ${hist.map(([p, v]) => `${p} ${String(v).replace('.', ',')}`).join(', ')}"><path d="${d} L${lx},48 L4,48 Z" fill="currentColor" opacity=".08"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="${lx}" cy="${ly}" r="3.5" fill="currentColor"/></svg>`;
   }
   function renderBrasil() {
-    let html = header('Brasil em dados', 'Fontes oficiais e independentes', `<button class="chip" data-bd-example>${bd.example ? 'Ocultar exemplo' : 'Ver layout com valores de exemplo'}</button>`);
+    let html = header('Brasil em dados', `Conferido em ${BD_CHECKED}`);
     html += `<p class="bdintro">Números sobre preços, comida, trabalho e economia, lidos direto de quem os produz e conferidos três vezes. Aqui não há opinião nem ranking: só o dado, a data e de onde ele vem.</p>`;
-    html += `<div class="bdnote">${bd.example ? '<b>Valores de EXEMPLO, não são dados reais.</b> Servem só para mostrar como os cartões ficam.' : '<b>Esta demo roda sem internet, então não lê as fontes.</b> No app de verdade, os números vêm direto do IBGE, do Banco Central e do DIEESE, a cada 6 horas.'}</div>`;
-    html += `<details class="panel"><summary style="cursor:pointer;font-weight:800">Como conferimos</summary><p><b>1. Origem:</b> o dado vem de quem o produz, e a resposta original fica guardada.</p><p><b>2. Fonte independente:</b> outra instituição ou outro método mede a mesma coisa. Se discordar, mostramos as duas.</p><p><b>3. Consistência:</b> quem republica precisa bater com a origem, e o dado não pode estar velho.</p></details>`;
+    html += `<div class="bdnote"><b>Últimos números publicados pelas fontes até ${BD_CHECKED}, conferidos à mão.</b> Eles não se atualizam sozinhos: quando sair dado novo, o registro é conferido de novo.</div>`;
+    html += `<details class="panel"><summary style="cursor:pointer;font-weight:800">Como conferimos</summary><p><b>1. Origem:</b> o número é lido na publicação de quem o produz (IBGE, Banco Central, DIEESE).</p><p><b>2. Fonte independente:</b> outra instituição ou outro método mede a mesma coisa. Se discordar, mostramos as duas.</p><p><b>3. Consistência:</b> o mesmo número precisa aparecer em outro lugar, e o dado não pode estar velho.</p></details>`;
     let sec = null;
-    for (const [i, ind] of BD.entries()) {
+    for (const ind of BD) {
       if (ind.section !== sec) { sec = ind.section; html += `<h2 class="bdsec">${sec}</h2>`; }
       const open = bd.open.has(ind.id);
-      html += `<article class="bdcard" aria-label="${esc(ind.title)}">${bd.example ? '<span class="ribbon">EXEMPLO</span>' : ''}
-        <div class="top2"><h3>${esc(ind.title)}</h3><span class="bdbadge ${bd.example ? ind.badge[1] : ''}">${bd.example ? ind.badge[0] : 'Sem dados na demo'}</span></div>
-        ${bd.example ? `<p class="big">${fmtBR(ind.ex, ind.unit)}</p><div class="per">valor de exemplo · não é dado real</div>${spark(i)}` : '<p class="big" style="color:var(--faint)">—</p>'}
+      const [per, val] = ind.hist.at(-1);
+      html += `<article class="bdcard" aria-label="${esc(ind.title)}">
+        <div class="top2"><h3>${esc(ind.title)}</h3><span class="bdbadge ${ind.badge[1]}">${ind.badge[0]}</span></div>
+        <p class="big">${fmtBR(val, ind.unit, ind.dec)}</p><div class="per">${ind.per ?? per} · ${ind.change}</div>${spark(ind.hist, ind.title)}
         <p class="why">${esc(ind.why)}</p>
         <button class="chip" style="margin-top:8px" data-bd-open="${ind.id}" aria-expanded="${open}">${open ? 'Fechar' : 'De onde vem este número?'}</button>
-        ${open ? `<ul class="bdsrc">${ind.sources.map(([role, inst, url]) => `<li><div class="role">${role}</div><b>${esc(inst)}</b><br><a href="${url}" target="_blank" rel="noopener">Ver na fonte ↗</a></li>`).join('')}</ul>${ind.id === 'juros' ? '<p class="per">É uma decisão do Banco Central, não uma medição: só existe uma fonte.</p>' : ''}` : ''}
+        ${open ? `<ul class="bdchecks">${ind.checks.map((c) => `<li>${esc(c)}</li>`).join('')}</ul><p class="bdnote" style="margin:8px 0 0">${esc(ind.note)}</p>
+          <ul class="bdsrc">${ind.sources.map((s) => `<li><div class="role">${s.role}</div><b>${esc(s.inst)}</b><br>${s.val ? `${esc(s.val)}<br><small class="per">Publicado em ${s.pub} · conferido em ${BD_CHECKED}</small>${s.ev?.length ? `<br><small class="per">Mesmo número também em: ${s.ev.map(([l, u]) => `<a href="${u}" target="_blank" rel="noopener" style="font-weight:600;text-decoration:underline">${esc(l)}</a>`).join(', ')}</small>` : ''}<br><a href="${s.url}" target="_blank" rel="noopener">Ver a publicação ↗</a>` : `<span class="per">Ainda não conferida: sem número confirmado nesta fonte</span><br><a href="${s.url}" target="_blank" rel="noopener">Ver na fonte ↗</a>`}</li>`).join('')}</ul>` : ''}
       </article>`;
     }
     return html + `<p class="per" style="margin:8px 0 16px">Os dados oficiais são públicos e podem ser reutilizados citando a fonte (Decreto 8.777/2016). O Ágora mostra o número e a origem; a interpretação é de cada pessoa.</p>`;
@@ -1908,7 +1943,6 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (d.reportOpen) { const u = d.reportOpen; mod.menu = null; mod.umenu = false; render(); openReport(u, d.reportPost); return; }
     if (d.rclose !== undefined) { rsheet.hidden = true; mod.report = null; if (d.nav) { go(d.nav); return; } render(); return; }
     if (d.rblock !== undefined) { setBlock(mod.report.u, true, null); mod.report.blocked = true; renderReport(); return; }
-    if (d.bdExample !== undefined) { bd.example = !bd.example; render(); return; }
     if (d.bdOpen) { bd.open.has(d.bdOpen) ? bd.open.delete(d.bdOpen) : bd.open.add(d.bdOpen); render(); return; }
     if (d.revealMsg) { mod.revealed.add(d.revealMsg); render(); return; }
     if (d.simAppeal) return simulateAppeal(Number(d.simAppeal));

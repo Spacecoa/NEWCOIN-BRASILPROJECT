@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { query } from '../src/db.js';
 import { accumulate12, parseBcb, parseIbge, yearOverYear } from '../src/official/adapters.js';
-import { indicator, refreshAll } from '../src/official/service.js';
+import { REGISTRO } from '../src/official/registro.js';
+import { allIndicators, indicator, loadRegistro, refreshAll } from '../src/official/service.js';
 import { api, resetDb, signup } from './helpers.js';
 
 // Respostas SINTÉTICAS no formato documentado de cada API (valores de teste, não dados reais).
@@ -164,6 +165,59 @@ describe('coleta e verificação tripla', () => {
     const i = await indicator('inflacao');
     expect(i.badge).toBe('desatualizado');
     expect(i.notes.join(' ')).toMatch(/meses atrás/);
+  });
+});
+
+describe('registro conferido à mão', () => {
+  const now = new Date(`${REGISTRO.checked_at}T12:00:00Z`);
+
+  it('cada número do registro vem com a publicação da origem e onde mais foi conferido', () => {
+    for (const [key, e] of Object.entries(REGISTRO.sources)) {
+      expect(e.url, key).toMatch(/^https:\/\//);
+      expect(e.published, key).toMatch(/^\d{4}-\d{2}(-\d{2})?$/);
+      expect(e.observations.length, key).toBeGreaterThan(0);
+      expect(e.evidence.length, key).toBeGreaterThan(0);
+      for (const o of e.observations) expect(o.period, key).toMatch(/^\d{6}$|^\d{4}T[1-4]$/);
+    }
+  });
+
+  it('carrega uma vez só (com hash) e monta os selos sem inventar o que falta', async () => {
+    const first = await loadRegistro();
+    expect(first.every((r) => r.ok && !r.unchanged)).toBe(true);
+    expect((await loadRegistro()).every((r) => r.unchanged)).toBe(true);
+    const { rows } = await query("SELECT count(*)::int AS n FROM official_raw WHERE source_key = 'ibge_ipca_12m'");
+    expect(rows[0].n).toBe(1);
+
+    const { indicators, mode, checked_at } = await allIndicators({ now });
+    expect({ mode, checked_at }).toEqual({ mode: 'registro', checked_at: REGISTRO.checked_at });
+    const by = Object.fromEntries(indicators.map((i) => [i.id, i]));
+    expect(by.inflacao.latest.value).toBe(REGISTRO.sources.ibge_ipca_12m.observations.at(-1).value);
+    // A cópia do Banco Central não foi conferida: não é divergência, só não há comparação.
+    expect(by.inflacao).toMatchObject({ badge: 'fonte_unica', checks: { consistencia: 'sem_republicacao' } });
+    expect(by.inflacao.notes.join(' ')).toMatch(/cópia do Banco Central ainda não foi conferida/);
+    // Cesta: a origem está no registro, a fonte independente não: conferência parcial.
+    expect(by.comida).toMatchObject({ badge: 'parcial', checks: { origem: 'ok', independente: 'sem_dados' } });
+    expect(by.economia).toMatchObject({ badge: 'confirmado', checks: { independente: 'concorda' } });
+    expect(by.juros.badge).toBe('fonte_unica');
+    const origin = by.emprego.sources.find((s) => s.role === 'origem');
+    expect(origin.registro).toMatchObject({ checked_at: REGISTRO.checked_at, published: expect.any(String), evidence: expect.any(Array) });
+    expect(origin.original.url).toBe(REGISTRO.sources.ibge_desocupacao.url);
+  });
+
+  it('sem atualização, o registro envelhece e o selo avisa', async () => {
+    await loadRegistro();
+    const later = new Date(now);
+    later.setMonth(later.getMonth() + 8);
+    expect((await indicator('inflacao', { now: later })).badge).toBe('desatualizado');
+  });
+
+  it('uma correção no registro fica marcada como revisão', async () => {
+    await loadRegistro();
+    const e = REGISTRO.sources.ibge_ipca_12m;
+    const fixed = { ...REGISTRO, sources: { ibge_ipca_12m: { ...e, observations: [...e.observations.slice(0, -1), { ...e.observations.at(-1), value: 4.6 }] } } };
+    await loadRegistro(fixed);
+    const i = await indicator('inflacao', { now });
+    expect(i.latest).toMatchObject({ value: 4.6, previous_value: e.observations.at(-1).value });
   });
 });
 
