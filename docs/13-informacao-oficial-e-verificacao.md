@@ -300,5 +300,20 @@ A aba não precisa se atualizar sozinha. Os últimos números publicados por cad
 - **IBC-Br de agosto:** um agregador informa +1,45%, mas o Banco Central e a imprensa informam +1,2%. Ficou o número do Banco Central, com a divergência anotada.
 - **Desemprego de mai–jul (5,3%):** apareceu só na imprensa, não numa página do IBGE, e ficou de fora do histórico.
 
+**Histórico de 5 anos.** Cada indicador traz um ponto por ano, de 2021 a 2025, além dos números recentes. O cartão mostra a linha do tempo, com os pontos espaçados pela data real, o valor de 5 anos atrás e, em "De onde vem este número?", a tabela ano a ano com os links onde cada ano foi conferido (`history_evidence`).
+
+| Ano | IPCA no ano | Cesta SP (dez) | Desemprego (out–dez) | PIB (4º tri, contra o 4º tri anterior) | Selic (dez) |
+|---|---|---|---|---|---|
+| 2021 | 10,06% | R$ 690,51 | 11,1% | +1,6% | 9,25% |
+| 2022 | 5,79% | R$ 791,29 | 7,9% | +1,9% | 13,75% |
+| 2023 | 4,62% | R$ 761,01 | 7,4% | +2,1% | 11,75% |
+| 2024 | 4,83% | R$ 841,29 | 6,2% | +3,6% | 12,25% |
+| 2025 | 4,26% | R$ 845,95 | 5,1% | +1,8% | 15,00% |
+
+- Um ponto por ano, e não os 60 meses: com as fontes fora do alcance da rede, conferir cada mês por busca não seria confiável.
+- Na cesta básica, as variações anuais publicadas pelo DIEESE batem com os valores: +14,60%, −3,83%, +10,55% e +0,55%.
+- No PIB, o número é o do 4º trimestre como publicado na época. O IBGE revisa depois: o PIB de 2021, por exemplo, passou de 4,6% para 4,8%.
+- No desemprego de 2021 e 2023, o valor vem da comparação feita na divulgação do ano seguinte.
+
 **Para atualizar:** quando a fonte publicar dado novo, confira na publicação oficial e em mais um lugar, edite `registro.js` (número, `published`, `url`, `evidence` e `checked_at`) e reinicie o servidor. Um número corrigido aparece como revisão, com o valor anterior.
 

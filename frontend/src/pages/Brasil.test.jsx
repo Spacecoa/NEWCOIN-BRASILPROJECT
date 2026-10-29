@@ -82,13 +82,19 @@ describe('<Brasil>', () => {
   });
 
   it('registro conferido à mão: diz a data, que não se atualiza sozinho, e onde mais o número aparece', async () => {
-    const reg = { checked_at: '2026-10-29', published: '2026-09-01', url: 'https://agenciadenoticias.ibge.gov.br/release-pib', evidence: [{ label: 'Agência Brasil', url: 'https://agenciabrasil.ebc.com.br/x' }] };
+    const reg = {
+      checked_at: '2026-10-29',
+      published: '2026-09-01',
+      url: 'https://agenciadenoticias.ibge.gov.br/release-pib',
+      evidence: [{ label: 'Agência Brasil', url: 'https://agenciabrasil.ebc.com.br/x' }],
+      history_evidence: [{ label: 'IBGE, PIB de 2021', url: 'https://agenciadenoticias.ibge.gov.br/pib-2021' }],
+    };
     const pib = DATA.indicators[0];
     const data = {
       ...DATA,
       mode: 'registro',
       checked_at: '2026-10-29',
-      indicators: [{ ...pib, sources: [{ ...pib.sources[0], registro: reg }, pib.sources[1]] }],
+      indicators: [{ ...pib, history: [{ period: '2021T4', value: 1.6 }, ...pib.history], sources: [{ ...pib.sources[0], registro: reg }, pib.sources[1]] }],
     };
     renderPage(data);
     expect(await screen.findByText('Conferido em 29 out 2026')).toBeInTheDocument();
@@ -100,5 +106,9 @@ describe('<Brasil>', () => {
     expect(within(card).getByText(/Publicado pela fonte em 1 set 2026 · conferido em 29 out 2026/)).toBeInTheDocument();
     expect(within(card).getByRole('link', { name: 'Agência Brasil' })).toHaveAttribute('href', 'https://agenciabrasil.ebc.com.br/x');
     expect(within(card).getByRole('link', { name: /Ver a publicação/ })).toHaveAttribute('href', reg.url);
+    // Histórico de anos: o ponto mais antigo no cartão, a tabela e onde foi conferido.
+    expect(within(card).getByText(/Em 4º tri\/2021:/)).toBeInTheDocument();
+    expect(within(card).getByRole('table')).toHaveTextContent('4º tri/2021');
+    expect(within(card).getByRole('link', { name: 'IBGE, PIB de 2021' })).toBeInTheDocument();
   });
 });

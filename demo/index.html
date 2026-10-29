@@ -422,6 +422,10 @@ span.act { pointer-events: none; }
 .bdbadge { font-size: 12px; font-weight: 800; border-radius: 999px; padding: 2px 10px; background: var(--bg); color: var(--muted); }
 .bdbadge.ok { background: var(--accent-soft); color: var(--accent); }
 .bdbadge.warn { background: color-mix(in srgb, var(--t-redis) 16%, transparent); color: var(--t-redis); }
+.bdhist { width: 100%; border-collapse: collapse; font-size: 14px; margin: 10px 0 0; font-variant-numeric: tabular-nums; }
+.bdhist caption { text-align: left; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); padding-bottom: 4px; }
+.bdhist th { text-align: left; font-weight: 400; color: var(--muted); padding: 4px 0; border-top: 1px solid var(--line); }
+.bdhist td { text-align: right; font-weight: 800; padding: 4px 0; border-top: 1px solid var(--line); }
 .bdchecks { list-style: none; margin: 8px 0 0; padding: 0; font-size: 14px; display: grid; gap: 4px; }
 .bdsrc { list-style: none; margin: 8px 0 0; padding: 0; font-size: 14px; }
 .bdsrc li { padding: 8px 0; border-top: 1px solid var(--line); }
@@ -1169,7 +1173,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   const BD_CHECKED = '29 out 2026';
   const BD = [
     { id: 'inflacao', section: 'Preços', title: 'Inflação (IPCA) em 12 meses', unit: '%', dec: 2, why: 'Quanto os preços subiram, em média, no último ano. Se o seu salário subiu menos do que isso, ele compra menos.', badge: ['Fonte única, conferida', 'info'],
-      hist: [['ago/2026', 4.22], ['set/2026', 4.58]], change: '+0,36 ponto desde ago/2026',
+      hist: [['dez/2021', 10.06, '202112'], ['dez/2022', 5.79, '202212'], ['dez/2023', 4.62, '202312'], ['dez/2024', 4.83, '202412'], ['dez/2025', 4.26, '202512'], ['ago/2026', 4.22, '202608'], ['set/2026', 4.58, '202609']], change: '+0,36 ponto desde ago/2026',
       checks: ['✓ O número foi conferido na publicação da origem', '• A cópia do Banco Central ainda não foi conferida', '• Não existe fonte independente para este dado'],
       note: 'No mês, o IPCA de setembro foi 0,82%; no ano, 3,95%.',
       sources: [
@@ -1177,7 +1181,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
         { role: 'Confere a cópia', inst: 'Banco Central', url: 'https://www3.bcb.gov.br/sgspub/' },
       ] },
     { id: 'comida', section: 'Comida', title: 'Custo da cesta básica', unit: 'R$', dec: 2, why: 'Quanto custa, por mês, a cesta de alimentos básicos de uma pessoa adulta na capital. Comparar com o salário mínimo mostra quanto do salário vai para comer.', badge: ['Conferência parcial', 'info'],
-      hist: [['ago/2026', 900.59], ['set/2026', 922.51]], change: '+2,43% desde ago/2026 · São Paulo',
+      hist: [['dez/2021', 690.51, '202112'], ['dez/2022', 791.29, '202212'], ['dez/2023', 761.01, '202312'], ['dez/2024', 841.29, '202412'], ['dez/2025', 845.95, '202512'], ['ago/2026', 900.59, '202608'], ['set/2026', 922.51, '202609']], change: '+2,43% desde ago/2026 · São Paulo',
       checks: ['✓ O número foi conferido na publicação da origem', '• Não há quem republique para conferir a cópia', '! A fonte independente ainda não foi conferida'],
       note: 'Em São Paulo, a cesta subiu 2,43% no mês e 9,53% em 12 meses (DIEESE). Foi a mais cara entre as 27 capitais.',
       sources: [
@@ -1185,7 +1189,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
         { role: 'Fonte independente', inst: 'IBGE (alimentos no IPCA, 12 meses)', url: 'https://sidra.ibge.gov.br/' },
       ] },
     { id: 'emprego', section: 'Trabalho', title: 'Desemprego', unit: '%', dec: 1, why: 'Parte das pessoas que querem trabalhar e procuraram emprego, mas não acharam. Não conta quem desistiu de procurar.', badge: ['Fonte única, conferida', 'info'],
-      hist: [['mar–mai/2026', 5.6], ['abr–jun/2026', 5.4], ['jun–ago/2026', 5.3]], change: '−0,1 ponto desde abr–jun/2026', per: 'jun–ago/2026',
+      hist: [['out–dez/2021', 11.1, '202112'], ['out–dez/2022', 7.9, '202212'], ['out–dez/2023', 7.4, '202312'], ['out–dez/2024', 6.2, '202412'], ['out–dez/2025', 5.1, '202512'], ['mar–mai/2026', 5.6, '202605'], ['abr–jun/2026', 5.4, '202606'], ['jun–ago/2026', 5.3, '202608']], change: '−0,1 ponto desde abr–jun/2026', per: 'jun–ago/2026',
       checks: ['✓ O número foi conferido na publicação da origem', '• A cópia do Banco Central ainda não foi conferida', '• Não existe fonte independente para este dado'],
       note: 'Cerca de 5,8 milhões de pessoas procurando trabalho. O trimestre até setembro ainda não tinha sido divulgado.',
       sources: [
@@ -1193,7 +1197,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
         { role: 'Confere a cópia', inst: 'Banco Central', url: 'https://www3.bcb.gov.br/sgspub/' },
       ] },
     { id: 'economia', section: 'Desenvolvimento', title: 'Crescimento da economia (PIB)', unit: '%', dec: 1, why: 'Quanto a produção do país cresceu em relação ao mesmo trimestre do ano anterior. Crescer não garante que a vida melhore para todos, mas sem crescer fica mais difícil.', badge: ['Confirmado por 3 conferências', 'ok'],
-      hist: [['2º tri/2026', 2.0]], change: 'contra o 2º tri/2025', per: '2º tri/2026',
+      hist: [['4º tri/2021', 1.6, '202112'], ['4º tri/2022', 1.9, '202212'], ['4º tri/2023', 2.1, '202312'], ['4º tri/2024', 3.6, '202412'], ['4º tri/2025', 1.8, '202512'], ['2º tri/2026', 2.0, '202606']], change: 'contra o 2º tri/2025', per: '2º tri/2026',
       checks: ['✓ O número foi conferido na publicação da origem', '• Não há quem republique para conferir a cópia', '✓ Uma fonte independente concorda (IBC-Br de agosto: +1,2%)'],
       note: 'Contra o 1º trimestre de 2026 (com ajuste sazonal), o PIB cresceu 0,5%. IBC-Br: um agregador informa 1,45%; ficamos com o 1,2% do Banco Central.',
       sources: [
@@ -1201,7 +1205,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
         { role: 'Fonte independente', inst: 'Banco Central (IBC-Br)', val: '+1,2% em ago/2026, contra ago/2025', pub: '16 out 2026', url: 'https://www.bcb.gov.br/en/statistics/ibc-br-en', ev: [['Correio Braziliense', 'https://www.correiobraziliense.com.br/economia/2026/10/7521927-previa-do-pib-ibc-br-sobe-03-em-agosto.html']] },
       ] },
     { id: 'juros', section: 'Dinheiro', title: 'Juros básicos (Selic)', unit: '% ao ano', dec: 2, why: 'A taxa que serve de base para os juros de empréstimos, financiamentos e do cartão. Quando sobe, comprar a prazo fica mais caro.', badge: ['Fonte única, conferida', 'info'],
-      hist: [['jun/2026', 14.25], ['ago/2026', 14.0], ['set/2026', 13.75]], change: '−0,25 ponto desde ago/2026',
+      hist: [['dez/2021', 9.25, '202112'], ['dez/2022', 13.75, '202212'], ['dez/2023', 11.75, '202312'], ['dez/2024', 12.25, '202412'], ['dez/2025', 15.0, '202512'], ['jun/2026', 14.25, '202606'], ['ago/2026', 14.0, '202608'], ['set/2026', 13.75, '202609']], change: '−0,25 ponto desde ago/2026',
       checks: ['✓ O número foi conferido na publicação da origem', '• É uma decisão do Banco Central, não uma medição: só existe uma fonte'],
       note: 'Corte de 0,25 ponto na 281ª reunião do Copom (16/09/2026), o quinto seguido.',
       sources: [
@@ -1215,10 +1219,12 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (hist.length < 2) return '';
     const vals = hist.map(([, v]) => v);
     const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
-    const xy = vals.map((v, i) => [4 + (i / (vals.length - 1)) * 232, 40 - ((v - lo) / span) * 32]);
+    const mi = (p) => Number(p.slice(0, 4)) * 12 + Number(p.slice(4, 6));
+    const t0 = mi(hist[0][2]), tspan = mi(hist.at(-1)[2]) - t0 || 1;
+    const xy = vals.map((v, i) => [4 + ((mi(hist[i][2]) - t0) / tspan) * 232, 40 - ((v - lo) / span) * 32]);
     const d = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
     const [lx, ly] = xy.at(-1);
-    return `<svg class="spark" viewBox="0 0 240 48" role="img" aria-label="Histórico de ${esc(title)}: ${hist.map(([p, v]) => `${p} ${String(v).replace('.', ',')}`).join(', ')}"><path d="${d} L${lx},48 L4,48 Z" fill="currentColor" opacity=".08"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="${lx}" cy="${ly}" r="3.5" fill="currentColor"/></svg>`;
+    return `<svg class="spark" viewBox="0 0 240 48" role="img" aria-label="Histórico de ${esc(title)}: ${hist.map(([p, v]) => `${p} ${String(v).replace('.', ',')}`).join(', ')}"><path d="${d} L${lx},48 L4,48 Z" fill="currentColor" opacity=".08"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="2"/>${xy.slice(0, -1).map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2" fill="currentColor" opacity=".6"/>`).join('')}<circle cx="${lx}" cy="${ly}" r="3.5" fill="currentColor"/></svg>`;
   }
   function renderBrasil() {
     let html = header('Brasil em dados', `Conferido em ${BD_CHECKED}`);
@@ -1232,10 +1238,11 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
       const [per, val] = ind.hist.at(-1);
       html += `<article class="bdcard" aria-label="${esc(ind.title)}">
         <div class="top2"><h3>${esc(ind.title)}</h3><span class="bdbadge ${ind.badge[1]}">${ind.badge[0]}</span></div>
-        <p class="big">${fmtBR(val, ind.unit, ind.dec)}</p><div class="per">${ind.per ?? per} · ${ind.change}</div>${spark(ind.hist, ind.title)}
+        <p class="big">${fmtBR(val, ind.unit, ind.dec)}</p><div class="per">${ind.per ?? per} · ${ind.change}</div>${spark(ind.hist, ind.title)}<div class="per">Em ${ind.hist[0][0]}: <b>${fmtBR(ind.hist[0][1], ind.unit, ind.dec)}</b></div>
         <p class="why">${esc(ind.why)}</p>
         <button class="chip" style="margin-top:8px" data-bd-open="${ind.id}" aria-expanded="${open}">${open ? 'Fechar' : 'De onde vem este número?'}</button>
         ${open ? `<ul class="bdchecks">${ind.checks.map((c) => `<li>${esc(c)}</li>`).join('')}</ul><p class="bdnote" style="margin:8px 0 0">${esc(ind.note)}</p>
+          <table class="bdhist"><caption>Histórico</caption><tbody>${[...ind.hist].reverse().map(([p, v]) => `<tr><th scope="row">${p}</th><td>${fmtBR(v, ind.unit, ind.dec)}</td></tr>`).join('')}</tbody></table>
           <ul class="bdsrc">${ind.sources.map((s) => `<li><div class="role">${s.role}</div><b>${esc(s.inst)}</b><br>${s.val ? `${esc(s.val)}<br><small class="per">Publicado em ${s.pub} · conferido em ${BD_CHECKED}</small>${s.ev?.length ? `<br><small class="per">Mesmo número também em: ${s.ev.map(([l, u]) => `<a href="${u}" target="_blank" rel="noopener" style="font-weight:600;text-decoration:underline">${esc(l)}</a>`).join(', ')}</small>` : ''}<br><a href="${s.url}" target="_blank" rel="noopener">Ver a publicação ↗</a>` : `<span class="per">Ainda não conferida: sem número confirmado nesta fonte</span><br><a href="${s.url}" target="_blank" rel="noopener">Ver na fonte ↗</a>`}</li>`).join('')}</ul>` : ''}
       </article>`;
     }
@@ -1725,7 +1732,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   function go(view, opts = {}) {
     mod.menu = null; mod.umenu = false; mod.confirmBlock = false; mod.note = null; mod.confirm = null;
     if (view === 'privacy') log('http', 'GET /api/conta/bloqueados · /api/conta/silenciados · /api/denuncias → 200', 'só a própria pessoa vê');
-    if (view === 'brasil') log('http', 'GET /api/dados → 200', 'indicadores com origem, fontes, conferências A/B/C e selo · na demo, sem conexão às fontes');
+    if (view === 'brasil') log('http', 'GET /api/dados → 200', 'indicadores com origem, fontes, conferências A/B/C, selo e histórico de 5 anos · registro conferido em 29/10/2026');
     if (view === 'rules') log('http', 'GET /api/instancia/regras → 200', 'regras públicas, quem modera e a data da última mudança');
     if (view === 'moderation') log('http', `GET /api/moderacao/denuncias?status=aberta → 200`, 'assertModerator(): confere users.is_moderator no banco a cada pedido');
     if (opts.push !== false && (view === 'thread' || view === 'profile' || view === 'algo')) state.stack.push({ view: state.view, focal: state.focal, profile: state.profile });

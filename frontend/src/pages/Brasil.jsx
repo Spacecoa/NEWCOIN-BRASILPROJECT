@@ -47,6 +47,19 @@ function SourceRow({ s, decimals, registro }) {
           <p className="text-xs text-zinc-500">
             Publicado pela fonte em {dateLabel(s.registro.published)} · conferido em {dateLabel(s.registro.checked_at)}
           </p>
+          {s.registro.history_evidence?.length > 0 && (
+            <p className="text-xs text-zinc-500">
+              Anos anteriores conferidos em:{' '}
+              {s.registro.history_evidence.map((e, i) => (
+                <span key={e.url}>
+                  {i > 0 && ', '}
+                  <a href={e.url} target="_blank" rel="noreferrer" className="underline">
+                    {e.label}
+                  </a>
+                </span>
+              ))}
+            </p>
+          )}
           {s.registro.evidence.length > 0 && (
             <p className="text-xs text-zinc-500">
               Mesmo número também em:{' '}
@@ -80,6 +93,8 @@ function IndicatorCard({ ind, registro }) {
   const [open, setOpen] = useState(false);
   const change = changeLabel(ind.latest, ind.previous, ind.unit, ind.decimals);
   const others = ind.sources.filter((s) => s.role !== 'origem' && s.latest);
+  // Ponto mais antigo do histórico (no registro, ~5 anos atrás) para dar a dimensão do tempo.
+  const first = ind.history.length >= 3 ? ind.history[0] : null;
   return (
     <article className="rounded-3xl bg-zinc-50 p-5 dark:bg-zinc-900" aria-labelledby={`t-${ind.id}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -95,8 +110,16 @@ function IndicatorCard({ ind, registro }) {
             {ind.revised && ' · número revisado pela fonte'}
           </p>
           <div className="mt-2">
-            <Sparkline points={ind.history} label={`Histórico de ${ind.title}: ${ind.history.length} períodos`} />
+            <Sparkline
+              points={ind.history}
+              label={`Histórico de ${ind.title}: ${ind.history.map((p) => `${periodLabel(p.period)} ${formatValue(p.value, ind.unit, ind.decimals)}`).join(', ')}`}
+            />
           </div>
+          {first && (
+            <p className="text-sm text-zinc-500">
+              Em {periodLabel(first.period)}: <b className="tabular-nums">{formatValue(first.value, ind.unit, ind.decimals)}</b>
+            </p>
+          )}
         </div>
       ) : (
         <div className="mt-2 space-y-1">
@@ -131,6 +154,19 @@ function IndicatorCard({ ind, registro }) {
             <div className="rounded-2xl bg-white p-3 text-zinc-600 dark:bg-zinc-950 dark:text-zinc-300">
               {ind.notes.map((n) => <p key={n}>{n}</p>)}
             </div>
+          )}
+          {ind.history.length >= 3 && (
+            <table className="w-full text-sm tabular-nums">
+              <caption className="pb-1 text-left text-xs font-extrabold uppercase tracking-wide text-zinc-500">Histórico</caption>
+              <tbody>
+                {[...ind.history].reverse().map((p) => (
+                  <tr key={p.period} className="border-t border-zinc-200 dark:border-zinc-800">
+                    <th scope="row" className="py-1 text-left font-normal text-zinc-500">{periodLabel(p.period)}</th>
+                    <td className="py-1 text-right font-bold">{formatValue(p.value, ind.unit, ind.decimals)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
             {ind.sources.map((s) => <SourceRow key={s.key} s={s} decimals={ind.decimals} registro={registro} />)}
