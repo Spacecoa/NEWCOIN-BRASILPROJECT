@@ -9,20 +9,10 @@ import * as interests from '../services/interests.js';
 
 const router = Router();
 
-const unit = z.number().min(0).max(1);
-const factorWeights = z.object(Object.fromEntries(Object.keys(FACTORS).map((k) => [k, unit.optional()]))).strict();
-const topicId = z.enum(TOPIC_IDS);
-
+// O servidor só guarda o que NÃO é do algoritmo: o algoritmo de cada pessoa (pesos, tópicos,
+// palavras, aprendizado) fica exclusivamente no aparelho dela.
 const settingsSchema = z
   .object({
-    weights: factorWeights.optional(),
-    topics: z.partialRecord(topicId, unit).optional(),
-    muted_topics: z.array(topicId).max(TOPIC_IDS.length).optional(),
-    keywords: z.array(z.string().trim().min(2).max(40)).max(20).optional(),
-    half_life_hours: z.number().min(1).max(24 * 7).optional(),
-    diversity: unit.optional(),
-    session_limit: z.number().int().min(5).max(200).optional(),
-    hide_metrics: z.boolean().optional(),
     missions_enabled: z.boolean().optional(),
     count_time: z.boolean().optional(),
   })
@@ -33,15 +23,9 @@ router.get('/algoritmo', (_req, res) => {
   res.json(describeAlgorithm());
 });
 
-// Cada página recalcula o ranking (CPU). Uma sessão normal usa 2–3 pedidos; o limite protege o
-// servidor de uma única conta pedindo sem parar (ver docs/10-seguranca-e-dos.md, achado C1).
-const interestsLimiter = rateLimit({ name: 'feed:interests', limit: 120, windowSec: 15 * 60 });
-router.get('/interesses', requireAuth, interestsLimiter, async (req, res) => {
-  const { next_token: token, max_results: limit } = parse(
-    z.object({ next_token: z.coerce.number().int().min(0).optional(), max_results: z.coerce.number().int().min(1).max(50).default(20) }),
-    req.query,
-  );
-  res.json(await interests.interestFeed(req.user.id, { offset: token ?? 0, limit }));
+/** O ranking acontece no aparelho de cada pessoa: a instância não calcula mais o feed. */
+router.get('/interesses', requireAuth, (_req, res) => {
+  res.status(410).json({ error: 'O feed Para você é calculado no seu aparelho. Use /api/feed/candidatos.' });
 });
 
 router.get('/preferencias', requireAuth, async (req, res) => {
@@ -70,10 +54,13 @@ router.get('/candidatos', requireAuth, candidatesLimiter, async (req, res) => {
   res.json(await interests.candidatesForDevice(req.user.id));
 });
 
-/** Onde o feed é calculado: 'server' (instância) ou 'device' (navegador). */
+/**
+ * Leva o algoritmo para o aparelho (contas antigas): o app copia as preferências e o
+ * aprendizado que o servidor ainda tinha, e o servidor apaga a cópia dele.
+ */
 router.put('/modo', requireAuth, async (req, res) => {
-  const { mode } = parse(z.object({ mode: z.enum(['server', 'device']) }).strict(), req.body);
-  res.json({ mode, settings: await interests.setRankingMode(req.user.id, mode) });
+  const { mode } = parse(z.object({ mode: z.literal('device', { error: 'o algoritmo fica só no aparelho' }) }).strict(), req.body);
+  res.json({ mode, settings: await interests.moveAlgorithmToDevice(req.user.id) });
 });
 
 router.delete('/aprendizado', requireAuth, async (req, res) => {

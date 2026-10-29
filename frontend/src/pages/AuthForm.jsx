@@ -49,7 +49,7 @@ export default function AuthForm({ title, submitLabel, onSubmit, footer, notice,
     }
   }
   return (
-    <div className="flex min-h-dvh items-center justify-center px-6">
+    <main className="flex min-h-dvh items-center justify-center px-6">
       <form onSubmit={handle} className="w-full max-w-sm space-y-4">
         <p className="text-3xl font-extrabold tracking-tight text-brand-600">ágora</p>
         <h1 className="text-xl font-bold">{title}</h1>
@@ -64,7 +64,7 @@ export default function AuthForm({ title, submitLabel, onSubmit, footer, notice,
           <Link to="/regras" className="underline">Regras da instância</Link> · Protótipo de pesquisa — uso local, não comercial.
         </p>
       </form>
-    </div>
+    </main>
   );
 }
 

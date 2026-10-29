@@ -99,8 +99,9 @@ router.post('/conta/decisoes/:id/recurso', requireAuth, async (req, res) => {
   res.status(201).json({ data: await moderation.appealDecision(req.user.id, parse(idParam, req.params.id), text) });
 });
 
-// Conta suspensa não entra: o recurso confere e-mail e senha. Limite por IP, como o login.
-const appealLimiter = rateLimit({ name: 'appeals', limit: 10, windowSec: 15 * 60, key: (req) => req.ip });
+// Conta suspensa não entra: o recurso confere e-mail e senha. Conta no MESMO limite do login
+// (nome 'auth'), para não virar um segundo lugar de testar senhas (docs/14, M-2).
+const appealLimiter = rateLimit({ name: 'auth', limit: 10, windowSec: 15 * 60, key: (req) => req.ip });
 router.post('/recursos/suspensao', appealLimiter, async (req, res) => {
   const body = parse(
     z.object({ email: z.string().trim().toLowerCase().pipe(z.email('e-mail inválido')), password: z.string().min(1).max(128), text: appealText }).strict(),

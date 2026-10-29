@@ -38,7 +38,9 @@ describe('canais e grupos (vertente Telegram)', () => {
     expect(diff.body.data.map((m) => m.text)).toEqual(['m4', 'm5']);
     expect(diff.body.meta).toEqual({ pts: 5, too_long: false });
 
-    const hist = await api().get('/api/channels/grupo/messages?max_results=2').set(outsider.auth);
+    // Grupo é só de quem entrou (docs/14, C-1).
+    expect((await api().get('/api/channels/grupo/messages').set(outsider.auth)).status).toBe(403);
+    const hist = await api().get('/api/channels/grupo/messages?max_results=2').set(member.auth);
     expect(hist.body.data.map((m) => m.text)).toEqual(['m5', 'm4']);
     const older = await api().get(`/api/channels/grupo/messages?max_results=2&until_id=${hist.body.meta.next_token}`).set(owner.auth);
     expect(older.body.data.map((m) => m.text)).toEqual(['m3', 'm2']);

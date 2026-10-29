@@ -19,7 +19,7 @@ router.get('/:username', optionalAuth, async (req, res) => {
   res.json({ data: await users.getProfile(req.params.username, req.user?.id) });
 });
 
-/** Referência: GET /2/users/:id/tweets?exclude=replies,retweets */
+/** Referência: GET /2/users/:id/tweets?exclude=replies,retweets. Leitura aberta; sem login, ninguém é "bloqueado". */
 router.get('/:username/posts', optionalAuth, async (req, res) => {
   const page = parsePageParams(req.query);
   const exclude = String(req.query.exclude ?? '').split(',');
@@ -38,9 +38,9 @@ router.get('/:username/posts', optionalAuth, async (req, res) => {
 });
 
 for (const direction of ['followers', 'following']) {
-  router.get(`/:username/${direction}`, async (req, res) => {
+  router.get(`/:username/${direction}`, optionalAuth, async (req, res) => {
     const page = parsePageParams(req.query);
-    const data = await users.listFollows(req.params.username, direction, page);
+    const data = await users.listFollows(req.params.username, direction, page, req.user?.id);
     res.json({ data, meta: pageMeta(data, page.limit) });
   });
 }

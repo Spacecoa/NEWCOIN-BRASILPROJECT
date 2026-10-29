@@ -169,49 +169,53 @@ Quando a pessoa ainda não escolheu nada, o feed avisa que está "quase em ordem
 | POST | `/api/posts/:id/feedback` | `{ kind: "more" \| "less" }` |
 | GET | `/api/feed/algoritmo` | Especificação pública (sem login) |
 | GET | `/api/feed/candidatos` | Candidatos para o ranking no aparelho (+ `meta.following`) |
-| PUT | `/api/feed/modo` | `{ mode: "server" \| "device" }`; ir para o aparelho apaga os dados do algoritmo no servidor |
+| PUT | `/api/feed/modo` | `{ mode: "device" }` (contas antigas): o servidor apaga a cópia que tinha do algoritmo |
 
 ### 2.9 Testes
 
 - `backend/test/unit/ranking.test.js`: nota em [0,1] igual à soma das contribuições; popularidade sem efeito por padrão; meia-vida da recência; silenciamento; palavras-chave; regra da descoberta; declarado dominando o aprendido; decaimento; MMR quebrando sequências; limite da sessão.
-- `backend/test/feed.test.js`: preferências reordenando o feed; palavras-chave e silenciamento; validação; curtir ensinando; "menos disto" escondendo e reduzindo afinidade; reset; fim de sessão sem repetição; especificação pública.
+- `backend/test/feed.test.js` e `device-mode.test.js`: o servidor não calcula nem guarda o algoritmo; candidatos iguais para qualquer preferência; ordenação no aparelho com preferências e silenciamento; importação única de contas antigas.
+- `frontend/src/lib/deviceAlgo.test.js` e `rankingMode.test.js`: aprendizado, "menos disto" e reset no aparelho; carga do algoritmo ao voltar ao app.
 - `frontend`: painel "Por que este post?", "Menos disto" e cursor e fim do feed de interesses.
 
-### 2.10 Onde o cálculo acontece: no servidor ou neste aparelho
+### 2.10 Onde o algoritmo fica: só no aparelho de cada pessoa
 
-Cada pessoa escolhe, em **Meu algoritmo → Onde o seu feed é calculado**:
+**Decisão do projeto:** o algoritmo de cada pessoa (preferências, aprendizado e "menos disto") fica **exclusivamente no aparelho dela**. Sempre que a pessoa volta ao app, ele é carregado do aparelho. A instância não guarda nem calcula o feed "Para você".
 
-| | No servidor da instância (padrão) | Neste aparelho |
-|---|---|---|
-| Quem faz a conta | O backend (`GET /api/feed/interesses`) | O navegador, com **o mesmo arquivo** `shared/ranking/ranking.js` |
-| O que o servidor envia | A página já ordenada | Os candidatos (`GET /api/feed/candidatos`): posts originais dos últimos 7 dias, até 500, e a lista de quem a pessoa segue |
-| Onde ficam preferências, aprendizado e "menos disto" | No banco da instância | Só no navegador (`localStorage`, chave `agora.algo.v1.<id>`) |
-| O servidor sabe do que a pessoa gosta? | Sim | Não: o conjunto de candidatos é o mesmo para qualquer preferência |
-| Troca de aparelho | Continua igual | Começa do zero |
+| | Como funciona |
+|---|---|
+| Quem faz a conta | O navegador, com o arquivo aberto `shared/ranking/ranking.js` |
+| O que o servidor envia | Os candidatos (`GET /api/feed/candidatos`): posts originais dos últimos 7 dias, até 500, e a lista de quem a pessoa segue. São os mesmos para qualquer preferência |
+| Onde ficam preferências, aprendizado e "menos disto" | Só no navegador (`localStorage`, chave `agora.algo.v1.<id>`) |
+| O que o servidor guarda | Só o que não é do algoritmo: missões ligadas ou não e contagem de tempo |
+| Sair da conta | O algoritmo continua no aparelho e volta quando a pessoa entrar de novo |
+| Outro aparelho | Começa do zero e aprende lá |
 
 ```mermaid
 sequenceDiagram
   participant N as Navegador
   participant S as Servidor
+  Note over N: ao voltar ao app, carrega o algoritmo do aparelho
+  N->>S: GET /api/feed/preferencias (conta antiga ainda com dados no servidor?)
+  S-->>N: ranking_mode "server" + o que o servidor tinha
+  Note over N: se o aparelho não tem algoritmo, importa; se tem, o do aparelho vale
   N->>S: PUT /api/feed/modo { mode: "device" }
-  Note over N: antes, copia preferências, aprendizado e escondidos
   S-->>N: apaga feed_settings (algoritmo), learned_*, hidden_posts
   N->>S: GET /api/feed/candidatos
-  S-->>N: { data, includes, meta.following }
   Note over N: rank() com as preferências locais → páginas, explicações, fim de sessão
   N->>S: POST /api/posts/:id/like (ação pública, como sempre)
-  Note over N: aprende localmente, e o servidor não grava learned_* no modo aparelho
+  Note over N: aprende só no aparelho
 ```
 
 **Garantias, cobertas por testes:**
 
-- **Mesma entrada, mesma ordem.** Um teste de integração ordena os candidatos com `rank()` (como o navegador faz) e compara com o feed do servidor para as mesmas preferências e aprendizado: o resultado é idêntico.
-- **Os candidatos não dependem das preferências.** Mudar tópicos, palavras-chave ou silenciamentos não altera a resposta de `/api/feed/candidatos`.
-- **Na troca para o aparelho, o servidor apaga** as preferências do algoritmo, o aprendizado e os posts escondidos, e mantém só o modo e as opções que não são do algoritmo (missões e contagem de tempo).
-- **No modo aparelho, o servidor não aprende.** Curtir, repostar e responder continuam sendo ações públicas normais, mas não geram `learned_topics`/`learned_authors`. "Mais/menos disto" nem chega ao servidor; se chegar por outro cliente, a resposta é `stored: false`.
+- **O servidor não guarda nada do algoritmo.** `PUT /api/feed/preferencias` só aceita `missions_enabled` e `count_time`; curtir, repostar, responder e "menos disto" não geram `learned_*` nem `hidden_posts` (`stored: false`).
+- **O servidor não calcula o feed.** `GET /api/feed/interesses` responde 410 e aponta para `/api/feed/candidatos`. `PUT /api/feed/modo` só aceita `device`.
+- **Os candidatos não dependem das preferências.** Mudar o algoritmo não altera a resposta de `/api/feed/candidatos`.
+- **Contas antigas:** na primeira volta ao app, se o aparelho ainda não tem um algoritmo, o app importa o que o servidor tinha. Em seguida o servidor apaga a cópia. Se o aparelho já tem um algoritmo, ele vale e nada é sobrescrito.
 - **Sem armazenamento disponível** (modo privado), o algoritmo funciona só em memória durante a visita. Dados apagados ou corrompidos fazem o algoritmo recomeçar do zero, sem quebrar o feed.
 
-**Limites:** a lista de quem a pessoa segue e as curtidas continuam públicas, como em qualquer rede, e o servidor vê quais posts foram abertos ou curtidos. O modo aparelho protege as **preferências declaradas e o aprendizado**, não a atividade pública. Também não há sincronização entre aparelhos (seria o próximo passo, por exemplo exportando e importando as preferências).
+**Limites:** a lista de quem a pessoa segue e as curtidas continuam visíveis para quem tem conta, e o servidor vê quais posts foram abertos ou curtidos. O que fica só no aparelho são as **preferências e o aprendizado**, não a atividade. Não há sincronização entre aparelhos, por decisão do projeto.
 
 ### 2.11 Limites e próximos passos
 

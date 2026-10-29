@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { api } from '../lib/api.js';
-import { importFromServer, learnedView, loadState, resetLearning as resetLocal, saveSettings as saveLocal } from '../lib/deviceAlgo.js';
-import { setCachedMode } from '../lib/rankingMode.js';
+import { learnedView, loadState, resetLearning as resetLocal, saveSettings as saveLocal } from '../lib/deviceAlgo.js';
+import { syncDeviceAlgorithm } from '../lib/rankingMode.js';
 
 const ALGO_KEYS = ['muted_topics', 'keywords', 'weights', 'topics', 'session_limit', 'diversity', 'half_life_hours', 'hide_metrics'];
 const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj[k]]));
@@ -68,23 +68,16 @@ export default function Interests() {
   const [error, setError] = useState(null);
 
   const { user } = useAuth();
-  const [busy, setBusy] = useState(false);
 
-  // No modo aparelho, as preferências do algoritmo vêm do navegador; o servidor só guarda
-  // o modo e as opções que não são do algoritmo (missões e contagem de tempo).
+  // O algoritmo fica só neste aparelho: preferências e aprendizado vêm do navegador.
+  // O servidor guarda apenas as opções que não são do algoritmo (missões e contagem de tempo).
   const load = () =>
-    api('/api/feed/preferencias')
+    syncDeviceAlgorithm(user.id)
+      .then(() => api('/api/feed/preferencias'))
       .then((r) => {
-        const device = r.settings.ranking_mode === 'device';
-        setCachedMode(r.settings.ranking_mode ?? 'server');
-        if (device) {
-          const local = loadState(user.id).settings;
-          setData({ ...r, learned: learnedView(user.id) });
-          setDraft({ ...local, missions_enabled: r.settings.missions_enabled, count_time: r.settings.count_time, ranking_mode: 'device' });
-        } else {
-          setData(r);
-          setDraft(r.settings);
-        }
+        const local = loadState(user.id).settings;
+        setData({ ...r, learned: learnedView(user.id) });
+        setDraft({ ...local, missions_enabled: r.settings.missions_enabled, count_time: r.settings.count_time });
       })
       .catch((e) => setError(e.message));
 
@@ -102,62 +95,24 @@ export default function Interests() {
   const totalWeight = Object.values(draft.weights).reduce((a, b) => a + b, 0) || 1;
   const muted = new Set(draft.muted_topics);
 
-  const onDevice = draft.ranking_mode === 'device';
-
   async function save() {
     setError(null);
     try {
       const { missions_enabled, count_time } = draft;
-      if (onDevice) {
-        const saved = saveLocal(user.id, pick(draft, ALGO_KEYS));
-        await api('/api/feed/preferencias', { method: 'PUT', body: { missions_enabled, count_time } });
-        setDraft((d) => ({ ...d, ...saved }));
-        setStatus('Preferências salvas neste aparelho. O servidor não recebeu nenhuma delas.');
-        return;
-      }
-      const r = await api('/api/feed/preferencias', { method: 'PUT', body: { ...pick(draft, ALGO_KEYS), missions_enabled, count_time } });
-      setDraft(r.settings);
-      setStatus('Preferências salvas. O feed Para você já usa os novos pesos.');
+      const saved = saveLocal(user.id, pick(draft, ALGO_KEYS));
+      await api('/api/feed/preferencias', { method: 'PUT', body: { missions_enabled, count_time } });
+      setDraft((d) => ({ ...d, ...saved }));
+      setStatus('Preferências salvas neste aparelho. O servidor não recebeu nenhuma delas.');
     } catch (e) {
       setError(e.details?.map((d) => `${d.path}: ${d.message}`).join(' · ') || e.message);
     }
   }
 
   async function resetLearning() {
-    if (!confirm('Apagar tudo o que o algoritmo aprendeu com suas interações?')) return;
-    if (onDevice) resetLocal(user.id);
-    else await api('/api/feed/aprendizado', { method: 'DELETE' });
+    if (!confirm('Apagar tudo o que o algoritmo aprendeu com suas interações neste aparelho?')) return;
+    resetLocal(user.id);
     await load();
     setStatus('Aprendizado apagado. Ficam só as preferências que você declarou.');
-  }
-
-  /** Troca onde o feed é calculado, levando junto as preferências. */
-  async function switchMode(target) {
-    if (target === draft.ranking_mode || busy) return;
-    const msg =
-      target === 'device'
-        ? 'Suas preferências e o que o algoritmo aprendeu serão copiados para este aparelho e APAGADOS do servidor. Continuar?'
-        : 'Suas preferências deste aparelho serão enviadas ao servidor, que volta a calcular o feed. O aprendizado deste aparelho não é enviado. Continuar?';
-    if (!confirm(msg)) return;
-    setBusy(true);
-    setError(null);
-    try {
-      if (target === 'device') {
-        importFromServer(user.id, { ...data, settings: { ...data.settings, ...pick(draft, ALGO_KEYS) } });
-        await api('/api/feed/modo', { method: 'PUT', body: { mode: 'device' } });
-        setStatus('Pronto: o feed Para você agora é calculado neste aparelho. O servidor apagou suas preferências e o que tinha aprendido.');
-      } else {
-        await api('/api/feed/modo', { method: 'PUT', body: { mode: 'server' } });
-        await api('/api/feed/preferencias', { method: 'PUT', body: pick(loadState(user.id).settings, ALGO_KEYS) });
-        setStatus('Pronto: o servidor da instância voltou a calcular o seu feed.');
-      }
-      setCachedMode(target);
-      await load();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
   }
 
   function addKeyword(e) {
@@ -172,28 +127,15 @@ export default function Interests() {
       <PageHeader back title="Meu algoritmo" subtitle="Aberto, explicável e sob seu controle" />
 
       <Section
-        title="Onde o seu feed é calculado"
-        hint="O algoritmo é o mesmo nos dois casos, com o mesmo código. Muda quem guarda suas preferências e quem faz a conta."
+        title="Onde fica o seu algoritmo"
+        hint="Só neste aparelho. O navegador guarda suas preferências e o que o algoritmo aprende, e faz a conta do feed aqui."
       >
-        <div role="radiogroup" aria-label="Onde o feed é calculado" className="grid gap-2">
-          {[
-            ['server', 'No servidor da instância', 'A instância guarda suas preferências e o que o algoritmo aprende. Funciona igual em qualquer aparelho.'],
-            ['device', 'Neste aparelho', 'O navegador baixa os posts candidatos e faz a conta. Preferências e aprendizado ficam só aqui: o servidor não sabe do que você gosta. Se limpar os dados do site ou trocar de aparelho, começa do zero.'],
-          ].map(([value, label, hint]) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={draft.ranking_mode === value}
-              disabled={busy}
-              onClick={() => switchMode(value)}
-              className={`rounded-2xl p-3 text-left ${draft.ranking_mode === value ? 'bg-brand-50 ring-2 ring-brand-500 dark:bg-brand-600/15' : 'bg-zinc-50 dark:bg-zinc-900'}`}
-            >
-              <span className="block font-extrabold">{label}</span>
-              <span className="block text-sm text-zinc-500">{hint}</span>
-            </button>
-          ))}
-        </div>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-600 dark:text-zinc-300">
+          <li>Sempre que você volta ao app, o seu algoritmo é carregado deste aparelho.</li>
+          <li>A instância não sabe do que você gosta: ela só entrega os posts candidatos, iguais para todo mundo.</li>
+          <li>Sair da conta não apaga o algoritmo deste aparelho. Limpar os dados do site apaga.</li>
+          <li>Em outro aparelho, o algoritmo começa do zero e aprende com você lá.</li>
+        </ul>
       </Section>
 
       <Section

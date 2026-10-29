@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { useLoginRedirect } from '../lib/useLoginRedirect.js';
 import Avatar from '../components/Avatar.jsx';
 import Feed from '../components/Feed.jsx';
 import Icon from '../components/Icon.jsx';
@@ -18,6 +19,7 @@ const TABS = [
 export default function Profile() {
   const { username } = useParams();
   const { user: me, logout, logoutEverywhere } = useAuth();
+  const toLogin = useLoginRedirect();
   const [confirmAll, setConfirmAll] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [version, setVersion] = useState(0); // recarrega os posts depois de bloquear/desbloquear
@@ -44,6 +46,7 @@ export default function Profile() {
   }
 
   async function toggleFollow() {
+    if (!me) return toLogin(); // visitante: ler pode, seguir pede login
     const following = profile.relationship.following;
     await api(`/api/users/${username}/follow`, { method: following ? 'DELETE' : 'POST' });
     setProfile((p) => ({
@@ -55,7 +58,7 @@ export default function Profile() {
 
   if (error) return <p className="p-8 text-center text-zinc-500">{error}</p>;
   if (!profile) return <p className="p-8 text-center text-zinc-500">Carregando…</p>;
-  const isMe = me.id === profile.id;
+  const isMe = me?.id === profile.id;
   const m = profile.public_metrics;
   const rel = profile.relationship ?? {};
   const cutOff = rel.blocking || rel.blocked_by;
@@ -69,7 +72,7 @@ export default function Profile() {
             <Icon name="wallet" />
           </Link>
         )}
-        {!isMe && (
+        {me && !isMe && (
           <PostMenu
             large
             username={profile.username}
@@ -94,12 +97,12 @@ export default function Profile() {
             <button
               onClick={toggleFollow}
               className={`min-h-11 rounded-full px-5 font-extrabold ${
-                profile.relationship.following
+                rel.following
                   ? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'
                   : 'bg-brand-600 text-white'
               }`}
             >
-              {profile.relationship.following ? 'Seguindo' : 'Seguir'}
+              {rel.following ? 'Seguindo' : 'Seguir'}
             </button>
           )}
         </div>

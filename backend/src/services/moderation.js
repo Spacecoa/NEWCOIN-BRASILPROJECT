@@ -86,12 +86,24 @@ export async function assertModerator(userId) {
   if (!rows[0]?.is_moderator) throw forbidden('Apenas a moderação da instância');
 }
 
+/**
+ * Quem decide não deveria ser parte: a própria denúncia, ou o recurso contra a própria
+ * decisão (docs/14, M-4). Só vale quando há outra pessoa ativa na moderação; numa
+ * instância com uma pessoa só, ela continua decidindo (senão nada andaria).
+ */
+async function assertNotOwnCase(moderatorId, partyId, what) {
+  if (String(partyId) !== String(moderatorId)) return;
+  const { rows } = await query('SELECT 1 FROM users WHERE is_moderator AND suspended_at IS NULL AND id <> $1 LIMIT 1', [moderatorId]);
+  if (rows.length) throw forbidden(`Outra pessoa da moderação precisa decidir ${what}`);
+}
+
 /** Fila da moderação. Mostra quantas denúncias abertas a mesma conta acumula. */
 export async function listQueue(status = 'aberta') {
   const { rows } = await query(
     `SELECT ${REPORT_COLS}, rep.username AS reporter_username, mod.username AS resolved_by_username,
        (t.suspended_at IS NOT NULL) AS target_suspended,
-       (r.post_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.id = r.post_id AND p.removed_at IS NULL)) AS post_exists,
+       (r.post_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.id = r.post_id AND (p.removed_at IS NULL OR p.deleted_by_author_at IS NOT NULL))) AS post_exists,
+       (r.post_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.id = r.post_id AND p.deleted_by_author_at IS NOT NULL)) AS post_deleted_by_author,
        (SELECT count(*)::int FROM reports o WHERE o.target_user_id = r.target_user_id AND o.status = 'aberta') AS open_against_target
      FROM reports r
      JOIN users t ON t.id = r.target_user_id
@@ -116,6 +128,7 @@ export async function resolveReport(moderatorId, reportId, { action, note = '', 
   const report = rows[0];
   if (!report) throw notFound('Denúncia não encontrada');
   if (report.status !== 'aberta') throw conflict('Esta denúncia já foi decidida');
+  await assertNotOwnCase(moderatorId, report.reporter_id, 'uma denúncia feita por você');
 
   const close = (c, where, params, status) =>
     c.query(
@@ -137,8 +150,11 @@ export async function resolveReport(moderatorId, reportId, { action, note = '', 
     if (!report.post_id) throw conflict('Esta denúncia não tem post para remover (ou ele já foi apagado)');
     // Remover esconde (removed_at) em vez de apagar: se o recurso for aceito, o post volta.
     await withTransaction(async (c) => {
-      const { rowCount } = await c.query('UPDATE posts SET removed_at = now() WHERE id = $1 AND removed_at IS NULL', [report.post_id]);
-      if (!rowCount) throw conflict('Este post já foi apagado ou removido');
+      // Post apagado pelo autor durante a análise continua decidível: já está fora do ar,
+      // e a decisão fica registrada (a pessoa vê a regra e pode recorrer).
+      const { rows: p } = await c.query('SELECT removed_at, deleted_by_author_at FROM posts WHERE id = $1 FOR UPDATE', [report.post_id]);
+      if (!p[0] || (p[0].removed_at && !p[0].deleted_by_author_at)) throw conflict('Este post já foi apagado ou removido');
+      await c.query('UPDATE posts SET removed_at = COALESCE(removed_at, now()) WHERE id = $1', [report.post_id]);
       await close(c, 'post_id = $1', [report.post_id], 'acatada');
       await sanction(c, 'post_removido', report.post_id, report.post_text);
     });
@@ -234,10 +250,12 @@ export async function activeSuspension(userId) {
 export async function appealSuspension({ email, password, text }) {
   const { rows } = await query('SELECT id, password_hash, suspended_at FROM users WHERE email = $1', [email]);
   const ok = await checkPassword(password, rows[0]?.password_hash ?? (await dummyHash()));
-  if (!rows[0] || !ok) throw unauthorized('E-mail ou senha incorretos');
-  if (!rows[0].suspended_at) throw conflict('Esta conta não está suspensa');
+  // Uma só resposta para senha errada, conta inexistente e conta que não está suspensa:
+  // antes, "não está suspensa" confirmava que a senha estava certa (docs/14, M-2).
+  const denied = () => unauthorized('Não encontramos uma suspensão com este e-mail e esta senha');
+  if (!rows[0] || !ok || !rows[0].suspended_at) throw denied();
   const s = await activeSuspension(rows[0].id);
-  if (!s) throw notFound('Não há decisão de suspensão para recorrer');
+  if (!s) throw denied();
   return openAppeal(s.id, rows[0].id, text);
 }
 
@@ -260,6 +278,8 @@ export async function listAppeals(status = 'aberto') {
 /** Aceitar desfaz a decisão (o post volta ou a conta é reativada); negar mantém. */
 export async function decideAppeal(moderatorId, sanctionId, { decision, note = '' }) {
   await assertModerator(moderatorId);
+  const { rows: who } = await query('SELECT moderator_id FROM sanctions WHERE id = $1', [sanctionId]);
+  if (who[0]) await assertNotOwnCase(moderatorId, who[0].moderator_id, 'o recurso contra uma decisão sua');
   const result = await withTransaction(async (c) => {
     const { rows } = await c.query("SELECT * FROM sanctions WHERE id = $1 AND appeal_status = 'aberto' FOR UPDATE", [sanctionId]);
     const s = rows[0];
@@ -270,16 +290,50 @@ export async function decideAppeal(moderatorId, sanctionId, { decision, note = '
          ${accepted ? ', reverted_at = now()' : ''} WHERE id = $1`,
       [sanctionId, accepted ? 'aceito' : 'negado', note.trim() || null, moderatorId],
     );
-    if (accepted && s.kind === 'post_removido' && s.post_id) await c.query('UPDATE posts SET removed_at = NULL WHERE id = $1', [s.post_id]);
+    // O post volta, a não ser que o próprio autor o tenha apagado.
+    if (accepted && s.kind === 'post_removido' && s.post_id) {
+      await c.query('UPDATE posts SET removed_at = NULL WHERE id = $1 AND deleted_by_author_at IS NULL', [s.post_id]);
+    }
     if (accepted && s.kind === 'suspensao') await c.query('UPDATE users SET suspended_at = NULL, suspension_reason = NULL WHERE id = $1', [s.user_id]);
     return { id: sanctionId, appeal_status: accepted ? 'aceito' : 'negado', reverted: accepted };
   });
   return result;
 }
 
-/** Promove as contas listadas em MODERATORS (lista separada por vírgulas) ao iniciar. */
+/**
+ * Promove as contas listadas em MODERATORS (lista separada por vírgulas) ao iniciar.
+ *
+ * Um nome da lista que ainda não existe fica anotado (moderator_names_missing). Se depois
+ * alguém criar uma conta com esse nome, ela NÃO é promovida sozinha: quem chegasse primeiro
+ * ao nome viraria moderação no próximo reinício. Nesse caso a promoção é manual
+ * (`npm run moderacao:promover -- <usuario>`). Devolve { promoted, missing, refused }.
+ */
 export async function promoteModerators(usernames) {
-  if (!usernames.length) return 0;
-  const { rowCount } = await query('UPDATE users SET is_moderator = true WHERE username = ANY($1) AND NOT is_moderator', [usernames]);
-  return rowCount;
+  const report = { promoted: 0, missing: [], refused: [] };
+  for (const name of usernames) {
+    const { rows } = await query('SELECT id, username, created_at, is_moderator FROM users WHERE username = $1', [name]);
+    const user = rows[0];
+    if (!user) {
+      await query('INSERT INTO moderator_names_missing (username) VALUES ($1) ON CONFLICT DO NOTHING', [name]);
+      report.missing.push(name);
+      continue;
+    }
+    if (user.is_moderator) continue;
+    const { rows: seen } = await query('SELECT missing_since FROM moderator_names_missing WHERE username = $1', [name]);
+    if (seen[0] && user.created_at > seen[0].missing_since) {
+      report.refused.push(user.username);
+      continue;
+    }
+    await query('UPDATE users SET is_moderator = true WHERE id = $1', [user.id]);
+    report.promoted++;
+  }
+  return report;
+}
+
+/** Promoção explícita (linha de comando): a pessoa que administra confirma a conta certa. */
+export async function promoteModeratorManually(username) {
+  const { rows } = await query('UPDATE users SET is_moderator = true WHERE username = $1 RETURNING username', [username]);
+  if (!rows[0]) throw notFound('Usuário não encontrado');
+  await query('DELETE FROM moderator_names_missing WHERE username = $1', [username]);
+  return rows[0].username;
 }

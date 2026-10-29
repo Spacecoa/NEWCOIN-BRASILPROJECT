@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { api } from '../lib/api.js';
 import { learnLocal } from '../lib/deviceAlgo.js';
 
 const LABELS = {
@@ -22,9 +21,8 @@ export default function WhyPanel({ post, onHide, authorUsername }) {
   const { ranking } = post;
 
   async function feedback(kind) {
-    // No modo aparelho o sinal fica só no navegador; o servidor não fica sabendo.
-    if (ranking.local) learnLocal(user?.id, post, kind, authorUsername);
-    else await api(`/api/posts/${post.id}/feedback`, { method: 'POST', body: { kind } });
+    // O algoritmo fica só neste aparelho: o sinal fica no navegador e o servidor não fica sabendo.
+    learnLocal(user?.id, post, kind, authorUsername);
     setSent(kind);
     if (kind === 'less') onHide?.(post.id);
   }

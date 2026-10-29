@@ -52,7 +52,7 @@ flowchart TD
   B -- sim --> C["'Apresente-se' entra primeiro"]
   B -- não --> D["Ordena as aplicáveis por hash(usuário, dia, missão)"]
   C --> D
-  D --> E["Pega as 3 primeiras"]
+  D --> E["Pega 2 de rede e 2 de engajamento<br/>(4 por dia; menos se faltarem aplicáveis)"]
   E --> F["Para cada uma: verifica nos dados reais<br/>feito · pulado · a fazer"]
   F --> G["Junta o painel coletivo<br/>(só números da rede inteira)"]
 ```
@@ -75,7 +75,8 @@ Mostra apenas números agregados da instância:
 - Cada pessoa gera convites de uso único (código de 8 caracteres sem símbolos ambíguos), com no máximo 10 abertos ao mesmo tempo e 20 gerados por dia.
 - O link `/cadastro?convite=CODIGO` abre o cadastro com a mensagem "Você foi convidada(o)".
 - Ao entrar por convite, a pessoa nova passa a **seguir quem convidou**, para o feed dela não começar vazio. Tudo acontece numa única transação: se o convite for inválido ou já usado, nenhuma conta é criada.
-- Não há recompensa por convite, importação de contatos nem envio automático de mensagens. Quem convida escolhe a quem mandar o link.
+- O botão **"Gerar convite"** fica sempre na seção "Seus convites" da página de Missões, mesmo nos dias sem a missão de convite ou com as missões escondidas. Nos dias em que a missão "Traga alguém de confiança" aparece, o botão fica no cartão dela.
+- A recompensa é a da missão "Traga alguém de confiança": **4 NWC** quando um convite é aceito no dia em que ela está na lista (ver [`docs/09`](09-token-interno.md)). Convidar fora desses dias continua possível, sem recompensa. Não há importação de contatos nem envio automático de mensagens: quem convida escolhe a quem mandar o link.
 - O cadastro sem convite continua aberto.
 
 ## 6. API
@@ -93,7 +94,7 @@ Novas tabelas: `mission_skips` e `invites`. Não existe tabela de pontos ou prog
 
 ## 7. Testes
 
-- `backend/test/unit/missions.test.js`: seleção determinística, variação entre dias e pessoas, no máximo 3, só missões aplicáveis, "apresentar" só para contas novas, e um catálogo sem linguagem de pontos.
+- `backend/test/unit/missions.test.js`: seleção determinística, variação entre dias e pessoas, no máximo 4 (2 de rede e 2 de engajamento), só missões aplicáveis, "apresentar" só para contas novas, e um catálogo sem linguagem de pontos.
 - `backend/test/missions.test.js`: regras de verificação de **todas** as missões com ações reais, incluindo os casos que **não** contam (segunda resposta a uma pergunta, ponte dentro do próprio círculo, canal de broadcast); pular; desligar; painel coletivo; convites (uso único, transação, seguir quem convidou, limites).
 - `frontend`: página de missões (meta coletiva, alvos, pular, gerar convite, missões escondidas) e cadastro com `?convite=`.
 

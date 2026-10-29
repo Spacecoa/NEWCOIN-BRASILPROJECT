@@ -19,7 +19,7 @@ describe('<Register> com convite', () => {
         </AuthProvider>
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: 'Você foi convidada(o)' })).toBeInTheDocument();
+    expect(screen.getByRole('main')).toContainElement(screen.getByRole('heading', { name: 'Você foi convidada(o)' }));
     await userEvent.type(screen.getByLabelText(/Usuário/), 'nina');
     await userEvent.type(screen.getByLabelText('E-mail'), 'nina@x.io');
     await userEvent.type(screen.getByLabelText(/Senha/), 'senha1234');

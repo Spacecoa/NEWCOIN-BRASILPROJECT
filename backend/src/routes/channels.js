@@ -21,12 +21,16 @@ const idParam = z.string().regex(/^\d{1,20}$/);
 
 // Equivalente ao FLOOD_WAIT do Telegram: limite de mensagens por usuário.
 const messageLimiter = rateLimit({ name: 'messages', limit: 30, windowSec: 60 });
+// Cada reação é retransmitida à sala inteira: limite próprio (docs/14, C-3).
+const reactionLimiter = rateLimit({ name: 'reactions', limit: 60, windowSec: 60 });
+// Criar espaços sem limite empurra os outros para fora da lista (docs/14, C-5).
+const createLimiter = rateLimit({ name: 'channels:create', limit: 5, windowSec: 24 * 60 * 60 });
 
 router.get('/', async (req, res) => {
   res.json({ data: await channels.listChannels(req.user.id) });
 });
 
-router.post('/', async (req, res) => {
+router.post('/', createLimiter, async (req, res) => {
   res.status(201).json({ data: await channels.createChannel(req.user.id, parse(createSchema, req.body)) });
 });
 
@@ -40,6 +44,15 @@ router.post('/:slug/members', async (req, res) => {
 
 router.delete('/:slug/members/me', async (req, res) => {
   res.json({ data: await channels.leaveChannel(req.user.id, req.params.slug) });
+});
+
+// Remover alguém (e impedir que volte) e desfazer a remoção: dono e admins (docs/14, C-2).
+router.delete('/:slug/members/:username', async (req, res) => {
+  res.json({ data: await channels.removeMember(req.user.id, req.params.slug, req.params.username) });
+});
+
+router.delete('/:slug/bans/:username', async (req, res) => {
+  res.json({ data: await channels.unbanMember(req.user.id, req.params.slug, req.params.username) });
 });
 
 router.put('/:slug/members/:username/role', async (req, res) => {
@@ -61,12 +74,12 @@ router.post('/:slug/messages', messageLimiter, async (req, res) => {
   res.status(201).json(await channels.postMessage(req.user.id, req.params.slug, text));
 });
 
-router.post('/:slug/messages/:id/reactions', async (req, res) => {
+router.post('/:slug/messages/:id/reactions', reactionLimiter, async (req, res) => {
   const { emoji } = parse(reactionSchema, req.body);
   res.json({ data: await channels.addReaction(req.user.id, req.params.slug, parse(idParam, req.params.id), emoji) });
 });
 
-router.delete('/:slug/messages/:id/reactions/:emoji', async (req, res) => {
+router.delete('/:slug/messages/:id/reactions/:emoji', reactionLimiter, async (req, res) => {
   const emoji = parse(reactionSchema.shape.emoji, req.params.emoji);
   res.json({ data: await channels.removeReaction(req.user.id, req.params.slug, parse(idParam, req.params.id), emoji) });
 });

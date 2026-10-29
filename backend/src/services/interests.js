@@ -1,7 +1,6 @@
 import { query } from '../db.js';
-import { notFound } from '../lib/errors.js';
-import { decayed, learn, mergeSettings, rank } from '../lib/ranking.js';
-import { extractTopics, TOPICS } from '../lib/topics.js';
+import { decayed, mergeSettings } from '../lib/ranking.js';
+import { TOPICS } from '../lib/topics.js';
 import { hiddenAuthorsSql } from './relations.js';
 import { hydrate } from './posts.js';
 
@@ -15,15 +14,13 @@ export async function getSettings(userId) {
   return mergeSettings(rows[0]?.settings);
 }
 
-/** Mescla `patch` nas preferências salvas (o patch já vem validado pela rota). */
+/**
+ * Salva só as preferências que NÃO são do algoritmo (missões e contagem de tempo).
+ * O algoritmo de cada pessoa fica exclusivamente no aparelho dela.
+ */
 export async function saveSettings(userId, patch) {
   const current = await getSettings(userId);
-  const next = mergeSettings({
-    ...current,
-    ...patch,
-    weights: { ...current.weights, ...(patch.weights ?? {}) },
-    topics: patch.topics ? { ...current.topics, ...patch.topics } : current.topics,
-  });
+  const next = mergeSettings({ ...current, ...Object.fromEntries(NON_ALGORITHM_KEYS.filter((k) => k in patch).map((k) => [k, patch[k]])) });
   await query(
     `INSERT INTO feed_settings (user_id, settings, updated_at) VALUES ($1, $2, now())
      ON CONFLICT (user_id) DO UPDATE SET settings = EXCLUDED.settings, updated_at = now()`,
@@ -32,7 +29,7 @@ export async function saveSettings(userId, patch) {
   return next;
 }
 
-/** Aprendizado atual, já com decaimento aplicado. */
+/** Aprendizado que contas antigas ainda têm no servidor (só para o app importar uma vez). */
 export async function getLearned(userId) {
   const [topics, authors] = await Promise.all([
     query('SELECT topic, value, updated_at FROM learned_topics WHERE user_id = $1', [userId]),
@@ -55,49 +52,6 @@ export async function resetLearning(userId) {
   await query('DELETE FROM learned_topics WHERE user_id = $1', [userId]);
   await query('DELETE FROM learned_authors WHERE user_id = $1', [userId]);
   await query('DELETE FROM hidden_posts WHERE user_id = $1', [userId]);
-}
-
-async function upsertLearned(table, keyCol, userId, key, signal) {
-  const { rows } = await query(`SELECT value, updated_at FROM ${table} WHERE user_id = $1 AND ${keyCol} = $2`, [userId, key]);
-  const value = learn(rows[0]?.value ?? 0, rows[0]?.updated_at ?? new Date(), signal);
-  await query(
-    `INSERT INTO ${table} (user_id, ${keyCol}, value, updated_at) VALUES ($1, $2, $3, now())
-     ON CONFLICT (user_id, ${keyCol}) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-    [userId, key, value],
-  );
-}
-
-/**
- * Registra um sinal EXPLÍCITO (like, unlike, repost, reply, more, less).
- * Atualiza a afinidade com os tópicos do post e com o autor.
- */
-export async function recordSignal(userId, postId, signal) {
-  const { rows } = await query('SELECT author_id, text, repost_of_id FROM posts WHERE id = $1', [postId]);
-  if (!rows[0]) throw notFound('Post não encontrado');
-  let post = rows[0];
-  if (post.repost_of_id) {
-    const orig = await query('SELECT author_id, text FROM posts WHERE id = $1', [post.repost_of_id]);
-    if (orig.rows[0]) post = orig.rows[0];
-  }
-  if (post.author_id === userId) return { stored: false }; // interagir com o próprio post não ensina nada
-  // No modo "neste aparelho", o aprendizado fica só no navegador: o servidor não guarda nada.
-  const settings = await getSettings(userId);
-  if (settings.ranking_mode === 'device') return { stored: false };
-  for (const topic of extractTopics(post.text)) await upsertLearned('learned_topics', 'topic', userId, topic, signal);
-  await upsertLearned('learned_authors', 'author_id', userId, post.author_id, signal);
-  if (signal === 'less') {
-    await query('INSERT INTO hidden_posts (user_id, post_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [userId, postId]);
-  }
-  return { stored: true };
-}
-
-/** Versão best-effort para os ganchos de like/repost/reply: nunca derruba a ação principal. */
-export async function recordSignalSafely(userId, postId, signal) {
-  try {
-    await recordSignal(userId, postId, signal);
-  } catch (err) {
-    if (process.env.NODE_ENV !== 'test') console.warn('[interesses] falha ao aprender:', err.message);
-  }
 }
 
 /**
@@ -138,18 +92,14 @@ export async function candidatesForDevice(userId) {
 }
 
 /**
- * Troca onde o feed é calculado. Ao ir para o aparelho, o servidor APAGA as preferências
- * do algoritmo, o aprendizado e os posts escondidos (o cliente copia tudo antes).
+ * Leva a conta para o aparelho: o servidor APAGA as preferências do algoritmo, o aprendizado
+ * e os posts escondidos que ainda tinha (o app copia tudo antes). Só existe esse sentido:
+ * o algoritmo de cada pessoa fica exclusivamente no aparelho dela.
  */
-export async function setRankingMode(userId, mode) {
+export async function moveAlgorithmToDevice(userId) {
   const current = await getSettings(userId);
-  let next;
-  if (mode === 'device') {
-    await resetLearning(userId);
-    next = mergeSettings({ ...Object.fromEntries(NON_ALGORITHM_KEYS.map((k) => [k, current[k]])), ranking_mode: 'device' });
-  } else {
-    next = mergeSettings({ ...current, ranking_mode: 'server' });
-  }
+  await resetLearning(userId);
+  const next = mergeSettings({ ...Object.fromEntries(NON_ALGORITHM_KEYS.map((k) => [k, current[k]])), ranking_mode: 'device' });
   await query(
     `INSERT INTO feed_settings (user_id, settings, updated_at) VALUES ($1, $2, now())
      ON CONFLICT (user_id) DO UPDATE SET settings = EXCLUDED.settings, updated_at = now()`,
@@ -161,54 +111,6 @@ export async function setRankingMode(userId, mode) {
 export async function hiddenPostIds(userId) {
   const { rows } = await query('SELECT post_id FROM hidden_posts WHERE user_id = $1 ORDER BY post_id', [userId]);
   return rows.map((r) => r.post_id);
-}
-
-/** Feed "Interesses": candidatos recentes → rank() → página. Cursor = posição no ranking. */
-export async function interestFeed(userId, { offset = 0, limit = 20 } = {}) {
-  const [settings, learnedRaw, following, candidates] = await Promise.all([
-    getSettings(userId),
-    getLearned(userId),
-    followingIds(userId),
-    candidateRows(userId),
-  ]);
-  const ranked = rank(candidates.rows, {
-    settings,
-    following: new Set(following),
-    learnedTopics: Object.fromEntries(learnedRaw.topics.map((t) => [t.topic, t.value])),
-    learnedAuthors: Object.fromEntries(learnedRaw.authors.map((a) => [a.author_id, a.value])),
-  });
-  const page = ranked.slice(offset, offset + limit);
-  const result = await hydrate(page.map((r) => r.post.id), userId);
-  const byId = new Map(page.map((r, i) => [r.post.id, { r, position: offset + i + 1 }]));
-  result.data = result.data.map((p) => {
-    const { r, position } = byId.get(p.id);
-    return {
-      ...p,
-      ranking: {
-        position,
-        score: r.score,
-        topics: r.topics.map((t) => ({ id: t, label: TOPICS[t].label })),
-        keywords: r.keywords,
-        reasons: r.reasons,
-      },
-    };
-  });
-  const end = offset + page.length;
-  const caughtUp = end >= ranked.length;
-  return {
-    ...result,
-    meta: {
-      result_count: page.length,
-      next_token: caughtUp ? undefined : String(end),
-      caught_up: caughtUp,
-      session: { limit: settings.session_limit, delivered: end, available: ranked.length },
-      hide_metrics: settings.hide_metrics,
-      // false = nenhum tópico, palavra-chave ou aprendizado ainda: o ranking é quase cronológico
-      personalized:
-        Object.values(settings.topics).some((v) => v > 0) || settings.keywords.length > 0 || learnedRaw.topics.some((t) => t.value > 0),
-      algorithm: 'interesses-v1',
-    },
-  };
 }
 
 const round = (x) => Math.round(x * 1000) / 1000;

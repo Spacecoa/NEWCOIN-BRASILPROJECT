@@ -226,6 +226,8 @@ Cadastro com `username`, `email` e `password` (≥ 8, bcrypt com custo 10). Logi
 
 ## 4. API (resumo)
 
+Leitura sem login: posts, conversas, perfis e o outbox federado são abertos (`opc.`); toda ação (postar, curtir, seguir, denunciar…) exige login e responde 401 sem ele.
+
 Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_count, newest_id, oldest_id, next_token } }`. Paginação: `since_id`, `until_id` (alias `max_id`) e `max_results` (1–100).
 
 | Método | Rota | Auth | Descrição |
@@ -237,9 +239,15 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | POST | `/api/auth/logout-all` | ✔ | Encerra as sessões em todos os aparelhos |
 | GET | `/api/auth/me` | ✔ | Usuário atual |
 | POST/DELETE | `/api/users/:username/mute` · `/block` | ✔ | Silenciar / bloquear (ver [`docs/11`](11-moderacao.md)) |
+| GET | `/api/denuncias/motivos` | — | Motivos aceitos numa denúncia |
 | POST/GET | `/api/denuncias` | ✔ | Denunciar post ou conta; minhas denúncias |
+| GET | `/api/conta/bloqueados` · `/silenciados` | ✔ | Quem eu bloqueei / silenciei |
 | GET/POST | `/api/moderacao/denuncias` · `/:id/resolver` | moderação | Fila e decisões (arquivar, remover post, suspender), citando a regra |
+| POST | `/api/moderacao/usuarios/:username/reativar` | moderação | Reativa uma conta suspensa |
+| PUT | `/api/moderacao/regras` | moderação | Edita as regras da instância |
+| GET/POST | `/api/moderacao/recursos` · `/:id/decidir` | moderação | Fila de recursos e decisão (aceitar ou manter) |
 | GET | `/api/instancia/regras` | — | Regras da instância (ver [`docs/12`](12-regras-e-recursos.md)) |
+| GET | `/api/conta/decisoes` | ✔ | Decisões da moderação sobre mim |
 | POST | `/api/conta/decisoes/:id/recurso` · `/api/recursos/suspensao` | ✔ / e-mail e senha | Recurso de uma decisão |
 | GET | `/api/timeline` | ✔ | Home "Seguindo" (cronológica reversa) |
 | GET | `/api/mentions` | ✔ | Posts que mencionam o usuário |
@@ -247,31 +255,33 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | POST | `/api/posts` | ✔ | `{text, reply_to_id?}` → post criado + autor |
 | GET | `/api/posts/:id` | opc. | Post hidratado |
 | GET | `/api/posts/:id/thread` | opc. | Conversa inteira (`meta.focal_id`) |
-| DELETE | `/api/posts/:id` | ✔ | Apaga (só o autor) |
+| DELETE | `/api/posts/:id` | ✔ | Apaga (só o autor; post denunciado ou removido não some de vez) |
 | POST/DELETE | `/api/posts/:id/like` | ✔ | Curtir / descurtir |
 | POST/DELETE | `/api/posts/:id/repost` | ✔ | Repostar / desfazer |
-| GET | `/api/users?q=` | — | Busca |
+| GET | `/api/users?q=` | opc. | Busca |
 | GET | `/api/users/:username` | opc. | Perfil + métricas + relação |
 | GET | `/api/users/:username/posts?exclude=replies,reposts` | opc. | Posts do usuário |
-| GET | `/api/users/:username/followers` · `/following` | — | Listas |
+| GET | `/api/users/:username/followers` · `/following` | opc. | Listas (sem contas suspensas) |
 | POST/DELETE | `/api/users/:username/follow` | ✔ | Seguir / deixar de seguir |
 | GET/POST | `/api/channels` | ✔ | Listar / criar `{slug, title, kind}` |
-| GET | `/api/channels/:slug` | ✔ | Detalhes + papel do usuário |
+| GET | `/api/channels/:slug` | ✔ | Detalhes + papel do usuário (grupo: só membros leem) |
 | POST | `/api/channels/:slug/members` | ✔ | Entrar |
 | DELETE | `/api/channels/:slug/members/me` | ✔ | Sair |
 | PUT | `/api/channels/:slug/members/:username/role` | ✔ dono | Promover/rebaixar admin |
+| DELETE | `/api/channels/:slug/members/:username` | ✔ admin | Remover uma pessoa do grupo |
+| DELETE | `/api/channels/:slug/bans/:username` | ✔ admin | Desfazer o banimento |
 | GET | `/api/channels/:slug/messages` | ✔ | Histórico paginado |
 | GET | `/api/channels/:slug/difference?pts=N` | ✔ | Mensagens com pts > N |
 | POST | `/api/channels/:slug/messages` | ✔ | Enviar (regras de `kind`/papel) |
-| POST | `/api/channels/:slug/messages/:id/reactions` | ✔ | `{emoji}` |
+| POST | `/api/channels/:slug/messages/:id/reactions` | ✔ | `{emoji}` (até 8 emojis por mensagem, 3 por pessoa) |
 | DELETE | `/api/channels/:slug/messages/:id/reactions/:emoji` | ✔ | Remover reação |
-| GET | `/api/feed/interesses` | ✔ | Feed "Para você" do algoritmo aberto, com explicação por post |
-| GET/PUT | `/api/feed/preferencias` | ✔ | Preferências do algoritmo e o que ele aprendeu |
-| DELETE | `/api/feed/aprendizado` | ✔ | Apaga o aprendizado |
-| POST | `/api/posts/:id/feedback` | ✔ | `{kind: "more" \| "less"}` |
+| GET | `/api/feed/interesses` | ✔ | **410**: o feed "Para você" é calculado no aparelho (ver [`docs/07` §2.10](07-atencao-e-algoritmo-aberto.md)) |
+| GET/PUT | `/api/feed/preferencias` | ✔ | O servidor só guarda `missions_enabled` e `count_time`; o algoritmo fica no aparelho |
+| DELETE | `/api/feed/aprendizado` | ✔ | Apaga o que contas antigas ainda tinham no servidor |
+| POST | `/api/posts/:id/feedback` | ✔ | `{kind: "more" \| "less"}`; responde `stored: false` (o aprendizado é feito no aparelho) |
 | GET | `/api/feed/algoritmo` | — | Especificação pública do algoritmo |
-| GET | `/api/feed/candidatos` | ✔ | Candidatos para calcular o feed no navegador (modo "neste aparelho") |
-| PUT | `/api/feed/modo` | ✔ | `server` ou `device`: onde o feed "Para você" é calculado |
+| GET | `/api/feed/candidatos` | ✔ | Candidatos (últimos 7 dias, até 500) para o aparelho ranquear |
+| PUT | `/api/feed/modo` | ✔ | Só aceita `device`: entrega uma última vez a cópia de contas antigas e a apaga do servidor |
 | GET | `/api/missoes` | ✔ | Missões do dia, verificadas pelas ações reais, e painel coletivo |
 | POST | `/api/missoes/:id/pular` | ✔ | Pular uma missão hoje |
 | GET/POST | `/api/convites` | ✔ | Listar / gerar convites de uso único |
@@ -279,7 +289,10 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | GET | `/api/carteira` | ✔ | Saldo e extrato |
 | POST | `/api/posts/:id/recompensa` | ✔ | Transfere 1 NWC ao autor do post |
 | POST | `/api/atividade` | ✔ | Sinal de minuto ativo (missão de tempo) |
+| GET | `/api/dados` · `/api/dados/:id` | — | Aba Brasil: indicadores oficiais com fonte, histórico e selo de verificação (ver [`docs/13`](13-informacao-oficial-e-verificacao.md)) |
+| POST | `/api/moderacao/dados/atualizar` | moderação | Busca de novo nas fontes (desligado por padrão) |
 | GET | `/.well-known/webfinger?resource=acct:u@dominio` | — | Descoberta federada |
+| GET | `/.well-known/nodeinfo` | — | Metadados da instância |
 | GET | `/federation/users/:u` · `/outbox` | — | Ator e últimos posts (ActivityStreams) |
 
 **Eventos Socket.io (servidor → cliente):** `timeline:new`, `notification` (`mention` ou `reply`), `post:deleted`, `message:new`, `message:reactions`. **Cliente → servidor:** `channel:subscribe` (com ack `{ok, pts}`) e `channel:unsubscribe`.

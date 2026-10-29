@@ -101,7 +101,11 @@ export async function readSource(source, { fetchImpl = fetch, now = new Date(), 
     const timeout = err.name === 'TimeoutError' || err.name === 'AbortError';
     throw Object.assign(new Error(timeout ? 'a fonte demorou demais para responder' : 'não foi possível conectar à fonte (sem internet, rede bloqueada ou fonte fora do ar)'), { url });
   }
+  // Teto de tamanho: uma fonte respondendo algo enorme não enche memória nem banco (docs/14, D-1).
+  const MAX_BODY = 2 * 1024 * 1024;
+  if (Number(res.headers?.get?.('content-length') ?? 0) > MAX_BODY) throw Object.assign(new Error('a resposta da fonte é grande demais'), { url });
   const body = await res.text();
+  if (body.length > MAX_BODY) throw Object.assign(new Error('a resposta da fonte é grande demais'), { url });
   if (!res.ok) throw Object.assign(new Error(`a fonte respondeu ${res.status}`), { url, body });
   let json;
   try {

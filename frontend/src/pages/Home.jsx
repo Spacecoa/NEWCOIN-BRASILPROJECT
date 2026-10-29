@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api.js';
 import { createDeviceSource } from '../lib/deviceAlgo.js';
-import { useRankingMode } from '../lib/rankingMode.js';
+import { useDeviceAlgorithm } from '../lib/rankingMode.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { Link } from 'react-router';
 import ComposeSheet from '../components/ComposeSheet.jsx';
@@ -54,11 +54,12 @@ export default function Home() {
   };
   const interests = tab === 'interesses';
   const { user } = useAuth();
-  const mode = useRankingMode();
+  // O algoritmo fica só neste aparelho e é carregado daqui sempre que a pessoa volta.
+  const algo = useDeviceAlgorithm(user?.id);
   // Uma fonte nova por visita à aba: busca os candidatos e ordena neste navegador.
   const deviceSource = useMemo(
-    () => (mode === 'device' && user ? createDeviceSource(user.id, () => api('/api/feed/candidatos')) : null),
-    [mode, user, tab],
+    () => (algo && user ? createDeviceSource(user.id, () => api('/api/feed/candidatos')) : null),
+    [algo, user, tab],
   );
   const [missions, setMissions] = useState(null);
   useEffect(() => {
@@ -70,11 +71,7 @@ export default function Home() {
       <PageHeader
         title="Início"
         subtitle={
-          interests
-            ? mode === 'device'
-              ? 'Ordenado neste aparelho pelo algoritmo aberto'
-              : 'Ordenado pelo algoritmo aberto, que você controla'
-            : 'Quem você segue, do mais novo ao mais antigo'
+          interests ? 'Ordenado neste aparelho, com o seu algoritmo' : 'Quem você segue, do mais novo ao mais antigo'
         }
       >
         <Link
@@ -116,13 +113,22 @@ export default function Home() {
           </button>
         ))}
       </div>
-      {interests && !mode ? (
-        <p className="p-8 text-center text-zinc-500">Carregando…</p>
+      {interests && algo && (
+        <p role="status" className="mx-4 mb-2 text-xs text-zinc-500">
+          {algo.source === 'imported'
+            ? 'Seu algoritmo foi trazido para este aparelho e apagado do servidor. A partir de agora ele fica só aqui.'
+            : algo.source === 'device'
+              ? 'Seu algoritmo foi carregado deste aparelho.'
+              : 'Este aparelho ainda não tem o seu algoritmo: ele começa do zero e aprende com você, só aqui.'}
+        </p>
+      )}
+      {interests && !deviceSource ? (
+        <p className="p-8 text-center text-zinc-500">Carregando seu algoritmo deste aparelho…</p>
       ) : interests ? (
         <Feed
-          key={`interesses-${mode}`}
-          endpoint={mode === 'device' ? 'device:interesses' : '/api/feed/interesses'}
-          source={deviceSource ?? undefined}
+          key="interesses-aparelho"
+          endpoint="device:interesses"
+          source={deviceSource}
           cursorParam="next_token"
           autoLoad={false}
           emptyText="Nada novo nos seus interesses. Ajuste seus tópicos ou siga mais pessoas."

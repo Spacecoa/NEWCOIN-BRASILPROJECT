@@ -5,8 +5,8 @@ import PageHeader from '../components/PageHeader.jsx';
 import PostCard from '../components/PostCard.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { useLoginRedirect } from '../lib/useLoginRedirect.js';
 import { learnLocal } from '../lib/deviceAlgo.js';
-import { getCachedMode } from '../lib/rankingMode.js';
 import { buildThread } from '../lib/thread.js';
 import { usePostStore } from '../lib/usePostStore.js';
 
@@ -24,6 +24,7 @@ export default function Thread() {
   const store = usePostStore();
   const { merge } = store;
   const { user: me } = useAuth();
+  const toLogin = useLoginRedirect();
   const [order, setOrder] = useState(null);
   const [error, setError] = useState(null);
 
@@ -60,15 +61,24 @@ export default function Thread() {
       <div className="border-y border-zinc-100 dark:border-zinc-900">
         <PostCard post={focal} store={store} onChange={merge} highlight />
       </div>
-      <Composer
-        replyTo={focal.id}
-        placeholder={`Responder a @${store.users[focal.author_id]?.username ?? ''}`}
-        onPosted={(result) => {
-          merge(result);
-          if (getCachedMode() === 'device') learnLocal(me.id, focal, 'reply', store.users[focal.author_id]?.username);
-          setOrder((prev) => [...prev, result.data.id]);
-        }}
-      />
+      {me ? (
+        <Composer
+          replyTo={focal.id}
+          placeholder={`Responder a @${store.users[focal.author_id]?.username ?? ''}`}
+          onPosted={(result) => {
+            merge(result);
+            learnLocal(me.id, focal, 'reply', store.users[focal.author_id]?.username);
+            setOrder((prev) => [...prev, result.data.id]);
+          }}
+        />
+      ) : (
+        <div role="region" aria-label="Entre para responder" className="mx-4 my-3 flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-zinc-50 p-4 text-sm dark:bg-zinc-900">
+          <span className="text-zinc-600 dark:text-zinc-300">Você pode ler esta conversa. Para responder, entre na sua conta.</span>
+          <button type="button" onClick={toLogin} className="min-h-11 rounded-full bg-brand-600 px-5 font-extrabold text-white">
+            Entrar para responder
+          </button>
+        </div>
+      )}
       <ReplyTree nodes={replies} store={store} onDelete={load} />
     </>
   );

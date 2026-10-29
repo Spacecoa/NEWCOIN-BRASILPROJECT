@@ -19,10 +19,24 @@ O nome e o símbolo são configuráveis (`TOKEN_NAME`, `TOKEN_SYMBOL`). O padrã
 | **Limites** | Não dá para recompensar o próprio post; são no máximo 20 recompensas por dia; com saldo zero, a recompensa é recusada (HTTP 409) e nada é registrado |
 | **Contabilidade** | Extrato imutável (`token_ledger`) e saldo com `CHECK (balance >= 0)`. Os testes verificam que **saldo = soma do extrato** em todas as carteiras após cada operação |
 | **Utilidade** | Nenhuma além de recompensar. Não há loja, compra, venda, saque, conversão nem transferência para fora do app |
+| **Evaporação** | Sem usar o app, o saldo evapora aos poucos: cada dia inteiro parado leva uma parte e **em 7 dias zera** (ver abaixo). Voltar ao app para a evaporação; o que evaporou sai de circulação |
 
 ### Por que a recompensa transfere em vez de criar
 
 Se cada recompensa criasse token novo, duas contas poderiam se recompensar em círculo e inflar o saldo sem limite. Como a recompensa só transfere, **o total em circulação só cresce por missões**, que são limitadas por dia e verificadas pelas ações reais. Esse comportamento é testado: duas contas que se recompensam mutuamente mantêm o mesmo total.
+
+### Evaporação: contra contas falsas que juntam token
+
+**Decisão do projeto.** Contas criadas só para cumprir missões e passar o token adiante tendem a ficar paradas entre uma rodada e outra. Por isso o NWC evapora com a inatividade (`backend/src/services/evaporation.js`):
+
+- cada dia inteiro sem usar o app leva uma parte do saldo: o 1º dia leva 1/7, o 2º leva 1/6 do que sobrou, e assim por diante até o 7º, que leva o resto. Sem entradas no meio, é uma reta: 7 → 6 → 5 → … → 0;
+- token recebido durante a inatividade também evapora nos dias seguintes;
+- "usar o app" é qualquer pedido com login (abrir o app já conta). Ao voltar, o que estava pendente é descontado e a evaporação para;
+- o que evapora **sai de circulação**: não vai para ninguém, nem para a instância;
+- cada desconto entra no extrato (`kind = 'evaporated'`, `ref = 'inatividade:<dias>d'`) e a carteira mostra o total evaporado;
+- uma rotina de hora em hora desconta as contas paradas, e a mesma conta roda quando a pessoa volta. Rodar duas vezes no mesmo dia não desconta duas vezes.
+
+Testado em `backend/test/evaporation.test.js`.
 
 ### Quanto se pode ganhar por dia
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { api, post, resetDb, signup } from './helpers.js';
+import { api, post, resetDb, signup, asReader } from './helpers.js';
 
 describe('perfis e follows', () => {
   let alice, bob;
@@ -33,8 +33,8 @@ describe('perfis e follows', () => {
     await post(bob, 'post do bob');
     await post(bob, 'reply do bob', root.id);
     await api().post(`/api/posts/${root.id}/repost`).set(bob.auth);
-    expect((await api().get('/api/users/bob/posts')).body.data).toHaveLength(3);
-    const only = await api().get('/api/users/bob/posts?exclude=replies,reposts');
+    expect((await api().get('/api/users/bob/posts').set(await asReader())).body.data).toHaveLength(3);
+    const only = await api().get('/api/users/bob/posts?exclude=replies,reposts').set(await asReader());
     expect(only.body.data.map((p) => p.text)).toEqual(['post do bob']);
   });
 

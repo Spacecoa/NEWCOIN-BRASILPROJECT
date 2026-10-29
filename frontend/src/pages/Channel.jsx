@@ -8,7 +8,11 @@ import { api } from '../lib/api.js';
 import { applyDifference, applyIncoming, mergeReactions } from '../lib/channelSync.js';
 import { fullDate, relativeTime } from '../lib/time.js';
 
-const QUICK_REACTIONS = ['👍', '❤️', '🔥', '😂', '🤔'];
+// Mesma lista que o servidor aceita (até 3 diferentes por pessoa em cada mensagem).
+const QUICK_REACTIONS = ['👍', '❤️', '🔥', '😂', '🤔', '😮', '😢', '👏'];
+
+/** Grupo é só para quem entrou; canal (transmissão) tem prévia para quem está logado. */
+const canRead = (ch) => Boolean(ch && (ch.kind !== 'group' || ch.viewer_role));
 
 export default function Channel() {
   const { slug } = useParams();
@@ -20,17 +24,24 @@ export default function Channel() {
   const [hasOlder, setHasOlder] = useState(false);
   const [text, setText] = useState('');
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
   const syncRef = useRef(sync);
+  const channelRef = useRef(null);
+  channelRef.current = channel;
   syncRef.current = sync;
   const bottom = useRef(null);
 
   const addUsers = (list = []) => setUsers((prev) => ({ ...prev, ...Object.fromEntries(list.map((u) => [u.id, u])) }));
 
   const loadHistory = useCallback(async () => {
-    const [{ data: ch }, history] = await Promise.all([
-      api(`/api/channels/${slug}`),
-      api(`/api/channels/${slug}/messages?max_results=50`),
-    ]);
+    const { data: ch } = await api(`/api/channels/${slug}`);
+    if (!canRead(ch)) {
+      setChannel(ch);
+      setSync({ messages: [], lastPts: 0 });
+      setHasOlder(false);
+      return;
+    }
+    const history = await api(`/api/channels/${slug}/messages?max_results=50`);
     setChannel(ch);
     addUsers(history.includes.users);
     setSync({ messages: [...history.data].reverse(), lastPts: history.meta.pts });
@@ -61,8 +72,9 @@ export default function Channel() {
     loadHistory().catch((e) => setError(e.message));
   }, [loadHistory]);
 
+  const readable = canRead(channel);
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !readable) return;
     const subscribe = () =>
       socket.emitWithAck('channel:subscribe', { slug }).then((ack) => {
         if (ack.ok && ack.pts > syncRef.current.lastPts) catchUp();
@@ -76,17 +88,24 @@ export default function Channel() {
         ...s,
         messages: s.messages.map((m) => (m.id === message_id && !m.hidden ? { ...m, reactions: mergeReactions(m.reactions, reactions) } : m)),
       }));
+    // Saiu do grupo ou foi removido por quem administra: some o histórico na hora.
+    const onRemoved = ({ channel_id }) => {
+      if (channel_id !== channelRef.current?.id) return;
+      loadHistory().catch(() => {});
+    };
     if (socket.connected) subscribe();
     socket.on('connect', subscribe); // reconexão => reinscreve e sincroniza por pts
     socket.on('message:new', onMessage);
     socket.on('message:reactions', onReactions);
+    socket.on('channel:removed', onRemoved);
     return () => {
       socket.emit('channel:unsubscribe', { slug });
       socket.off('connect', subscribe);
       socket.off('message:new', onMessage);
       socket.off('message:reactions', onReactions);
+      socket.off('channel:removed', onRemoved);
     };
-  }, [socket, slug, receive, catchUp]);
+  }, [socket, slug, receive, catchUp, readable, loadHistory]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView?.({ block: 'end' });
@@ -114,20 +133,44 @@ export default function Channel() {
   }
 
   async function membership(join) {
-    const { data } = await api(join ? `/api/channels/${slug}/members` : `/api/channels/${slug}/members/me`, { method: join ? 'POST' : 'DELETE' });
-    setChannel(data);
+    try {
+      setError(null);
+      await api(join ? `/api/channels/${slug}/members` : `/api/channels/${slug}/members/me`, { method: join ? 'POST' : 'DELETE' });
+      await loadHistory();
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   async function react(message, emoji) {
     const mine = message.reactions.find((r) => r.emoji === emoji)?.reacted;
     const url = `/api/channels/${slug}/messages/${message.id}/reactions`;
-    const { data } = await api(mine ? `${url}/${encodeURIComponent(emoji)}` : url, { method: mine ? 'DELETE' : 'POST', body: mine ? undefined : { emoji } });
-    setSync((s) => ({ ...s, messages: s.messages.map((m) => (m.id === message.id ? { ...m, reactions: data.reactions } : m)) }));
+    try {
+      const { data } = await api(mine ? `${url}/${encodeURIComponent(emoji)}` : url, { method: mine ? 'DELETE' : 'POST', body: mine ? undefined : { emoji } });
+      setSync((s) => ({ ...s, messages: s.messages.map((m) => (m.id === message.id ? { ...m, reactions: data.reactions } : m)) }));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  // Quem administra pode remover alguém; a pessoa não consegue entrar de novo.
+  async function removePerson(username) {
+    if (!window.confirm(`Remover @${username} deste espaço? A pessoa não conseguirá entrar de novo.`)) return;
+    try {
+      await api(`/api/channels/${slug}/members/${username}`, { method: 'DELETE' });
+      setError(null);
+      setNotice(`@${username} foi removido(a) e não pode entrar de novo.`);
+      const { data } = await api(`/api/channels/${slug}`);
+      setChannel(data);
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   if (error && !channel) return <p className="p-8 text-center text-zinc-500">{error}</p>;
   if (!channel) return <p className="p-8 text-center text-zinc-500">Carregando…</p>;
   const canPost = channel.viewer_role && (channel.kind === 'group' || channel.viewer_role !== 'member');
+  const canModerate = ['owner', 'admin'].includes(channel.viewer_role);
 
   return (
     <div className="flex h-[calc(100dvh-5.5rem-env(safe-area-inset-bottom,0px))] flex-col md:h-dvh">
@@ -143,6 +186,11 @@ export default function Channel() {
         )}
       </PageHeader>
       <ol className="flex-1 space-y-3 overflow-y-auto p-4" aria-label="Mensagens" aria-live="polite">
+        {!readable && (
+          <li className="rounded-3xl bg-zinc-50 p-5 text-center text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
+            Este grupo é só para quem entrou. Entre para ver e mandar mensagens.
+          </li>
+        )}
         {hasOlder && (
           <li className="text-center">
             <button onClick={loadOlder} className="text-sm text-brand-600 hover:underline">Carregar anteriores</button>
@@ -176,7 +224,16 @@ export default function Channel() {
             <li key={m.id} className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
               <Avatar user={author} size="sm" />
               <div className={`max-w-[80%] rounded-3xl px-4 py-2 ${mine ? 'rounded-br-lg bg-brand-600 text-white' : 'rounded-bl-lg bg-zinc-100 dark:bg-zinc-900'}`}>
-                {!mine && <p className="text-xs font-extrabold text-zinc-500">{author?.display_name ?? '…'}</p>}
+                {!mine && (
+                  <p className="flex items-center gap-2 text-xs font-extrabold text-zinc-500">
+                    <span>{author?.display_name ?? '…'}</span>
+                    {canModerate && author && (
+                      <button type="button" onClick={() => removePerson(author.username)} className="font-normal underline opacity-70 hover:opacity-100">
+                        Remover
+                      </button>
+                    )}
+                  </p>
+                )}
                 <p className="whitespace-pre-wrap break-words">{m.text}</p>
                 <p className={`mt-1 text-right text-[10px] ${mine ? 'text-brand-100' : 'text-zinc-500'}`} title={fullDate(m.created_at)}>
                   {relativeTime(m.created_at)} · pts {m.pts}
@@ -226,6 +283,7 @@ export default function Channel() {
           {channel.viewer_role ? 'Neste canal só administradores publicam.' : 'Entre para participar.'}
         </p>
       )}
+      {notice && <p role="status" className="px-3 pb-2 text-sm text-zinc-600 dark:text-zinc-300">{notice}</p>}
       {error && <p role="alert" className="px-3 pb-2 text-sm text-rose-600">{error}</p>}
     </div>
   );

@@ -31,6 +31,8 @@ function describe(entry) {
       return `Você recompensou @${entry.counterpart ?? 'conta removida'}`;
     case 'tip_received':
       return `@${entry.counterpart ?? 'conta removida'} recompensou seu post`;
+    case 'evaporated':
+      return 'Evaporou (dias sem usar o app)';
     default:
       return entry.kind;
   }
@@ -76,6 +78,10 @@ export default function Wallet() {
           <li>Você ganha {token.symbol} concluindo <Link to="/missoes" className="font-semibold text-brand-600">missões</Link>.</li>
           <li>Use para recompensar posts de outras pessoas: o botão <Icon name="coin" className="inline h-4 w-4" /> transfere {token.tip_amount} {token.symbol} seu para quem escreveu.</li>
           <li>Por enquanto, essa é a única utilidade. O {token.name} não é dinheiro nem criptomoeda, e não pode ser comprado, vendido ou sacado.</li>
+          <li>
+            Ele evapora se você ficar sem usar o app: cada dia parado leva uma parte do saldo, e em {token.evaporation_days} dias zera. Basta
+            voltar ao app para parar; o que evaporou não volta e não vai para ninguém.
+          </li>
         </ul>
       </section>
 

@@ -37,9 +37,21 @@ export function resolveJwtSecret(value, nodeEnv) {
 
 const num = (v, fallback) => (v === undefined || v === '' ? fallback : Number(v));
 
-function trustProxy(v) {
+/**
+ * Em quem confiar para ler o IP real (X-Forwarded-For). "true" confia em QUALQUER um:
+ * quem forja o cabeçalho ganha um limite de tentativas novo a cada pedido (docs/14, A-1).
+ * Fora de produção, "true" impede o servidor de iniciar; em produção só gera um aviso,
+ * para não mudar o comportamento de uma instalação que já esteja no ar.
+ */
+export function trustProxy(v, nodeEnv = env.NODE_ENV) {
   if (v === undefined || v === '' || v === 'false') return false;
-  if (v === 'true') return true;
+  if (v === 'true') {
+    const msg =
+      'TRUST_PROXY=true confia em qualquer X-Forwarded-For e anula os limites por IP. Use o número de proxies (ex.: TRUST_PROXY=1) ou a lista de IPs deles.';
+    if (nodeEnv !== 'production') throw new Error(msg);
+    console.warn(`[config] ${msg}`);
+    return true;
+  }
   return /^\d+$/.test(v) ? Number(v) : v; // número de saltos ou lista de IPs/sub-redes
 }
 

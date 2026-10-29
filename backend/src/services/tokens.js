@@ -3,6 +3,7 @@ import { query, withTransaction } from '../db.js';
 import { conflict, notFound } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
 import { bus } from '../realtime/bus.js';
+import { EVAPORATION } from './evaporation.js';
 import { assertCanInteract } from './relations.js';
 
 // Token interno. Regras (ver docs/09-token-interno.md):
@@ -18,6 +19,8 @@ export const TOKEN = Object.freeze({
   welcome_grant: 3,
   tip_amount: 1,
   max_tips_per_day: 20,
+  // Sem usar o app, o saldo evapora aos poucos e zera em 7 dias (services/evaporation.js).
+  evaporation_days: EVAPORATION.days,
 });
 
 async function credit(client, userId, amount, kind, ref) {
@@ -63,7 +66,8 @@ export async function getWallet(userId) {
     `SELECT
        COALESCE(sum(amount) FILTER (WHERE kind = 'mission'), 0)::int AS from_missions,
        COALESCE(sum(amount) FILTER (WHERE kind = 'tip_received'), 0)::int AS received,
-       COALESCE(-sum(amount) FILTER (WHERE kind = 'tip_sent'), 0)::int AS given
+       COALESCE(-sum(amount) FILTER (WHERE kind = 'tip_sent'), 0)::int AS given,
+       COALESCE(-sum(amount) FILTER (WHERE kind = 'evaporated'), 0)::int AS evaporated
      FROM token_ledger WHERE user_id = $1`,
     [userId],
   );
@@ -90,7 +94,9 @@ export async function tipPost(userId, postId) {
     const { rows } = await client.query('SELECT id, author_id, repost_of_id FROM posts WHERE id = $1 AND removed_at IS NULL', [postId]);
     if (!rows[0]) throw notFound('Post não encontrado');
     const target = rows[0].repost_of_id ?? rows[0].id; // recompensa vai para o original
-    const { rows: orig } = await client.query('SELECT author_id FROM posts WHERE id = $1', [target]);
+    // O original de um repost também precisa estar no ar.
+    const { rows: orig } = await client.query('SELECT author_id FROM posts WHERE id = $1 AND removed_at IS NULL', [target]);
+    if (!orig[0]) throw notFound('Post não encontrado');
     const authorId = orig[0].author_id;
     if (authorId === userId) throw conflict('Você não pode recompensar o próprio post');
     await assertCanInteract(userId, authorId, client);
@@ -126,6 +132,7 @@ export function tokenInfo() {
     utilidade: 'Nenhuma por enquanto: serve apenas para recompensar posts de outras pessoas.',
     emissao: 'Só por missões concluídas (e um saldo inicial de boas-vindas).',
     circulacao: 'Recompensar um post transfere 1 token seu para o autor. Não cria token novo.',
+    evaporacao: `Sem usar o app, o saldo evapora aos poucos: cada dia parado leva uma parte, e em ${EVAPORATION.days} dias zera. Usar o app para a evaporação; o que evaporou sai de circulação.`,
     nao_e: ['dinheiro', 'criptomoeda', 'investimento', 'conversível', 'transferível para fora do app'],
   };
 }

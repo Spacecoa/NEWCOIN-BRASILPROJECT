@@ -44,6 +44,39 @@ export function rateLimit({ name, limit, windowSec, key = (req) => req.user?.id 
   };
 }
 
+/**
+ * Contador de FALHAS (ex.: senha errada para uma conta). Diferente de rateLimit, que conta
+ * todo pedido: aqui só soma quem errou; quem acerta não gasta tentativa.
+ */
+export function failureCounter({ name, limit, windowSec }) {
+  const peekKey = (key) => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const windowStart = nowSec - (nowSec % windowSec);
+    return { fullKey: `rl:${name}:${key}:${windowStart}`, reset: windowStart + windowSec };
+  };
+  return {
+    /** { blocked, retryAfter } sem contar nada. */
+    async check(key) {
+      if (process.env.DISABLE_RATE_LIMIT === '1') return { blocked: false };
+      const { fullKey, reset } = peekKey(key);
+      const redis = getRedis();
+      let count = 0;
+      if (redis) {
+        try {
+          count = Number((await redis.get(fullKey)) ?? 0);
+        } catch {
+          count = memory.get(fullKey)?.count ?? 0;
+        }
+      } else count = memory.get(fullKey)?.count ?? 0;
+      return { blocked: count >= limit, retryAfter: reset - Math.floor(Date.now() / 1000) };
+    },
+    async fail(key) {
+      if (process.env.DISABLE_RATE_LIMIT === '1') return;
+      await hit(`${name}:${key}`, windowSec);
+    },
+  };
+}
+
 export function resetRateLimitMemory() {
   memory.clear();
 }

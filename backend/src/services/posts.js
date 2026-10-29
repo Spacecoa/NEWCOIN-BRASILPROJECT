@@ -1,9 +1,8 @@
 import { query, withTransaction } from '../db.js';
-import { conflict, forbidden, notFound } from '../lib/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
 import { extractMentions } from '../lib/text.js';
 import { bus } from '../realtime/bus.js';
-import { recordSignalSafely } from './interests.js';
 import { assertCanInteract, filterAudience, hiddenAuthors } from './relations.js';
 import { fanOut } from './timeline.js';
 import { getUsersByIds } from './users.js';
@@ -96,8 +95,12 @@ async function resolveMentions(client, text) {
   return rows.map((r) => r.id);
 }
 
+// Cada menção vira notificação: sem teto, um post alcançaria ~50 pessoas (docs/14, P-1).
+export const MAX_MENTIONS = 10;
+
 /** POST /api/posts — cria um post (ou reply, se reply_to_id vier preenchido). */
 export async function createPost(authorId, { text, reply_to_id: replyToId = null }) {
+  if (extractMentions(text).length > MAX_MENTIONS) throw badRequest(`Mencione no máximo ${MAX_MENTIONS} pessoas por post`);
   const id = nextId();
   const { mentionedIds, parentAuthorId } = await withTransaction(async (client) => {
     let conversationId = id; // post raiz: a conversa é ele mesmo
@@ -131,7 +134,6 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
 
   // Quem silenciou ou tem bloqueio com o autor não recebe o aviso em tempo real nem notificação.
   const audience = await filterAudience(authorId, await fanOut(id, authorId));
-  if (replyToId) await recordSignalSafely(authorId, replyToId, 'reply');
   const post = await getPost(id, authorId);
   bus.emit('post:created', { post, audience });
   const notify = new Set(mentionedIds);
@@ -141,12 +143,27 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
   return post;
 }
 
-/** Apaga um post (só o autor). A moderação não apaga: esconde (removed_at), para poder desfazer. */
+/**
+ * Apaga um post (só o autor). A moderação não apaga: esconde (removed_at), para poder desfazer.
+ *
+ * Post já removido pela moderação ou com denúncia em aberto não é apagado de vez: sai do ar
+ * para todos (removed_at) e fica marcado como apagado pelo autor, para a moderação ainda
+ * poder decidir e a prova não sumir (docs/14, M-3). Um recurso aceito não o traz de volta.
+ */
 export async function deletePost(userId, id) {
   await withTransaction(async (client) => {
-    const { rows } = await client.query('SELECT author_id, reply_to_id, repost_of_id FROM posts WHERE id = $1 FOR UPDATE', [id]);
-    if (!rows[0]) throw notFound('Post não encontrado');
+    const { rows } = await client.query(
+      `SELECT author_id, reply_to_id, repost_of_id, removed_at, deleted_by_author_at,
+              EXISTS (SELECT 1 FROM reports r WHERE r.post_id = posts.id AND r.status = 'aberta') AS under_review
+         FROM posts WHERE id = $1 FOR UPDATE`,
+      [id],
+    );
+    if (!rows[0] || rows[0].deleted_by_author_at) throw notFound('Post não encontrado');
     if (rows[0].author_id !== userId) throw forbidden('Só o autor pode apagar o post');
+    if (rows[0].removed_at || rows[0].under_review) {
+      await client.query('UPDATE posts SET removed_at = COALESCE(removed_at, now()), deleted_by_author_at = now() WHERE id = $1', [id]);
+      return;
+    }
     if (rows[0].reply_to_id) {
       await client.query('UPDATE posts SET reply_count = GREATEST(reply_count - 1, 0) WHERE id = $1', [rows[0].reply_to_id]);
     }
@@ -181,7 +198,7 @@ export async function like(userId, postId) {
     );
     if (rowCount) await client.query('UPDATE posts SET like_count = like_count + 1 WHERE id = $1', [postId]);
     return rowCount > 0;
-  }).then((added) => added && recordSignalSafely(userId, postId, 'like'));
+  });
   return getPost(postId, userId);
 }
 
@@ -190,7 +207,7 @@ export async function unlike(userId, postId) {
     const { rowCount } = await client.query('DELETE FROM likes WHERE user_id = $1 AND post_id = $2', [userId, postId]);
     if (rowCount) await client.query('UPDATE posts SET like_count = GREATEST(like_count - 1, 0) WHERE id = $1', [postId]);
     return rowCount > 0;
-  }).then((removed) => removed && recordSignalSafely(userId, postId, 'unlike'));
+  });
   return getPost(postId, userId);
 }
 
@@ -210,7 +227,6 @@ export async function repost(userId, postId) {
     return { inserted: rowCount > 0, originalId };
   });
   if (created.inserted) {
-    await recordSignalSafely(userId, created.originalId, 'repost');
     const audience = await filterAudience(userId, await fanOut(id, userId));
     const post = await getPost(id, userId);
     bus.emit('post:created', { post, audience });

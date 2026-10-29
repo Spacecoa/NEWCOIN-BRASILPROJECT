@@ -16,14 +16,17 @@ describe('federação (somente leitura)', () => {
     expect((await api().get('/.well-known/webfinger?resource=alice')).status).toBe(400);
   });
 
-  it('outbox publica posts como atividades Create/Note', async () => {
+  it('outbox publica posts como atividades Create/Note, com o texto escapado como HTML', async () => {
     const alice = { auth: { Authorization: `Bearer ${(await api().post('/api/auth/login').send({ login: 'alice', password: 'senha1234' })).body.token}` } };
     const p = await post(alice, 'federado!');
     const res = await api().get('/federation/users/alice/outbox');
     expect(res.body.type).toBe('OrderedCollection');
     expect(res.body.orderedItems[0]).toMatchObject({
       type: 'Create',
-      object: { type: 'Note', content: 'federado!', id: `http://agora.test/posts/${p.id}` },
+      object: { type: 'Note', content: '<p>federado!</p>', id: `http://agora.test/posts/${p.id}` },
     });
+    await post(alice, '<b>oi</b> & "tchau"');
+    const escaped = (await api().get('/federation/users/alice/outbox')).body.orderedItems[0].object.content;
+    expect(escaped).toBe('<p>&lt;b&gt;oi&lt;/b&gt; &amp; &quot;tchau&quot;</p>');
   });
 });

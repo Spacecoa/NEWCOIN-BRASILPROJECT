@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
+import { touchActivity } from '../services/evaporation.js';
 import { isRevoked } from '../services/sessions.js';
 import { unauthorized } from './errors.js';
 
@@ -44,9 +45,20 @@ function tokenFrom(req) {
   return header.startsWith('Bearer ') ? header.slice(7) : null;
 }
 
+/** Todo pedido logado conta como uso do app (para a evaporação do NWC). Nunca derruba o pedido. */
+async function markActive(user) {
+  if (!user) return;
+  try {
+    await touchActivity(user.id);
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'test') console.warn('[atividade] falha ao marcar uso:', err.message);
+  }
+}
+
 /** Popula req.user se houver token válido; nunca bloqueia. */
 export async function optionalAuth(req, _res, next) {
   req.user = await authenticate(tokenFrom(req));
+  await markActive(req.user);
   next();
 }
 
@@ -54,6 +66,7 @@ export async function optionalAuth(req, _res, next) {
 export async function requireAuth(req, _res, next) {
   req.user = await authenticate(tokenFrom(req));
   if (!req.user) return next(unauthorized());
+  await markActive(req.user);
   next();
 }
 

@@ -4,7 +4,6 @@ import { optionalAuth, requireAuth } from '../lib/auth.js';
 import { parse } from '../lib/errors.js';
 import { pageMeta, parsePageParams } from '../lib/pagination.js';
 import { rateLimit } from '../lib/rateLimit.js';
-import { recordSignal } from '../services/interests.js';
 import * as posts from '../services/posts.js';
 import { publicTimelineIds } from '../services/timeline.js';
 
@@ -19,7 +18,10 @@ const createSchema = z.object({
 // O X documenta 300 posts / 3h por usuário (soma de posts e reposts) para criação via API.
 const createLimiter = rateLimit({ name: 'posts:create', limit: 300, windowSec: 3 * 60 * 60 });
 
-/** Timeline pública da instância (mais recentes primeiro). */
+// Ler posts é aberto a qualquer pessoa. Interagir (postar, curtir, repostar, responder,
+// recompensar, seguir, apagar) exige login: todas as rotas de escrita abaixo usam requireAuth.
+
+/** Timeline da instância (mais recentes primeiro). */
 router.get('/', optionalAuth, async (req, res) => {
   const page = parsePageParams(req.query);
   const ids = await publicTimelineIds(page);
@@ -52,11 +54,14 @@ router.delete('/:id/like', requireAuth, async (req, res) => {
   res.json(await posts.unlike(req.user.id, parse(idParam, req.params.id)));
 });
 
-/** "Mais disto" / "Menos disto": sinal explícito para o algoritmo de interesses. */
+/**
+ * "Mais disto" / "Menos disto": o aprendizado acontece no aparelho de cada pessoa. A rota
+ * continua aceitando o sinal (apps antigos), mas o servidor não guarda nada.
+ */
 router.post('/:id/feedback', requireAuth, async (req, res) => {
   const { kind } = parse(z.object({ kind: z.enum(['more', 'less']) }), req.body);
-  const { stored } = await recordSignal(req.user.id, parse(idParam, req.params.id), kind);
-  res.json({ ok: true, kind, stored });
+  parse(idParam, req.params.id);
+  res.json({ ok: true, kind, stored: false });
 });
 
 router.post('/:id/repost', requireAuth, createLimiter, async (req, res) => {

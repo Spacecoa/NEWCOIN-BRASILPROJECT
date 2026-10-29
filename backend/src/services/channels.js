@@ -1,5 +1,5 @@
 import { query, withTransaction } from '../db.js';
-import { conflict, forbidden, notFound } from '../lib/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
 import { bus } from '../realtime/bus.js';
 import { assertCanInteract, viewerRelations } from './relations.js';
@@ -13,6 +13,19 @@ import { getUsersByIds } from './users.js';
 //   /difference?pts=N para buscar só o que perdeu (análogo a updates.getChannelDifference).
 
 const DIFFERENCE_LIMIT = 100;
+
+// Reações: só estes emojis, e no máximo 3 diferentes por pessoa na mesma mensagem.
+// Antes o campo aceitava qualquer texto, sem limite (docs/14, C-3).
+export const ALLOWED_REACTIONS = ['👍', '❤️', '🔥', '😂', '🤔', '😮', '😢', '👏'];
+export const MAX_REACTIONS_PER_PERSON = 3;
+
+/**
+ * Grupo é conversa entre membros: só quem entrou lê e recebe as mensagens (docs/14, C-1).
+ * Canal (transmissão) continua com prévia pública para quem está logado, como no Telegram.
+ */
+export function assertCanRead(channel) {
+  if (channel.kind === 'group' && !channel.viewer_role) throw forbidden('Entre no grupo para ver as mensagens');
+}
 
 function formatChannel(row) {
   return {
@@ -65,6 +78,8 @@ export async function createChannel(ownerId, { slug, title, description = '', ki
 
 export async function joinChannel(userId, slug) {
   const channel = await getChannel(slug, userId);
+  const { rows: ban } = await query('SELECT 1 FROM channel_bans WHERE channel_id = $1 AND user_id = $2', [channel.id, userId]);
+  if (ban.length) throw forbidden('Você foi removido deste espaço por quem o administra');
   await query(
     "INSERT INTO channel_members (channel_id, user_id, role) VALUES ($1, $2, 'member') ON CONFLICT DO NOTHING",
     [channel.id, userId],
@@ -76,6 +91,8 @@ export async function leaveChannel(userId, slug) {
   const channel = await getChannel(slug, userId);
   if (channel.viewer_role === 'owner') throw conflict('O dono não pode sair do próprio canal');
   await query('DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2', [channel.id, userId]);
+  // Quem sai de um grupo deixa de receber as mensagens ao vivo.
+  if (channel.kind === 'group') bus.emit('channel:removed', { channelId: channel.id, userId });
   return getChannel(slug, userId);
 }
 
@@ -89,6 +106,42 @@ export async function setMemberRole(actorId, slug, username, role) {
   );
   if (!rowCount) throw notFound('Membro não encontrado');
   return { username, role };
+}
+
+/**
+ * Remove alguém do grupo ou canal e impede que entre de novo (docs/14, C-2).
+ * Dono remove qualquer pessoa; admin remove membros (não outros admins nem o dono).
+ */
+export async function removeMember(actorId, slug, username) {
+  const channel = await getChannel(slug, actorId);
+  if (!['owner', 'admin'].includes(channel.viewer_role)) throw forbidden('Só quem administra pode remover pessoas');
+  const { rows } = await query(
+    `SELECT u.id, m.role FROM users u LEFT JOIN channel_members m ON m.user_id = u.id AND m.channel_id = $1 WHERE u.username = $2`,
+    [channel.id, username],
+  );
+  const target = rows[0];
+  if (!target) throw notFound('Usuário não encontrado');
+  if (target.id === actorId) throw conflict('Para sair, use "Sair"');
+  if (target.role === 'owner') throw forbidden('O dono não pode ser removido');
+  if (target.role === 'admin' && channel.viewer_role !== 'owner') throw forbidden('Só o dono remove administradores');
+  await withTransaction(async (c) => {
+    await c.query('DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2', [channel.id, target.id]);
+    await c.query('INSERT INTO channel_bans (channel_id, user_id, banned_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [channel.id, target.id, actorId]);
+  });
+  bus.emit('channel:removed', { channelId: channel.id, userId: target.id });
+  return { username, removed: true, banned: true };
+}
+
+/** Desfaz a remoção: a pessoa pode entrar de novo (se quiser). */
+export async function unbanMember(actorId, slug, username) {
+  const channel = await getChannel(slug, actorId);
+  if (!['owner', 'admin'].includes(channel.viewer_role)) throw forbidden('Só quem administra pode desfazer remoções');
+  const { rowCount } = await query(
+    'DELETE FROM channel_bans WHERE channel_id = $1 AND user_id = (SELECT id FROM users WHERE username = $2)',
+    [channel.id, username],
+  );
+  if (!rowCount) throw notFound('Esta pessoa não está removida');
+  return { username, banned: false };
 }
 
 function canPost(channel) {
@@ -145,6 +198,7 @@ async function present(rows, viewerId) {
 /** Histórico paginado (mais recentes primeiro) — análogo a messages.getHistory(offset_id, limit). */
 export async function listMessages(slug, viewerId, { sinceId, untilId, limit }) {
   const channel = await getChannel(slug, viewerId);
+  assertCanRead(channel);
   const { rows } = await query(
     `SELECT * FROM messages WHERE channel_id = $1
        AND ($2::bigint IS NULL OR id > $2) AND ($3::bigint IS NULL OR id < $3)
@@ -158,6 +212,7 @@ export async function listMessages(slug, viewerId, { sinceId, untilId, limit }) 
 /** Mensagens com pts > N, em ordem crescente — análogo a updates.getChannelDifference. */
 export async function getDifference(slug, viewerId, fromPts) {
   const channel = await getChannel(slug, viewerId);
+  assertCanRead(channel);
   const { rows } = await query(
     'SELECT * FROM messages WHERE channel_id = $1 AND pts > $2 ORDER BY pts ASC LIMIT $3',
     [channel.id, fromPts, DIFFERENCE_LIMIT],
@@ -211,7 +266,14 @@ async function emitReactions(channelId, messageId, userId) {
 }
 
 export async function addReaction(userId, slug, messageId, emoji) {
+  if (!ALLOWED_REACTIONS.includes(emoji)) throw badRequest(`Reaja com um destes: ${ALLOWED_REACTIONS.join(' ')}`);
   const channel = await messageInChannel(slug, messageId, userId);
+  const { rows } = await query('SELECT count(*)::int AS n, bool_or(emoji = $3) AS has FROM message_reactions WHERE message_id = $1 AND user_id = $2', [
+    messageId,
+    userId,
+    emoji,
+  ]);
+  if (!rows[0].has && rows[0].n >= MAX_REACTIONS_PER_PERSON) throw conflict(`No máximo ${MAX_REACTIONS_PER_PERSON} reações suas por mensagem`);
   await query(
     'INSERT INTO message_reactions (message_id, user_id, emoji) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
     [messageId, userId, emoji],

@@ -32,19 +32,7 @@ describe('<WhyPanel>', () => {
     expect(screen.getByText('+0')).toBeInTheDocument(); // popularidade não pesa por padrão
   });
 
-  it('"Menos disto" envia o sinal e esconde o post', async () => {
-    const calls = mockFetch([[/\/feedback$/, { ok: true, kind: 'less' }]]);
-    const onHide = vi.fn();
-    render(wrap(<WhyPanel post={ranked} onHide={onHide} />));
-    await userEvent.click(screen.getByRole('button', { name: /Por que este post/ }));
-    await userEvent.click(screen.getByRole('button', { name: 'Menos disto' }));
-    const fb = calls.find((c) => c.url === `/api/posts/${ranked.id}/feedback`);
-    expect(JSON.parse(fb.init.body)).toEqual({ kind: 'less' });
-    expect(onHide).toHaveBeenCalledWith(ranked.id);
-    expect(screen.getByText('Anotado: menos posts assim.')).toBeInTheDocument();
-  });
-
-  it('no modo aparelho, "Menos disto" aprende só no navegador e não chama a API', async () => {
+  it('"Menos disto" aprende só neste aparelho, esconde o post e não chama a API', async () => {
     const calls = mockFetch([]);
     const onHide = vi.fn();
     const local = { ...ranked, author_id: '2', text: 'Postgres e Redis', ranking: { ...ranked.ranking, local: true } };
@@ -54,5 +42,6 @@ describe('<WhyPanel>', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Menos disto' }));
     expect(calls.filter((c) => c.url.includes('/feedback'))).toHaveLength(0);
     expect(onHide).toHaveBeenCalledWith(local.id);
+    expect(screen.getByText('Anotado: menos posts assim.')).toBeInTheDocument();
   });
 });
