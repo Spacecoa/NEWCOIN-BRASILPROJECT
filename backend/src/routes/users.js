@@ -19,8 +19,8 @@ router.get('/:username', optionalAuth, async (req, res) => {
   res.json({ data: await users.getProfile(req.params.username, req.user?.id) });
 });
 
-/** Referência: GET /2/users/:id/tweets?exclude=replies,retweets. Só para quem está logado. */
-router.get('/:username/posts', requireAuth, async (req, res) => {
+/** Referência: GET /2/users/:id/tweets?exclude=replies,retweets. Leitura aberta; sem login, ninguém é "bloqueado". */
+router.get('/:username/posts', optionalAuth, async (req, res) => {
   const page = parsePageParams(req.query);
   const exclude = String(req.query.exclude ?? '').split(',');
   const userId = await users.getUserIdByUsername(req.params.username);

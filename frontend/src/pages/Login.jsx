@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { api } from '../lib/api.js';
 import { ruleLabel } from '../lib/rules.js';
@@ -58,6 +59,7 @@ function Suspended({ s, onAppealed }) {
 
 export default function Login() {
   const { login, notice } = useAuth();
+  const { state } = useLocation();
   const [suspension, setSuspension] = useState(null);
 
   async function submit(f) {
@@ -92,7 +94,7 @@ export default function Login() {
     <AuthForm
       title="Entrar"
       submitLabel="Entrar"
-      notice={notice}
+      notice={notice ?? (state?.from ? 'Entre para interagir. Depois você volta para onde estava.' : null)}
       onSubmit={submit}
       footer={
         <>

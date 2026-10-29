@@ -1,6 +1,7 @@
-import { Navigate, Route, Routes } from 'react-router';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { useAuth } from './auth/AuthContext.jsx';
 import Layout from './components/Layout.jsx';
+import VisitorLayout from './components/VisitorLayout.jsx';
 import Channel from './pages/Channel.jsx';
 import Channels from './pages/Channels.jsx';
 import Explore from './pages/Explore.jsx';
@@ -18,6 +19,13 @@ import Brasil from './pages/Brasil.jsx';
 import Thread from './pages/Thread.jsx';
 import Wallet from './pages/Wallet.jsx';
 
+/** Depois de entrar, volta para a página de onde a pessoa veio (ex.: o post que ia curtir). */
+function AfterLogin() {
+  const { state } = useLocation();
+  const from = typeof state?.from === 'string' && state.from.startsWith('/') && !state.from.startsWith('//') ? state.from : '/';
+  return <Navigate to={from} replace />;
+}
+
 export default function App() {
   const { user, loading } = useAuth();
   if (loading) return <p className="p-8 text-center text-zinc-500">Carregando…</p>;
@@ -28,7 +36,15 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Register />} />
         <Route path="/regras" element={<Rules />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* Visitante: lê posts, threads, perfis e a aba Brasil. Interagir pede login. */}
+        <Route element={<VisitorLayout />}>
+          <Route index element={<Explore />} />
+          <Route path="explorar" element={<Navigate to="/" replace />} />
+          <Route path="u/:username" element={<Profile />} />
+          <Route path="post/:id" element={<Thread />} />
+          <Route path="brasil" element={<Brasil />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }
@@ -51,8 +67,8 @@ export default function App() {
         <Route path="regras" element={<Rules />} />
         <Route path="brasil" element={<Brasil />} />
       </Route>
-      <Route path="/login" element={<Navigate to="/" replace />} />
-      <Route path="/cadastro" element={<Navigate to="/" replace />} />
+      <Route path="/login" element={<AfterLogin />} />
+      <Route path="/cadastro" element={<AfterLogin />} />
       <Route path="*" element={<p className="p-8 text-center">Página não encontrada.</p>} />
     </Routes>
   );

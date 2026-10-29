@@ -217,16 +217,45 @@ describe('M-4 · ninguém decide o próprio caso quando há outra pessoa na mode
   });
 });
 
-describe('Posts só com login (decisão do projeto)', () => {
-  it('sem login, nenhuma rota entrega post: timeline, post, thread, perfil e federação', async () => {
+describe('Posts: leitura aberta, interação só com login (decisão do projeto)', () => {
+  it('sem login dá para ler timeline, post, thread, perfil e outbox', async () => {
     const a = await signup('autora');
-    const p = await post(a, 'só para quem entrou');
-    for (const path of ['/api/posts', `/api/posts/${p.id}`, `/api/posts/${p.id}/thread`, '/api/users/autora/posts']) {
-      expect((await api().get(path)).status, path).toBe(401);
+    const p = await post(a, 'visível para todo mundo');
+    const r = await post(a, 'resposta na thread', p.id);
+    for (const path of ['/api/posts', `/api/posts/${p.id}`, `/api/posts/${p.id}/thread`, '/api/users/autora', '/api/users/autora/posts']) {
+      expect((await api().get(path)).status, path).toBe(200);
     }
-    expect(JSON.stringify((await api().get('/federation/users/autora/outbox')).body)).not.toContain('só para quem entrou');
-    // Com login, tudo continua igual.
-    expect((await api().get(`/api/posts/${p.id}`).set(a.auth)).status).toBe(200);
+    expect((await api().get(`/api/posts/${p.id}/thread`)).body.data.map((x) => x.id)).toEqual([p.id, r.id]);
+    expect(JSON.stringify((await api().get('/federation/users/autora/outbox')).body)).toContain('visível para todo mundo');
+    // Quem lê sem login não tem "viewer": nada aparece como curtido ou recompensado.
+    expect((await api().get(`/api/posts/${p.id}`)).body.data.viewer).toEqual({ liked: false, reposted: false, tipped: false });
+  });
+
+  it('sem login, nenhuma interação funciona: postar, curtir, repostar, responder, recompensar, seguir, silenciar, bloquear, denunciar, feedback', async () => {
+    const a = await signup('autora');
+    const p = await post(a, 'só leitura para visitantes');
+    const attempts = [
+      ['post', '/api/posts', { text: 'tentando postar' }],
+      ['post', '/api/posts', { text: 'tentando responder', reply_to_id: p.id }],
+      ['post', `/api/posts/${p.id}/like`],
+      ['post', `/api/posts/${p.id}/repost`],
+      ['post', `/api/posts/${p.id}/recompensa`],
+      ['post', `/api/posts/${p.id}/feedback`, { kind: 'more' }],
+      ['delete', `/api/posts/${p.id}`],
+      ['post', '/api/users/autora/follow'],
+      ['post', '/api/users/autora/mute'],
+      ['post', '/api/users/autora/block'],
+      ['post', '/api/denuncias', { post_id: p.id, reason: 'spam' }],
+      ['get', '/api/carteira'],
+      ['get', '/api/channels'],
+    ];
+    for (const [method, path, body] of attempts) {
+      const res = await api()[method](path).send(body);
+      expect(res.status, `${method} ${path}`).toBe(401);
+    }
+    // Nada foi criado nem alterado.
+    expect((await query('SELECT count(*)::int AS n FROM posts')).rows[0].n).toBe(1);
+    expect((await api().get(`/api/posts/${p.id}`)).body.data.public_metrics).toMatchObject({ like_count: 0, repost_count: 0, reply_count: 0, tip_count: 0 });
   });
 });
 

@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router';
+import { useLoginRedirect } from '../lib/useLoginRedirect.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { api } from '../lib/api.js';
 import { useState } from 'react';
@@ -42,6 +43,7 @@ function ActionButton({ label, icon, active = false, count, onClick, hideCount =
 export default function PostCard({ post, store, onChange, onDelete, onHideAuthor, highlight = false, hideMetrics = false }) {
   const { user: me } = useAuth();
   const navigate = useNavigate();
+  const toLogin = useLoginRedirect(); // visitante: ler pode, interagir pede login
   const token = useToken();
   const [tipError, setTipError] = useState(null);
   const [reporting, setReporting] = useState(false);
@@ -56,7 +58,7 @@ export default function PostCard({ post, store, onChange, onDelete, onHideAuthor
   const { like_count, reply_count, repost_count } = shown.public_metrics;
 
   async function act(path, active) {
-    if (!me) return navigate('/login');
+    if (!me) return toLogin();
     onChange?.(await api(`/api/posts/${shown.id}/${path}`, { method: active ? 'DELETE' : 'POST' }));
     // O algoritmo fica só neste aparelho: é aqui que ele aprende com o sinal.
     const signal = path === 'like' ? (active ? 'unlike' : 'like') : active ? null : 'repost';
@@ -64,7 +66,7 @@ export default function PostCard({ post, store, onChange, onDelete, onHideAuthor
   }
 
   async function tip() {
-    if (!me) return navigate('/login');
+    if (!me) return toLogin();
     if (shown.viewer.tipped) return;
     setTipError(null);
     try {
