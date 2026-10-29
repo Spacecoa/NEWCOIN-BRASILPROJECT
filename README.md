@@ -92,7 +92,7 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 
 ```bash
 cd backend  && npm test   # 213 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
-cd frontend && npm test   # 64 testes: lógica e componentes (jsdom)
+cd frontend && npm test   # 68 testes: lógica e componentes (jsdom)
 ```
 
 Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL`. Os testes de integração **apagam** o banco de teste e o banco 1 do Redis.

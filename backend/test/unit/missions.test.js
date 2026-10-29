@@ -16,7 +16,7 @@ describe('seleção das missões do dia', () => {
     expect(people.size).toBeGreaterThan(1);
   });
 
-  it('no máximo 3 por dia, só entre as aplicáveis', () => {
+  it('no máximo 4 por dia, só entre as aplicáveis', () => {
     const r = selectMissions('1', '2026-10-27', all);
     expect(r).toHaveLength(MISSIONS_PER_DAY);
     expect(selectMissions('1', '2026-10-27', ['convidar', 'ponte'])).toEqual(expect.arrayContaining(['convidar', 'ponte']));

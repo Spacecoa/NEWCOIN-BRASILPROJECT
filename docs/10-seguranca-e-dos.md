@@ -10,18 +10,20 @@ O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limi
 
 **Atualização (28/10/2026, etapa 1):** A1, A2, A3, M7, M8 e B1 foram corrigidos, com testes (§8). Os demais itens seguem como propostas, em ordem de prioridade (§6).
 
+**Atualização (29/10/2026, pré-produção, PR #18):** a análise por módulo em [`docs/14`](14-analise-de-brechas-por-modulo.md) avançou M4, M5 e M6 (detalhes nas seções abaixo). Desde então, o servidor também deixou de calcular o feed "Para você": o ranking roda no aparelho e `/api/feed/interesses` responde 410, o que elimina a rota de C1.
+
 | # | Achado | Severidade | Situação |
 |---|---|---|---|
-| C1 | Feed "Para você": uma conta degrada o servidor inteiro (CPU no event loop, rota sem limite) | **Crítica** | **Corrigido** |
+| C1 | Feed "Para você": uma conta degrada o servidor inteiro (CPU no event loop, rota sem limite) | **Crítica** | **Corrigido** (e a rota não calcula mais nada: o ranking é no aparelho) |
 | A1 | Segredo JWT com valor padrão conhecido | Alta | **Corrigido** (etapa 1) |
 | A2 | Tokens de 7 dias sem revogação, guardados em `localStorage` | Alta | **Corrigido** (etapa 1) |
 | A3 | Rotas caras ou públicas sem limite de requisições | Alta | **Corrigido** (etapa 1: limite geral) |
 | M1 | Fan-out síncrono dentro da requisição de postar | Média | Proposta |
 | M2 | Missões: consultas pesadas e painel coletivo recalculado a cada pedido | Média | Proposta |
 | M3 | Enumeração de contas (cadastro e tempo de resposta do login) | Média | Parcial (login corrigido; cadastro pendente) |
-| M4 | Limite de login só por IP, e `trust proxy` não configurado | Média | Parcial (`TRUST_PROXY` configurável) |
-| M5 | WebSocket sem limites de conexões e eventos, exclusão enviada a todos | Média | Proposta |
-| M6 | Contas falsas podem minerar NWC pelas missões | Média | Proposta (antes de dar utilidade ao token) |
+| M4 | Limite de login só por IP, e `trust proxy` não configurado | Média | **Quase todo corrigido** (contador por conta; `TRUST_PROXY=true` recusado fora de produção). Falta separar os contadores de login e cadastro |
+| M5 | WebSocket sem limites de conexões e eventos, exclusão enviada a todos | Média | **Parcial** (limites de conexões, assinaturas e tamanho). Falta enviar `post:deleted` só à audiência |
+| M6 | Contas falsas podem minerar NWC pelas missões | Média | **Parcial** (sem atividade, o NWC evapora e zera em 7 dias). Verificação de conta e teto de emissão continuam propostos |
 | M7 | Sem cabeçalhos de segurança (CSP, frame-ancestors, HSTS…) | Média | **Corrigido** (etapa 1) |
 | M8 | Banco sem `statement_timeout` e pool pequeno amplificam lentidão | Média | **Corrigido** (etapa 1) |
 | B1 | Corpo acima de 32 KB responde 500 e grava o erro completo no log | Baixa | **Corrigido** (etapa 1) |
@@ -186,6 +188,13 @@ O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limi
 - separar os contadores de login e de cadastro;
 - adicionar um contador **por conta**, com espera crescente após falhas, sem bloquear a conta de forma permanente.
 
+**Correção aplicada (PR #18):**
+- contador **por conta**: 10 senhas erradas em 15 minutos bloqueiam novas tentativas naquela conta até a janela passar, sem bloqueio permanente (`failureCounter` em `lib/rateLimit.js`);
+- `TRUST_PROXY=true` (confiar em qualquer proxy) é recusado fora de produção e só gera aviso em produção; use o número de saltos;
+- o recurso de suspensão divide o limite `auth`.
+
+Login e cadastro ainda dividem o mesmo contador por IP.
+
 ### 4.9 M5 — WebSocket sem limites · Média
 
 **Evidência** (`backend/src/realtime/socket.js`):
@@ -203,6 +212,14 @@ O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limi
 - guardar em memória os canais já assinados;
 - enviar `post:deleted` só para as salas da audiência do post.
 
+**Correção aplicada (PR #18)** (`WS_LIMITS` em `realtime/socket.js`):
+- 10 conexões por conta;
+- 50 canais por conexão, guardados em memória;
+- 30 assinaturas por minuto;
+- `maxHttpBufferSize` de 16 KB.
+
+O `post:deleted` continua indo para todas as conexões. Ele só leva o id do post.
+
 ### 4.10 M6 — Contas falsas e o token NWC · Média
 
 **Evidência:** o cadastro é aberto e não há verificação de e-mail. As regras das missões (curtidas de 3 pessoas diferentes, comentários com 15 caracteres) podem ser cumpridas por um grupo de contas falsas, e cada conta emite até 13 NWC por dia (`docs/09-token-interno.md`).
@@ -214,6 +231,8 @@ O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limi
 - teto de emissão por instância e por dia;
 - ignorar interações entre contas novas ou de baixa confiança para fins de missão;
 - painel de anomalias (grupos que só interagem entre si).
+
+**Correção aplicada (PR #18):** **evaporação**. Sem atividade, o saldo de NWC evapora aos poucos (cada dia inteiro parado leva uma parte) e zera em 7 dias; quem volta ao app para de perder (`services/evaporation.js`, [`docs/09`](09-token-interno.md)). Isso desestimula juntar NWC em contas falsas paradas. Verificação de conta e teto de emissão continuam propostos.
 
 ### 4.11 M7 — Sem cabeçalhos de segurança · Média · **corrigido**
 
@@ -276,10 +295,11 @@ Inundação de conexões, de pacotes ou de requisições vindas de muitas origen
 |---|---|---|---|
 | **Feito** | C1 (MMR otimizado + limite em `/api/feed/interesses`) | — | Uma conta derrubava o serviço |
 | **Feito (etapa 1)** | A1, A2, A3 (limite geral), M7, M8, B1; `trust proxy` configurável; B3 parcial | — | Autenticação e base pronta para rede aberta (§8) |
-| 2 | M3 (cadastro), M4 (limite de login por conta), M5 (WebSocket) | Médio | Fecha o que resta da autenticação e do tempo real |
+| **Feito (PR #18)** | M4 (limite por conta, `trust proxy` seguro), M5 (limites do WebSocket), M6 parcial (evaporação); demais achados de [`docs/14`](14-analise-de-brechas-por-modulo.md) | — | Pré-produção |
+| 2 | M3 (cadastro), resto de M4 (separar contadores de login e cadastro) e de M5 (`post:deleted` só para a audiência) | Médio | Fecha o que resta da autenticação e do tempo real |
 | 3 | M2 (consultas e cache das missões), B2, B3 (falhar fechado), B4 | Médio | Robustez sob carga |
 | 4 | M1 (fan-out em fila e híbrido), proxy reverso e observabilidade (§5) | Maior | Escala |
-| Antes de dar utilidade ao NWC | M6 (contas falsas e teto de emissão) | Médio | O incentivo econômico muda o modelo de ameaça |
+| Antes de dar utilidade ao NWC | Resto de M6 (verificação de conta e teto de emissão) | Médio | O incentivo econômico muda o modelo de ameaça |
 
 ## 7. Como reproduzir as medições
 

@@ -79,6 +79,7 @@ function RulesEditor({ rules, onSaved, onCancel }) {
 /** Página pública: as regras, quem modera, como as decisões funcionam e como recorrer. */
 export default function Rules() {
   const { user } = useAuth();
+  const Main = user ? 'div' : 'main';
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -88,7 +89,8 @@ export default function Rules() {
   }, []);
 
   return (
-    <div className={user ? '' : 'mx-auto max-w-xl pb-10'}>
+    // Logada, a página já está dentro do <main> do Layout; sem login, ela é a própria região principal.
+    <Main className={user ? '' : 'mx-auto max-w-xl pb-10'}>
       <PageHeader back title="Regras da instância" subtitle={data?.updated_at ? `Atualizadas em ${new Date(data.updated_at).toLocaleDateString('pt-BR')}` : 'Valem para todas as pessoas daqui'} />
       <div className="space-y-6 px-4 pb-8">
         {error && <p role="alert" className="text-zinc-500">{error}</p>}
@@ -139,6 +141,6 @@ export default function Rules() {
           </>
         ))}
       </div>
-    </div>
+    </Main>
   );
 }

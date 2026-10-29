@@ -77,7 +77,7 @@ export default function Login() {
   // Tela própria (fora do formulário de login: um formulário não pode ficar dentro do outro).
   if (suspension) {
     return (
-      <div className="flex min-h-dvh items-center justify-center px-6">
+      <main className="flex min-h-dvh items-center justify-center px-6">
         <div className="w-full max-w-sm space-y-4">
           <p className="text-3xl font-extrabold tracking-tight text-brand-600">ágora</p>
           <h1 className="text-xl font-bold">Conta suspensa</h1>
@@ -86,7 +86,7 @@ export default function Login() {
             Voltar para entrar
           </button>
         </div>
-      </div>
+      </main>
     );
   }
 

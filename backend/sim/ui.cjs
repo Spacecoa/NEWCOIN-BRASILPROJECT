@@ -518,17 +518,14 @@ sim('Missões na tela', 'Missões: 4 cartões, pular tira a cobrança, convite g
   const pular = page.getByRole('button', { name: 'Pular hoje' }).first();
   await pular.click();
   await page.getByText(/pulada|Pulada/).first().waitFor();
-  // Convites: docs/08 §5 diz que cada pessoa gera convites. A tela só oferece o botão no cartão
-  // da missão "Traga alguém de confiança", que não é sorteada todo dia.
-  const sem = (await api(a.tok, 'GET', '/api/missoes')).j.missions.some((m) => m.id === 'convidar');
-  if (sem) {
-    await page.getByRole('button', { name: 'Gerar convite' }).first().click();
-    await page.getByLabel('Link do convite').first().waitFor();
-    check((await page.getByLabel('Link do convite').first().inputValue()).includes('/cadastro?convite='), 'o link do convite deveria apontar para o cadastro');
-  } else {
-    const botao = await page.getByRole('button', { name: /Gerar convite|Convidar/ }).count();
-    check(botao > 0, 'nos dias em que a missão "Traga alguém de confiança" não é sorteada, a tela não oferece nenhum jeito de gerar um convite (a API oferece: POST /api/convites)');
-  }
+  // Convites: docs/08 §5 diz que cada pessoa gera convites, com ou sem a missão de convite no dia.
+  const comMissao = (await api(a.tok, 'GET', '/api/missoes')).j.missions.some((m) => m.id === 'convidar' && m.status === 'todo');
+  const botoes = page.getByRole('button', { name: 'Gerar convite' });
+  check((await botoes.count()) === 1, `deveria haver exatamente 1 botão "Gerar convite" (missão de convite hoje: ${comMissao}), há ${await botoes.count()}`);
+  if (!comMissao) check((await page.getByRole('region', { name: 'Seus convites' }).getByRole('button', { name: 'Gerar convite' }).count()) === 1, 'sem a missão, o botão deveria ficar em "Seus convites"');
+  await botoes.first().click();
+  await page.getByLabel('Link do convite').first().waitFor();
+  check((await page.getByLabel('Link do convite').first().inputValue()).includes('/cadastro?convite='), 'o link do convite deveria apontar para o cadastro');
   await context.close();
 });
 

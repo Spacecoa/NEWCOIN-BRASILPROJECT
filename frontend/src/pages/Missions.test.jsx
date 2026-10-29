@@ -67,4 +67,25 @@ describe('<Missions>', () => {
     renderPage();
     expect(await screen.findByText('Você escondeu as missões.')).toBeInTheDocument();
   });
+
+  it('convidar fica disponível mesmo sem a missão de convite no dia, e com as missões escondidas', async () => {
+    for (const over of [{ missions: payload().missions.filter((m) => m.id !== 'convidar') }, { enabled: false, missions: [] }]) {
+      mockFetch([
+        [/\/api\/convites$/, (url, init) => (init.method === 'POST' ? { data: { code: 'wxyz2345', path: '/cadastro?convite=wxyz2345', used: false } } : { data: [] })],
+        [/\/api\/missoes$/, payload(over)],
+      ]);
+      const { unmount } = renderPage();
+      const section = await screen.findByRole('region', { name: 'Seus convites' });
+      await userEvent.click(within(section).getByRole('button', { name: 'Gerar convite' }));
+      expect(await within(section).findByLabelText('Link do convite')).toHaveValue(`${window.location.origin}/cadastro?convite=wxyz2345`);
+      unmount();
+    }
+  });
+
+  it('com a missão de convite no dia, o botão aparece uma vez só (no cartão)', async () => {
+    mockFetch([[/\/api\/missoes$/, payload()], [/\/api\/convites$/, { data: [] }]]);
+    renderPage();
+    await screen.findByText('Traga alguém de confiança');
+    expect(screen.getAllByRole('button', { name: 'Gerar convite' })).toHaveLength(1);
+  });
 });

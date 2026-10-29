@@ -196,6 +196,7 @@ export default function Missions() {
 
   if (error && !data) return <p className="p-8 text-center text-zinc-500">{error}</p>;
   if (!data) return <p className="p-8 text-center text-zinc-500">Carregando…</p>;
+  const cardOffersInvite = data.enabled && data.missions.some((m) => m.id === 'convidar' && m.status === 'todo');
 
   return (
     <>
@@ -233,9 +234,22 @@ export default function Missions() {
         </section>
       )}
 
-      {invites.length > 0 && (
-        <section className="px-4 py-2" aria-label="Seus convites">
-          <h2 className="font-extrabold">Seus convites</h2>
+      <section className="px-4 py-2" aria-label="Seus convites">
+        <h2 className="font-extrabold">Seus convites</h2>
+        <p className="mt-1 text-sm text-zinc-500">Cada convite vale para uma pessoa. Convide quem você conhece e confia.</p>
+        {/* A missão "convidar" só sai em alguns dias; convidar fica sempre disponível aqui. */}
+        {!cardOffersInvite && (
+          <div className="mt-2">
+            {newInvite ? (
+              <CopyLink path={newInvite.path} />
+            ) : (
+              <button type="button" onClick={invite} className="min-h-11 rounded-full bg-brand-600 px-4 text-sm font-extrabold text-white">
+                Gerar convite
+              </button>
+            )}
+          </div>
+        )}
+        {invites.length > 0 && (
           <ul className="mt-2 divide-y divide-zinc-100 text-sm dark:divide-zinc-900">
             {invites.map((i) => (
               <li key={i.code} className="flex min-h-11 items-center justify-between gap-2">
@@ -244,8 +258,8 @@ export default function Missions() {
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        )}
+      </section>
 
       <section className="px-4 py-6 text-sm text-zinc-500" aria-label="Como as missões funcionam">
         <h2 className="mb-1 font-extrabold text-zinc-900 dark:text-white">Como funcionam</h2>

@@ -18,6 +18,20 @@ Nenhuma simulação encontrou erro interno (HTTP 5xx), vazamento de dados, inter
 
 Na primeira rodada, 14 simulações falharam. **12 eram erros das próprias simulações** (conta de saldo errada, esperar a lista carregar, texto em maiúsculas pelo CSS, expectativa de redirecionar para o login depois de sair, entre outros). Em cada uma conferi no código e na tela que o app estava certo e corrigi a simulação. Só as 2 falhas restantes são do app.
 
+### Correções feitas depois das simulações
+
+| # | O que mudou | Conferido por |
+|---|---|---|
+| S095 | "Gerar convite" fica sempre em **"Seus convites"** (Missões), inclusive nos dias sem a missão de convite e com as missões escondidas. No dia da missão, o botão fica só no cartão dela, para não aparecer duas vezes | S095 reescrita (exatamente 1 botão, em qualquer dia) e 2 testes em `Missions.test.jsx` |
+| S099 | `/login`, `/cadastro` e a tela de conta suspensa usam `<main>`. `/regras` usa `<main>` para visitantes; logada, ela já fica dentro do `<main>` do layout, sem um segundo | S099 e testes em `Login.test.jsx`, `Register.test.jsx` e `Rules.test.jsx` (novo) |
+| D1 | README com 213 testes no backend e 68 no frontend | — |
+| D2 | `docs/03` §4: rotas do algoritmo no aparelho, `/api/dados`, `/api/conta/*`, moderação de regras, recursos e reativação, remover e banir em grupos, motivos de denúncia, nodeinfo e leitura aberta a visitantes | conferido contra `backend/src/routes` |
+| D3 | `docs/08`: 4 missões por dia (2 + 2), convite sempre disponível e os 4 NWC da missão "Traga alguém de confiança" | — |
+| D4 | `docs/10`: M4 quase todo corrigido, M5 e M6 parciais, com o que ainda falta | — |
+| D5 | O seed também apaga as regras da instância e `moderator_names_missing`, e recria as 7 regras padrão. Uma regra feita à mão some depois do seed (8 → 7) | conferido no banco de desenvolvimento |
+
+**Nova rodada depois das correções: 100 de 100 passaram** (76 de API e 24 na tela). As 3 observações de usabilidade (§4.2) continuam em aberto.
+
 ## 2. Como foi feito
 
 - **Ambiente:** o app rodando localmente, com os dados do seed. Duas instâncias com o mesmo banco: uma **sem limite de pedidos** para as simulações comuns e outra **com os limites normais** para as que testam os limites (denúncias por dia, pedidos por pessoa, senhas erradas por conta, tentativas de entrada por IP, evaporação ao voltar).

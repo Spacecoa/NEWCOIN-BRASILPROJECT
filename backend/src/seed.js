@@ -1,5 +1,6 @@
 // Popula o banco com dados FICTÍCIOS para testes locais.
-// Uso: npm run seed            (apaga tudo e recria)
+// Uso: npm run seed            (apaga contas, conteúdo, regras e moderação e recria;
+//                               as regras voltam às 7 padrão. Só os dados oficiais da aba Brasil ficam)
 //      SEED_USERS=50 npm run seed
 //
 // Os IDs são gerados com um relógio simulado que avança ao longo dos últimos dias,
@@ -13,6 +14,7 @@ import { hashPassword } from './lib/auth.js';
 import { createSnowflake, snowflakeToDate } from './lib/snowflake.js';
 import { extractMentions } from './lib/text.js';
 import { migrate } from './migrate.js';
+import { ensureDefaultRules } from './services/rules.js';
 
 // Senha das contas de teste. Só é a senha conhecida ("senha1234", citada no README) quando a
 // instância é local. Em qualquer outro domínio (pré-produção acessível pela rede), vem de
@@ -119,7 +121,8 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
   const passwordHash = await hashPassword(SEED_PASSWORD);
 
   await withTransaction(async (db) => {
-    await db.query('TRUNCATE users, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
+    // instance_rules e moderator_names_missing não dependem de users: sem citá-las, regras feitas à mão sobreviviam ao seed.
+    await db.query('TRUNCATE instance_rules, moderator_names_missing, users, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
 
     // Usuários (os 12 nomeados + extras numerados, se pedido)
     const users = [];
@@ -291,6 +294,7 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
 
     log(`Seed concluído: ${users.length + NEWCOMERS.length + (ana ? 1 : 0)} usuários (${NEWCOMERS.length} recém-chegadas), ${reports} denúncias abertas, ${follows} follows, ${posts.length} posts, ${likes} likes, ${CHANNELS.length} canais, ${messages} mensagens.`);
   });
+  await ensureDefaultRules();
 
   // Timelines materializadas ficaram obsoletas: o Redis as reconstrói sob demanda.
   const redis = getRedis();

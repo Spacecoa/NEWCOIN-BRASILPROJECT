@@ -48,6 +48,7 @@ describe('<Login> com e-mail e senha', () => {
     mockFetch([]);
     renderApp();
     const senha = await screen.findByLabelText('Senha');
+    expect(screen.getByRole('main')).toContainElement(senha); // leitor de tela pula direto para o formulário
     expect(senha).toHaveAttribute('type', 'password');
     await userEvent.click(screen.getByRole('button', { name: 'Mostrar' }));
     expect(senha).toHaveAttribute('type', 'text');
