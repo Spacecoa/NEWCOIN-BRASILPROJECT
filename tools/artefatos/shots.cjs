@@ -20,6 +20,7 @@ require('node:fs').mkdirSync(OUT, { recursive: true });
   await shot('/interesses', 'algoritmo');
   await shot('/notificacoes', 'notificacoes');
   await shot('/explorar?q=postgres', 'busca');
+  await shot('/u/otavio_recife', 'imagem');
   await shot('/missoes', 'missoes');
   await shot('/carteira', 'carteira');
   await shot('/canais/cafe', 'canal');

@@ -13,6 +13,12 @@ const idParam = z.string().regex(/^\d{1,20}$/, 'ID inválido');
 const createSchema = z.object({
   text: z.string().trim().min(1, 'o texto não pode ser vazio').max(280, 'máximo de 280 caracteres'),
   reply_to_id: idParam.nullish(),
+  // Imagens já enviadas (POST /api/midia). A descrição é obrigatória: é o que leitores de tela
+  // leem para quem não enxerga a imagem.
+  media: z
+    .array(z.object({ id: idParam, alt: z.string().trim().min(1, 'descreva a imagem para quem não enxerga').max(1000, 'descrição de no máximo 1000 caracteres') }).strict())
+    .max(4, 'no máximo 4 imagens por post')
+    .optional(),
 });
 
 // O X documenta 300 posts / 3h por usuário (soma de posts e reposts) para criação via API.

@@ -460,3 +460,23 @@ BEGIN
   END IF;
 END $$;
 CREATE INDEX IF NOT EXISTS posts_search_idx ON posts USING gin (to_tsvector('agora_pt', text)) WHERE repost_of_id IS NULL;
+
+-- Imagens dos posts. Guardadas no próprio Postgres (o protótipo não tem armazenamento de
+-- arquivos), já sem metadados: o servidor tira EXIF/GPS, XMP, IPTC e textos ao receber.
+-- Enviada e ainda sem post, a imagem só existe para quem enviou e some em 1 dia.
+CREATE TABLE IF NOT EXISTS media (
+  id         BIGINT PRIMARY KEY,
+  owner_id   BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id    BIGINT REFERENCES posts(id) ON DELETE CASCADE,
+  position   SMALLINT,
+  mime       TEXT   NOT NULL CHECK (mime IN ('image/jpeg', 'image/png', 'image/webp')),
+  bytes      BYTEA  NOT NULL,
+  size       INTEGER NOT NULL,
+  width      INTEGER NOT NULL,
+  height     INTEGER NOT NULL,
+  alt        TEXT CHECK (alt IS NULL OR char_length(alt) BETWEEN 1 AND 1000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK ((post_id IS NULL) = (alt IS NULL))
+);
+CREATE INDEX IF NOT EXISTS media_post_idx ON media (post_id, position) WHERE post_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS media_pending_idx ON media (owner_id, created_at) WHERE post_id IS NULL;

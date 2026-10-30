@@ -12,7 +12,8 @@ const CSP = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   'font-src https://fonts.gstatic.com',
-  "img-src 'self' data:",
+  // blob: é a prévia da imagem escolhida, antes de enviar.
+  "img-src 'self' data: blob:",
   "connect-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",

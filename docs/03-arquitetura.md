@@ -257,7 +257,9 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | GET | `/api/notificacoes/nao-lidas` | ✔ | Só o contador |
 | POST | `/api/notificacoes/lidas` | ✔ | `{newest_id?}` marca como lidas até o mais novo que a pessoa viu |
 | GET | `/api/posts` | opc. | Timeline pública da instância |
-| POST | `/api/posts` | ✔ | `{text, reply_to_id?}` → post criado + autor |
+| POST | `/api/posts` | ✔ | `{text, reply_to_id?, media?: [{id, alt}]}` → post criado + autor (até 4 imagens, descrição obrigatória) |
+| POST | `/api/midia` | ✔ | Bytes de uma imagem JPEG, PNG ou WebP (até 2 MB e 4096 px). O tipo é conferido pelos bytes e os metadados (EXIF/GPS, XMP, IPTC, textos) são removidos. Devolve `{id, url, width, height}`; sem post, some em 1 dia |
+| GET | `/api/midia/:id` | — | A imagem, só enquanto o post estiver no ar e a conta não estiver suspensa |
 | GET | `/api/posts/busca?q=` | opc. | Busca posts por palavras (português, sem diferença de acento, pelo radical), mais recentes primeiro e sem ordenar por curtidas; aceita "aspas", -palavra e OR; paginação por `until_id` |
 | GET | `/api/posts/:id` | opc. | Post hidratado |
 | GET | `/api/posts/:id/thread` | opc. | Conversa inteira (`meta.focal_id`) |
@@ -330,6 +332,6 @@ Itens necessários: chaves por ator e assinatura HTTP; `inbox` com fila e reentr
 | Fan-out de contas grandes | Push para todos os seguidores | Híbrido: acima de N seguidores, mesclar na leitura (como o X) |
 | Barramento | `EventEmitter` em processo | Redis Pub/Sub ou NATS + `@socket.io/redis-adapter` |
 | Fan-out síncrono | Dentro da requisição | Fila (BullMQ ou Kafka) com workers |
-| Mídia | — | Upload direto ao objeto (S3/MinIO) com URL assinada, CDN e download em pedaços (como `upload.getFile`) |
+| Mídia | Imagens no Postgres (`bytea`), servidas pela API | Upload direto ao objeto (S3/MinIO) com URL assinada, CDN e download em pedaços (como `upload.getFile`) |
 | Busca | `ILIKE` | Postgres FTS ou OpenSearch |
 | Contadores quentes | `UPDATE … +1` | Contadores no Redis com *flush* periódico |

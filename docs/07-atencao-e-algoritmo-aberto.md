@@ -55,7 +55,7 @@ Uma resposta prevista vale 27 curtidas, e uma conversa com o autor vale 150. Iss
 | **Presença e leitura** ("digitando…", "visto por último", confirmação de leitura) | Telegram | Pressão social para responder na hora | Não implementado |
 | **Recomendação opaca** | X ("Para você"); Telegram ("canais similares", desde 2023) | A pessoa não sabe por que vê algo nem como mudar | **Cada post explica sua posição** com números, e a pessoa ajusta tudo |
 | **Sequências e metas** ("streaks") | Apps em geral | Medo de perder a sequência (FOMO) | Sequências não existem. As missões diárias rendem um token interno de valor fixo (ver [`09-token-interno.md`](09-token-interno.md)), sem acúmulo por dias seguidos |
-| **Autoplay de vídeo** | X | Consumo passivo contínuo | Sem mídia no protótipo; se houver, autoplay desligado por padrão |
+| **Autoplay de vídeo** | X | Consumo passivo contínuo | Só imagens, sem vídeo; se vídeo entrar, autoplay desligado por padrão |
 
 O Telegram, vale notar, **não tem feed algorítmico**: canais e grupos são cronológicos. Os gatilhos dele estão na **mensageria** (contadores, notificações, presença), e não no ranqueamento.
 
