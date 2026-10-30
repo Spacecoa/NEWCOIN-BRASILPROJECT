@@ -42,6 +42,8 @@ Na primeira rodada, 14 simulações falharam. **12 eram erros das próprias simu
 
 Rodada final: 100 de 100, sem observações.
 
+**Depois das notificações e da recuperação de senha (30/10/2026):** a S100 passou a percorrer a aba **Notificações** (que substituiu Menções na navegação). A S083 falhou uma vez numa rodada completa. A causa: recompensar um post também cumpre a missão "Recompense alguém" (+1 NWC, `docs/08`), que só é sorteada em parte dos dias para cada conta. Quando ela sai, o saldo certo é 3, não 2. O app estava certo; a simulação agora calcula o saldo esperado pelo extrato. Nova rodada: 100 de 100.
+
 ## 2. Como foi feito
 
 - **Ambiente:** o app rodando localmente, com os dados do seed. Duas instâncias com o mesmo banco: uma **sem limite de pedidos** para as simulações comuns e outra **com os limites normais** para as que testam os limites (denúncias por dia, pedidos por pessoa, senhas erradas por conta, tentativas de entrada por IP, evaporação ao voltar).

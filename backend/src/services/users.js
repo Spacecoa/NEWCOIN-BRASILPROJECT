@@ -3,6 +3,7 @@ import { query } from '../db.js';
 import { conflict, notFound } from '../lib/errors.js';
 import { hashPassword } from '../lib/auth.js';
 import { nextId } from '../lib/ids.js';
+import { notify, retract } from './notifications.js';
 import { assertCanInteract, hiddenAuthorsSql, isBlockedEitherWay } from './relations.js';
 import { invalidateHomeTimeline } from './timeline.js';
 
@@ -99,10 +100,11 @@ export async function follow(followerId, username) {
   const followeeId = await getUserIdByUsername(username);
   if (followeeId === followerId) throw conflict('Não é possível seguir a si mesmo');
   await assertCanInteract(followerId, followeeId);
-  await query(
+  const { rowCount } = await query(
     'INSERT INTO follows (follower_id, followee_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
     [followerId, followeeId],
   );
+  if (rowCount) await notify({ kind: 'follow', actorId: followerId, userIds: [followeeId] });
   // A timeline materializada passa a estar incompleta: descartamos e ela é
   // reconstruída sob demanda na próxima leitura.
   await invalidateHomeTimeline(followerId);
@@ -112,6 +114,7 @@ export async function follow(followerId, username) {
 export async function unfollow(followerId, username) {
   const followeeId = await getUserIdByUsername(username);
   await query('DELETE FROM follows WHERE follower_id = $1 AND followee_id = $2', [followerId, followeeId]);
+  await retract({ kind: 'follow', actorId: followerId, userId: followeeId });
   await invalidateHomeTimeline(followerId);
   return { following: false };
 }

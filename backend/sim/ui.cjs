@@ -216,7 +216,13 @@ sim('Token na tela', 'Recompensar pelo botão da moeda: saldo cai 1, extrato reg
   await page.getByText('Seu saldo').waitFor();
   await page.getByText('Extrato').waitFor();
   const txt = await body(page);
-  check(/2\s*NWC/.test(txt), `o saldo deveria ser 2 NWC: ${txt.slice(0, 120)}`);
+  // 3 de boas-vindas − 1 da recompensa; se a missão "Recompense alguém" saiu hoje para esta
+  // conta, ela paga +1 (docs/08). Por isso o saldo esperado vem do extrato, não de um número fixo.
+  const w = (await api(a.tok, 'GET', '/api/carteira')).j;
+  const missoes = w.ledger.filter((l) => l.kind === 'mission').reduce((t, l) => t + l.amount, 0);
+  check(w.ledger.some((l) => l.kind === 'tip_sent' && l.amount === -1), 'o extrato deveria ter a recompensa de −1 NWC');
+  eq(w.balance, 2 + missoes, 'saldo (3 − 1 + missões)');
+  check(new RegExp(`${w.balance}\\s*NWC`).test(txt), `a tela deveria mostrar ${w.balance} NWC: ${txt.slice(0, 120).replace(/\s+/g, ' ')}`);
   check(txt.includes(`Você recompensou @${b.u}`), 'o extrato deveria citar a pessoa recompensada');
   check(/evapora/.test(txt) && /7 dias/.test(txt), 'a carteira deveria explicar a evaporação em 7 dias');
   check(/missões/.test(txt) && /não é dinheiro/.test(txt), 'a carteira deveria dizer que o NWC não é dinheiro');
@@ -643,7 +649,7 @@ sim('Navegação e erros', 'Abas do celular levam às telas certas; rota inexist
   const { page, context } = await open();
   await uiLogin(page, a.email);
   const nav = page.locator('nav[aria-label="Principal (celular)"]');
-  const alvo = { Início: 'Início', Brasil: 'Brasil em dados', Explorar: 'Explorar', Menções: 'Menções', Canais: 'Canais' };
+  const alvo = { Início: 'Início', Brasil: 'Brasil em dados', Explorar: 'Explorar', Notificações: 'Notificações', Canais: 'Canais' };
   for (const [aba, titulo] of Object.entries(alvo)) {
     await nav.getByRole('link', { name: aba }).click();
     await page.getByRole('heading', { name: titulo }).first().waitFor();

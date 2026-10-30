@@ -417,3 +417,31 @@ BEGIN
       CHECK (kind IN ('grant', 'mission', 'tip_sent', 'tip_received', 'evaporated'));
   END IF;
 END $$;
+
+-- Notificações: quem curtiu, repostou, respondeu, mencionou, seguiu ou recompensou.
+-- Uma linha por ação (a mesma curtida não notifica duas vezes); desfazer a ação apaga a linha.
+CREATE TABLE IF NOT EXISTS notifications (
+  id         BIGINT PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  actor_id   BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind       TEXT   NOT NULL CHECK (kind IN ('like', 'repost', 'reply', 'mention', 'follow', 'tip')),
+  post_id    BIGINT REFERENCES posts(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  read_at    TIMESTAMPTZ,
+  CHECK ((kind = 'follow') = (post_id IS NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS notifications_unique ON notifications (user_id, actor_id, kind, COALESCE(post_id, 0));
+CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, id DESC);
+CREATE INDEX IF NOT EXISTS notifications_unread_idx ON notifications (user_id) WHERE read_at IS NULL;
+
+-- Recuperação de senha: o link leva um token aleatório; o banco guarda só o hash dele.
+-- Vale 30 minutos e uma vez só; trocar a senha invalida os outros links e encerra as sessões.
+CREATE TABLE IF NOT EXISTS password_resets (
+  id         BIGINT PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT   NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS password_resets_user_idx ON password_resets (user_id, created_at DESC);

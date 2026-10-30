@@ -76,6 +76,11 @@ export const config = {
   instanceDomain: env.INSTANCE_DOMAIN ?? 'localhost:4000',
   workerId: Number(env.WORKER_ID ?? 1),
   corsOrigin: env.CORS_ORIGIN ?? 'http://localhost:5173',
+  // Endereço do app no navegador, usado nos links enviados por e-mail (recuperar senha).
+  webUrl: (env.WEB_URL ?? env.CORS_ORIGIN ?? 'http://localhost:5173').replace(/\/$/, ''),
+  // Como os e-mails saem. "log" (único disponível no protótipo) escreve o e-mail no log do
+  // servidor, para testar localmente sem servidor de e-mail.
+  mailTransport: env.MAIL_TRANSPORT ?? 'log',
   // Tamanho máximo da timeline materializada no Redis. O X documenta que a home
   // timeline retorna no máximo ~800 posts; usamos o mesmo teto.
   // Fuso que define o "dia" das missões diárias.

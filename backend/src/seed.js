@@ -292,6 +292,30 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
       }
     }
 
+    // Notificações do que o seed já fez (curtidas, seguidores, respostas e menções), em ordem de
+    // acontecimento (curtidas com a data do post, que o seed não guarda). Só o último dia fica como não lido, para o contador não começar enorme.
+    const { rows: happened } = await db.query(
+      `SELECT * FROM (
+         SELECT p.author_id AS user_id, l.user_id AS actor_id, 'like' AS kind, l.post_id, p.created_at FROM likes l JOIN posts p ON p.id = l.post_id
+         UNION ALL SELECT followee_id, follower_id, 'follow', NULL, created_at FROM follows
+         UNION ALL SELECT parent.author_id, r.author_id, 'reply', r.id, r.created_at FROM posts r JOIN posts parent ON parent.id = r.reply_to_id
+         UNION ALL SELECT m.user_id, p.author_id, 'mention', p.id, p.created_at FROM mentions m JOIN posts p ON p.id = m.post_id
+           WHERE p.reply_to_id IS NULL OR m.user_id <> (SELECT author_id FROM posts WHERE id = p.reply_to_id)
+       ) n WHERE user_id <> actor_id ORDER BY created_at`,
+    );
+    // O ID vem da data do acontecimento (não do relógio simulado do seed, que passa de "agora"):
+    // assim, um aviso de verdade criado depois do seed fica acima destes na lista.
+    let at = 0;
+    const notificationId = createSnowflake(1, () => at);
+    for (const n of happened) {
+      at = new Date(n.created_at).getTime();
+      await db.query(
+        `INSERT INTO notifications (id, user_id, actor_id, kind, post_id, created_at, read_at)
+         VALUES ($1,$2,$3,$4,$5,$6, CASE WHEN $6 < now() - interval '1 day' THEN $6 END) ON CONFLICT DO NOTHING`,
+        [notificationId(), n.user_id, n.actor_id, n.kind, n.post_id, n.created_at],
+      );
+    }
+
     log(`Seed concluído: ${users.length + NEWCOMERS.length + (ana ? 1 : 0)} usuários (${NEWCOMERS.length} recém-chegadas), ${reports} denúncias abertas, ${follows} follows, ${posts.length} posts, ${likes} likes, ${CHANNELS.length} canais, ${messages} mensagens.`);
   });
   await ensureDefaultRules();

@@ -3,6 +3,7 @@ import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
 import { extractMentions } from '../lib/text.js';
 import { bus } from '../realtime/bus.js';
+import { notify, retract } from './notifications.js';
 import { assertCanInteract, filterAudience, hiddenAuthors } from './relations.js';
 import { fanOut } from './timeline.js';
 import { getUsersByIds } from './users.js';
@@ -136,10 +137,9 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
   const audience = await filterAudience(authorId, await fanOut(id, authorId));
   const post = await getPost(id, authorId);
   bus.emit('post:created', { post, audience });
-  const notify = new Set(mentionedIds);
-  if (parentAuthorId && parentAuthorId !== authorId) notify.add(parentAuthorId);
-  const notifyIds = await filterAudience(authorId, [...notify]);
-  if (notifyIds.length) bus.emit('notification', { userIds: notifyIds, type: replyToId ? 'reply' : 'mention', post });
+  // Quem foi respondido recebe "respondeu"; os demais citados, "mencionou" (um aviso por pessoa).
+  if (parentAuthorId) await notify({ kind: 'reply', actorId: authorId, userIds: [parentAuthorId], postId: id, post });
+  await notify({ kind: 'mention', actorId: authorId, userIds: mentionedIds.filter((uid) => uid !== parentAuthorId), postId: id, post });
   return post;
 }
 
@@ -190,15 +190,16 @@ async function assertPostExists(client, id, actorId) {
 }
 
 export async function like(userId, postId) {
-  await withTransaction(async (client) => {
-    await assertPostExists(client, postId, userId);
+  const liked = await withTransaction(async (client) => {
+    const target = await assertPostExists(client, postId, userId);
     const { rowCount } = await client.query(
       'INSERT INTO likes (user_id, post_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [userId, postId],
     );
     if (rowCount) await client.query('UPDATE posts SET like_count = like_count + 1 WHERE id = $1', [postId]);
-    return rowCount > 0;
+    return rowCount > 0 ? target.original_author : null;
   });
+  if (liked) await notify({ kind: 'like', actorId: userId, userIds: [liked], postId });
   return getPost(postId, userId);
 }
 
@@ -208,6 +209,7 @@ export async function unlike(userId, postId) {
     if (rowCount) await client.query('UPDATE posts SET like_count = GREATEST(like_count - 1, 0) WHERE id = $1', [postId]);
     return rowCount > 0;
   });
+  await retract({ kind: 'like', actorId: userId, postId });
   return getPost(postId, userId);
 }
 
@@ -224,12 +226,13 @@ export async function repost(userId, postId) {
       [id, userId, originalId, rows[0].conversation_id],
     );
     if (rowCount) await client.query('UPDATE posts SET repost_count = repost_count + 1 WHERE id = $1', [originalId]);
-    return { inserted: rowCount > 0, originalId };
+    return { inserted: rowCount > 0, originalId, originalAuthor: target.original_author };
   });
   if (created.inserted) {
     const audience = await filterAudience(userId, await fanOut(id, userId));
     const post = await getPost(id, userId);
     bus.emit('post:created', { post, audience });
+    await notify({ kind: 'repost', actorId: userId, userIds: [created.originalAuthor], postId: created.originalId });
   }
   return getPost(created.originalId, userId);
 }
@@ -242,6 +245,7 @@ export async function unrepost(userId, postId) {
     if (rowCount) await client.query('UPDATE posts SET repost_count = GREATEST(repost_count - 1, 0) WHERE id = $1', [original]);
     return original;
   });
+  await retract({ kind: 'repost', actorId: userId, postId: originalId });
   return getPost(originalId, userId);
 }
 

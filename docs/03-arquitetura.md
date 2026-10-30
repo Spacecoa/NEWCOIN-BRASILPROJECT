@@ -238,6 +238,8 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | POST | `/api/auth/logout` | ✔ ou cookie | Encerra a sessão deste aparelho na hora |
 | POST | `/api/auth/logout-all` | ✔ | Encerra as sessões em todos os aparelhos |
 | GET | `/api/auth/me` | ✔ | Usuário atual |
+| POST | `/api/auth/senha/esqueci` | — | `{email}` → mesma resposta exista ou não a conta; se existir, manda o link (30 min, uso único, até 3 por hora) |
+| POST | `/api/auth/senha/redefinir` | link | `{token, password}` → troca a senha, invalida os outros links e encerra todas as sessões |
 | POST/DELETE | `/api/users/:username/mute` · `/block` | ✔ | Silenciar / bloquear (ver [`docs/11`](11-moderacao.md)) |
 | GET | `/api/denuncias/motivos` | — | Motivos aceitos numa denúncia |
 | POST/GET | `/api/denuncias` | ✔ | Denunciar post ou conta; minhas denúncias |
@@ -251,6 +253,9 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | POST | `/api/conta/decisoes/:id/recurso` · `/api/recursos/suspensao` | ✔ / e-mail e senha | Recurso de uma decisão |
 | GET | `/api/timeline` | ✔ | Home "Seguindo" (cronológica reversa) |
 | GET | `/api/mentions` | ✔ | Posts que mencionam o usuário |
+| GET | `/api/notificacoes` | ✔ | Quem curtiu, repostou, respondeu, mencionou, seguiu ou recompensou (`data` + `includes` + `meta.unread_count`, paginação por `until_id`) |
+| GET | `/api/notificacoes/nao-lidas` | ✔ | Só o contador |
+| POST | `/api/notificacoes/lidas` | ✔ | `{newest_id?}` marca como lidas até o mais novo que a pessoa viu |
 | GET | `/api/posts` | opc. | Timeline pública da instância |
 | POST | `/api/posts` | ✔ | `{text, reply_to_id?}` → post criado + autor |
 | GET | `/api/posts/:id` | opc. | Post hidratado |
@@ -295,7 +300,7 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | GET | `/.well-known/nodeinfo` | — | Metadados da instância |
 | GET | `/federation/users/:u` · `/outbox` | — | Ator e últimos posts (ActivityStreams) |
 
-**Eventos Socket.io (servidor → cliente):** `timeline:new`, `notification` (`mention` ou `reply`), `post:deleted`, `message:new`, `message:reactions`. **Cliente → servidor:** `channel:subscribe` (com ack `{ok, pts}`) e `channel:unsubscribe`.
+**Eventos Socket.io (servidor → cliente):** `timeline:new`, `notification` (`like`, `repost`, `reply`, `mention`, `follow` ou `tip`; o app soma 1 no contador), `post:deleted`, `message:new`, `message:reactions`. **Cliente → servidor:** `channel:subscribe` (com ack `{ok, pts}`) e `channel:unsubscribe`.
 
 ## 5. Caminho para federação completa (não implementado)
 

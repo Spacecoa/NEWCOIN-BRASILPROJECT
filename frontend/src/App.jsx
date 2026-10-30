@@ -5,15 +5,17 @@ import VisitorLayout from './components/VisitorLayout.jsx';
 import Channel from './pages/Channel.jsx';
 import Channels from './pages/Channels.jsx';
 import Explore from './pages/Explore.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
 import Home from './pages/Home.jsx';
 import Interests from './pages/Interests.jsx';
 import Login from './pages/Login.jsx';
-import Mentions from './pages/Mentions.jsx';
 import Missions from './pages/Missions.jsx';
 import Moderation from './pages/Moderation.jsx';
+import Notifications from './pages/Notifications.jsx';
 import Privacy from './pages/Privacy.jsx';
 import Profile from './pages/Profile.jsx';
 import Register from './pages/Register.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import Rules from './pages/Rules.jsx';
 import Brasil from './pages/Brasil.jsx';
 import Thread from './pages/Thread.jsx';
@@ -35,6 +37,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Register />} />
+        <Route path="/esqueci-senha" element={<ForgotPassword />} />
+        <Route path="/redefinir-senha" element={<ResetPassword />} />
         <Route path="/regras" element={<Rules />} />
         {/* Visitante: lê posts, threads, perfis e a aba Brasil. Interagir pede login. */}
         <Route element={<VisitorLayout />}>
@@ -54,7 +58,8 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="explorar" element={<Explore />} />
-        <Route path="mencoes" element={<Mentions />} />
+        <Route path="notificacoes" element={<Notifications />} />
+        <Route path="mencoes" element={<Navigate to="/notificacoes?aba=mencoes" replace />} />
         <Route path="interesses" element={<Interests />} />
         <Route path="missoes" element={<Missions />} />
         <Route path="carteira" element={<Wallet />} />
@@ -69,6 +74,8 @@ export default function App() {
       </Route>
       <Route path="/login" element={<AfterLogin />} />
       <Route path="/cadastro" element={<AfterLogin />} />
+      <Route path="/esqueci-senha" element={<AfterLogin />} />
+      <Route path="/redefinir-senha" element={<ResetPassword />} />
       <Route path="*" element={<p className="p-8 text-center">Página não encontrada.</p>} />
     </Routes>
   );

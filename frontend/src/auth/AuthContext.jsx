@@ -62,6 +62,8 @@ export function AuthProvider({ children }) {
       loading,
       notice,
       clearNotice: () => setNotice(null),
+      // Encerra só o lado do app, com um aviso (ex.: depois de trocar a senha, quando o servidor já encerrou as sessões).
+      endSession: endLocal,
       socket: user ? getSocket(user.id) : null,
       login: async (email, password) => finish(await api('/api/auth/login', { method: 'POST', body: { email, password } })),
       register: async (input) => finish(await api('/api/auth/register', { method: 'POST', body: input })),

@@ -2,18 +2,37 @@ import { NavLink, Outlet } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
+import { useUnreadNotifications } from '../lib/notifications.js';
 import { useActivityBeat } from '../lib/useActivityBeat.js';
+
+/** Ícone da navegação; o sino mostra quantas notificações há sem ler. */
+function NavIcon({ icon, isActive, unread }) {
+  return (
+    <span className="relative">
+      <Icon name={icon} filled={isActive && icon !== 'search' && icon !== 'at'} className="h-6 w-6" />
+      {unread > 0 && (
+        <span aria-hidden className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-extrabold leading-none text-white">
+          {unread > 99 ? '99+' : unread}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Para leitor de tela: "Notificações, 3 não lidas". */
+const UnreadLabel = ({ show, unread }) => (show && unread > 0 ? <span className="sr-only">, {unread} {unread === 1 ? 'não lida' : 'não lidas'}</span> : null);
 
 // Mobile first: no celular, barra de abas fixa no rodapé (zona do polegar).
 // A partir de md, a mesma navegação vira coluna lateral.
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, socket } = useAuth();
   useActivityBeat(Boolean(user));
+  const unread = useUnreadNotifications(socket);
   const items = [
     ['/', 'home', 'Início'],
     ['/brasil', 'chart', 'Brasil'],
     ['/explorar', 'search', 'Explorar'],
-    ['/mencoes', 'at', 'Menções'],
+    ['/notificacoes', 'bell', 'Notificações'],
     ['/canais', 'channels', 'Canais'],
     [`/u/${user.username}`, 'user', 'Perfil'],
   ];
@@ -34,8 +53,9 @@ export default function Layout() {
           >
             {({ isActive }) => (
               <>
-                <Icon name={icon} filled={isActive && icon !== 'search' && icon !== 'at'} className="h-6 w-6" />
+                <NavIcon icon={icon} isActive={isActive} unread={icon === 'bell' ? unread : 0} />
                 {label}
+                <UnreadLabel show={icon === 'bell'} unread={unread} />
               </>
             )}
           </NavLink>
@@ -78,8 +98,9 @@ export default function Layout() {
             >
               {({ isActive }) => (
                 <>
-                  <Icon name={icon} filled={isActive && icon !== 'search' && icon !== 'at'} className="h-6 w-6" />
+                  <NavIcon icon={icon} isActive={isActive} unread={icon === 'bell' ? unread : 0} />
                   {label}
+                  <UnreadLabel show={icon === 'bell'} unread={unread} />
                 </>
               )}
             </NavLink>

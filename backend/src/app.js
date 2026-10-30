@@ -11,6 +11,7 @@ import federationRoutes from './routes/federation.js';
 import feedRoutes from './routes/feed.js';
 import missionRoutes from './routes/missions.js';
 import moderationRoutes from './routes/moderation.js';
+import notificationRoutes from './routes/notifications.js';
 import officialDataRoutes from './routes/officialData.js';
 import tokenRoutes from './routes/tokens.js';
 import postRoutes from './routes/posts.js';
@@ -44,6 +45,7 @@ export function createApp() {
   app.use('/api', tokenRoutes);
   app.use('/api', moderationRoutes);
   app.use('/api', officialDataRoutes);
+  app.use('/api', notificationRoutes);
   app.use(federationRoutes);
 
   app.use((_req, res) => res.status(404).json({ error: 'Rota não encontrada' }));
