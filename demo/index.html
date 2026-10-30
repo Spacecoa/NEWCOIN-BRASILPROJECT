@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--
   Demo interativa do Ágora: página única, roda no navegador sem servidor.
-  Simula o app (feed Seguindo e Para você, Meu algoritmo, threads, canal em tempo real,
-  missões do dia e carteira NWC) com dados fictícios do seed. O painel "Bastidores"
+  Simula o app (feed Seguindo e Para você, Meu algoritmo, threads, notificações, busca,
+  canal em tempo real, missões do dia e carteira NWC) com dados fictícios do seed. O painel "Bastidores"
   mostra o que o backend real faria a cada ação. Abra este arquivo direto no navegador.
   Cópia estática: o app de verdade está em backend/ e frontend/.
 -->
@@ -98,6 +98,8 @@ nav.tabs {
 .tab { min-height: 56px; min-width: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; color: var(--faint); position: relative; }
 .tab[aria-current="page"] { color: var(--ink); font-weight: 800; }
 .dot { position: absolute; top: 8px; right: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.badge { position: absolute; top: 5px; left: calc(50% + 4px); min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 800; line-height: 17px; text-align: center; font-variant-numeric: tabular-nums; }
+.navbtn .badge { position: static; margin-left: auto; }
 
 .fab {
   position: fixed; z-index: 20; width: 56px; height: 56px; border-radius: 50%;
@@ -170,6 +172,20 @@ body[data-view="channel"] .logpill { bottom: calc(140px + env(safe-area-inset-bo
 .more { padding: 12px; text-align: center; }
 .end { padding: 16px; text-align: center; color: var(--faint); font-size: 13px; }
 .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+/* Notificações e busca */
+.nlist { display: grid; }
+.nitem { display: flex; gap: 12px; padding: 12px 8px; border-bottom: 1px solid var(--line); text-align: left; width: 100%; border-radius: 12px; }
+.nitem.new { background: var(--accent-soft); }
+.nitem .ni { color: var(--accent); flex: none; padding-top: 4px; }
+.nitem .nb { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.nitem .nt { font-size: 15px; line-height: 1.35; }
+.nitem .nt b { font-weight: 800; }
+.nitem .np { font-size: 14px; color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
+.nitem .np.theirs { color: var(--ink); }
+.searchbox { width: 100%; min-height: 44px; border-radius: 999px; background: var(--soft); border: 0; padding: 0 16px; font: inherit; font-size: 16px; color: var(--ink); margin-bottom: 8px; }
+.searchbox:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.hint { font-size: 12px; color: var(--muted); margin: 0 4px 8px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .children { margin-left: 18px; padding-left: 8px; border-left: 1px solid var(--line); }
 
 /* Perfil */
@@ -480,7 +496,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
 <body data-auth="out">
 <header class="intro">
   <h1>Ágora <span>em ação</span></h1>
-  <p>Demonstração interativa com dados fictícios (só a aba Brasil traz números reais, das fontes oficiais). Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste, recompense posts com o token NWC, cumpra as missões do dia, veja os últimos números oficiais do país na aba Brasil, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância, cita as regras e decide recursos) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
+  <p>Demonstração interativa com dados fictícios (só a aba Brasil traz números reais, das fontes oficiais). Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste, recompense posts com o token NWC, cumpra as missões do dia, acompanhe quem interagiu no sino de notificações, busque posts no Explorar, veja os últimos números oficiais do país na aba Brasil, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância, cita as regras e decide recursos) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
 </header>
 
 <section class="gate" id="gate" aria-label="Entrar">
@@ -649,7 +665,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     { a: 'bruno_pesquisa', t: 'Publiquei os slides da aula sobre timelines. Tem diagrama de fan-out e tudo.' },
     { a: 'karen_ml', t: 'Pergunta séria: quem topa testar federação entre duas instâncias Ágora na semana que vem? @ana_dev' },
     { a: 'heitor_net', t: 'WebFinger funcionando entre duas máquinas da rede do laboratório. Próximo passo: inbox assinado.' },
-  ], mentionsUnread: 0, gapNote: null };
+  ], gapNote: null, ntab: 'tudo', nRead: null, nFresh: new Set(), q: '', stab: 'posts' };
 
   // ---------- Utilidades ----------
   const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1021,9 +1037,10 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     mute: 'M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1zm12.5-.5 5 5m0-5-5 5',
     block: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM5.6 5.6l12.8 12.8',
     shield: 'M12 3 5 6v5c0 4.4 3 8.3 7 10 4-1.7 7-5.6 7-10V6z',
+    bell: 'M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15zm4 3.5a2 2 0 0 0 4 0',
   };
   const svgI = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${PATHS[name]}"/></svg>`;
-  const NAV = [['home', 'home', 'Início'], ['brasil', 'chart', 'Brasil'], ['explore', 'search', 'Explorar'], ['mentions', 'at', 'Menções'], ['channel', 'channels', 'Canal'], ['me', 'user', 'Perfil']];
+  const NAV = [['home', 'home', 'Início'], ['brasil', 'chart', 'Brasil'], ['explore', 'search', 'Explorar'], ['notifications', 'bell', 'Notificações'], ['channel', 'channels', 'Canal'], ['me', 'user', 'Perfil']];
   const SIDE_NAV = [...NAV.slice(0, 5), ['missions', 'sprout', 'Missões'], ['wallet', 'wallet', 'Carteira'], NAV[5], ['moderation', 'shield', 'Moderação'], ['rules', 'book', 'Regras']];
 
   const n = (x) => (x > 0 ? `<span>${x}</span>` : '');
@@ -1408,17 +1425,93 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
       html += `<div class="inline-compose">${composerHTML('compose-home', 'O que está acontecendo?', 'Postar')}</div>`;
       if (state.hidden.size) html += `<button class="banner" data-reveal>Mostrar ${state.hidden.size} ${state.hidden.size === 1 ? 'post novo' : 'posts novos'}</button>`;
     } else if (view === 'explore') {
-      html += header('Explorar', 'Timeline pública desta instância (sem reposts)');
+      const searching = state.q.length >= 2;
+      html += header('Explorar', searching ? `Resultados para “${esc(state.q)}”` : 'Timeline pública desta instância (sem reposts)');
+      html += `<form role="search" data-search><input id="q" class="searchbox" type="search" value="${esc(state.q)}" placeholder="Buscar posts e pessoas" aria-label="Buscar posts e pessoas" maxlength="100" autocomplete="off"></form>`;
+      if (searching) return html + renderSearch();
+      if (state.q.length === 1) html += `<p class="hint">Digite pelo menos 2 letras.</p>`;
       const sugg = Object.keys(USERS).filter((u) => u !== ME && !following[ME].has(u) && !hiddenAuthor(u) && !underReview(u));
       if (sugg.length) html += `<section class="who"><h3>Quem seguir</h3>${sugg.map((u) => `<div class="who-row">${avatar(u, 'sm')}<div class="info"><b>${esc(USERS[u].name)}</b><small>@${u}</small></div><button class="primary" data-follow="${u}">Seguir</button></div>`).join('')}</section>`;
-    } else if (view === 'mentions') {
-      html += header('Menções', 'Posts que citam @ana_dev');
     }
     html += list.map((id) => postHTML(posts.get(id))).join('');
     if (!list.length) html += `<div class="empty">Nada por aqui ainda.</div>`;
     if (ids.length > list.length) html += `<div class="more"><button class="chip" data-more>Carregar mais</button></div>`;
     else if (list.length) html += `<div class="end">Fim da timeline · sem next_token</div>`;
     return html;
+  }
+
+  // ---------- Notificações ----------
+  // Saem dos próprios dados da demo: curtidas, recompensas, reposts e respostas nos posts da Ana,
+  // menções a @ana_dev e quem a segue. Silenciados, bloqueados e suspensos não avisam.
+  function notifications() {
+    const list = [];
+    const add = (kind, actor, postId, created) => { if (actor !== ME && !hiddenAuthor(actor)) list.push({ key: `${kind}:${actor}:${postId ?? ''}`, kind, actor, postId, created }); };
+    for (const p of posts.values()) {
+      if (p.author === ME && !p.repostOf) {
+        let k = 0;
+        for (const u of p.likes) add('like', u, p.id, new Date(+p.created + 60000 * ++k));
+        for (const u of p.tips) add('tip', u, p.id, new Date(+p.created + 90000 * ++k));
+      }
+      const target = p.repostOf ? posts.get(p.repostOf) : p.replyTo ? posts.get(p.replyTo) : null;
+      if (target && target.author === ME) add(p.repostOf ? 'repost' : 'reply', p.author, p.repostOf ? target.id : p.id, p.created);
+      else if (!p.repostOf && p.author !== ME && p.text.includes('@' + ME)) add('mention', p.author, p.id, p.created);
+    }
+    followersOf(ME).forEach((u, i) => add('follow', u, null, new Date(NOW - (20 + i * 7) * 3600000)));
+    return list.sort((a, b) => b.created - a.created);
+  }
+  const unreadCount = () => { if (!state.nRead) return 0; return notifications().filter((x) => !state.nRead.has(x.key)).length; };
+  const VERB = { like: 'curtiu seu post', repost: 'repostou seu post', reply: 'respondeu você', mention: 'mencionou você', follow: 'começou a seguir você', tip: `recompensou seu post com 1 ${TOKEN.symbol}` };
+  const VERBS = { like: 'curtiram seu post', repost: 'repostaram seu post', follow: 'começaram a seguir você', tip: 'recompensaram seu post' };
+  const NICON = { like: 'heart', repost: 'repost', reply: 'reply', mention: 'at', follow: 'user', tip: 'coin' };
+  function renderNotifications() {
+    let html = header('Notificações', state.ntab === 'mencoes' ? 'Posts que citam você' : 'Quem interagiu com você');
+    html += `<div class="tabsw" role="tablist" aria-label="Tipo de notificação"><button role="tab" aria-selected="${state.ntab === 'tudo'}" data-ntab="tudo">Tudo</button><button role="tab" aria-selected="${state.ntab === 'mencoes'}" data-ntab="mencoes">Menções</button></div>`;
+    if (state.ntab === 'mencoes') {
+      const ids = sourceFor('mentions');
+      return html + (ids.length ? ids.map((id) => postHTML(posts.get(id))).join('') : '<div class="empty">Ninguém mencionou você ainda.</div>');
+    }
+    // Avisos seguidos do mesmo tipo sobre o mesmo post se juntam; respostas e menções, nunca.
+    const groups = [];
+    for (const x of notifications()) {
+      const last = groups.at(-1);
+      if (last && VERBS[x.kind] && last.kind === x.kind && last.postId === x.postId) { last.actors.push(x.actor); last.fresh ||= state.nFresh.has(x.key); }
+      else groups.push({ ...x, actors: [x.actor], fresh: state.nFresh.has(x.key) });
+    }
+    if (!groups.length) return html + '<div class="empty">Nada por aqui ainda.</div>';
+    return html + '<div class="nlist">' + groups.map((g) => {
+      const names = g.actors.map((u) => USERS[u].name);
+      const who = g.actors.length === 1 ? `<b>${esc(names[0])}</b> ${VERB[g.kind]}` : g.actors.length === 2 ? `<b>${esc(names[0])}</b> e <b>${esc(names[1])}</b> ${VERBS[g.kind]}` : `<b>${esc(names[0])}</b> e mais ${g.actors.length - 1} ${VERBS[g.kind]}`;
+      const p = g.postId ? posts.get(g.postId) : null;
+      const theirs = g.kind === 'reply' || g.kind === 'mention';
+      const target = g.kind === 'follow' ? `data-profile="${g.actors[0]}"` : `data-open="${g.postId}"`;
+      return `<button class="nitem ${g.fresh ? 'new' : ''}" ${target}><span class="ni">${svgI(NICON[g.kind], g.kind === 'like' ? 'fill' : '')}</span><span class="nb"><span class="nt">${who} <span class="handle">· ${rel(g.created)}</span>${g.fresh ? '<span class="sr"> (nova)</span>' : ''}</span>${p ? `<span class="np ${theirs ? 'theirs' : ''}">${esc(p.text)}</span>` : ''}</span></button>`;
+    }).join('') + '</div>';
+  }
+
+  // ---------- Busca ----------
+  // O app usa a busca de texto do Postgres (português, sem acento, pelo radical). A demo compara
+  // as palavras sem acento, do mais recente ao mais antigo, e aceita -palavra para excluir.
+  const fold = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  function searchPosts(q) {
+    const words = fold(q).split(/\s+/).filter(Boolean);
+    const want = words.filter((w) => !w.startsWith('-')), skip = words.filter((w) => w.startsWith('-') && w.length > 1).map((w) => w.slice(1));
+    return [...posts.values()].filter((p) => !p.repostOf && visibleInFeed(p) && want.every((w) => fold(p.text).includes(w)) && !skip.some((w) => fold(p.text).includes(w))).sort(byIdDesc).map((p) => p.id);
+  }
+  function logSearch() {
+    if (state.stab === 'pessoas') return log('http', `GET /api/users?q=${encodeURIComponent(state.q)} → 200`, 'username ou nome que contém o texto, sem contas suspensas nem bloqueadas');
+    log('sql', "WITH found AS MATERIALIZED (… to_tsvector('agora_pt', text) @@ websearch_to_tsquery('agora_pt', $1)) … ORDER BY id DESC", 'índice GIN; agora_pt = portuguese + unaccent');
+    log('http', `GET /api/posts/busca?q=${encodeURIComponent(state.q)} → 200`, `${searchPosts(state.q).length} posts, do mais recente ao mais antigo · sem ordenar por curtidas`);
+  }
+  function renderSearch() {
+    let html = `<div class="tabsw" role="tablist" aria-label="O que buscar"><button role="tab" aria-selected="${state.stab === 'posts'}" data-stab="posts">Posts</button><button role="tab" aria-selected="${state.stab === 'pessoas'}" data-stab="pessoas">Pessoas</button></div>`;
+    if (state.stab === 'pessoas') {
+      const f = fold(state.q);
+      const people = Object.keys(USERS).filter((u) => !blockedOrSuspended(u) && (fold(u).includes(f) || fold(USERS[u].name).includes(f)));
+      return html + (people.length ? `<section class="who">${people.map((u) => `<div class="who-row">${avatar(u, 'sm')}<div class="info"><b>${esc(USERS[u].name)}</b><small>@${u}</small></div></div>`).join('')}</section>` : '<div class="empty">Ninguém com esse nome.</div>');
+    }
+    const ids = searchPosts(state.q);
+    html += `<p class="hint">Mais recentes primeiro. Use -palavra para excluir.</p>`;
+    return html + (ids.length ? ids.slice(0, 40).map((id) => postHTML(posts.get(id))).join('') : '<div class="empty">Nenhum post com essas palavras.</div>');
   }
 
   function renderForYou() {
@@ -1689,12 +1782,13 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     else if (state.view === 'moderation') html = renderModeration();
     else if (state.view === 'rules') html = renderRules();
     else if (state.view === 'brasil') html = renderBrasil();
+    else if (state.view === 'notifications') html = renderNotifications();
     else html = renderFeed(state.view);
     mainEl.innerHTML = html;
     state.fresh.clear();
     const navKey = (state.view === 'profile' && state.profile === ME) || state.view === 'privacy' ? 'me' : state.view === 'algo' ? 'home' : state.view;
     // (Missões e Regras ficam na barra lateral; no celular, Missões abre pelo atalho do Início.)
-    const item = (cls) => ([key, icon, label]) => `<button class="${cls}" data-nav="${key}" ${key === navKey ? 'aria-current="page"' : ''}>${svgI(icon, key === navKey && !['explore', 'mentions', 'missions'].includes(key) ? 'fill' : '')}${label}${key === 'mentions' && state.mentionsUnread ? '<span class="dot" aria-label="menções novas"></span>' : ''}</button>`;
+    const item = (cls) => ([key, icon, label]) => `<button class="${cls}" data-nav="${key}" ${key === navKey ? 'aria-current="page"' : ''}>${svgI(icon, key === navKey && !['explore', 'missions'].includes(key) ? 'fill' : '')}${label}${key === 'notifications' && unreadCount() ? `<span class="badge" aria-hidden="true">${unreadCount()}</span><span class="sr">, ${unreadCount()} não lidas</span>` : ''}</button>`;
     document.getElementById('side-items').innerHTML = SIDE_NAV.map(item('navbtn')).join('');
     document.getElementById('tab-items').innerHTML = NAV.map(item('tab')).join('');
     const chat = document.getElementById('chat');
@@ -1743,7 +1837,14 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (view === 'home' && opts.log !== false) { if (state.tab === 'interesses') logForYou(); else readTimeline(); }
     if (view === 'algo') log('http', 'GET /api/feed/preferencias → 200', '{ settings, learned: { topics, authors }, topics, factors }');
     if (view === 'explore') log('http', `GET /api/posts?max_results=${PAGE} → 200`, 'timeline pública: posts sem repost, por id DESC');
-    if (view === 'mentions') { log('http', 'GET /api/mentions → 200', 'SELECT post_id FROM mentions WHERE user_id = me ORDER BY post_id DESC'); state.mentionsUnread = 0; }
+    if (view === 'notifications') {
+      const all = notifications();
+      state.nFresh = new Set(all.filter((x) => !state.nRead.has(x.key)).map((x) => x.key));
+      log('http', 'GET /api/notificacoes?max_results=30 → 200', `${all.length} avisos · meta.unread_count = ${state.nFresh.size} · sem quem foi silenciado, bloqueado ou suspenso`);
+      if (state.nFresh.size) log('http', 'POST /api/notificacoes/lidas → 200', '{ newest_id } marca como lido só o que apareceu na tela · unread_count = 0');
+      all.forEach((x) => state.nRead.add(x.key));
+    }
+    if (view === 'explore' && state.q.length >= 2) logSearch();
     if (view === 'missions') log('http', 'GET /api/missoes → 200', `{ missions: ${day.chosen.length}, token: { balance: ${wallet.balance}, earned_today: ${earnedToday()} } }`);
     if (view === 'wallet') log('http', 'GET /api/carteira → 200', `saldo ${wallet.balance} = soma do extrato (${wallet.ledger.length} lançamentos)`);
     if (view === 'channel') {
@@ -1792,7 +1893,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     const next = state.pendingQueue.shift();
     if (!next) return;
     const id = createPost(next.a, next.t);
-    if (next.t.includes('@' + ME)) { state.mentionsUnread++; log('ws', 'notification {type:"mention"} → user:ana_dev'); }
+    if (next.t.includes('@' + ME)) log('sql', 'INSERT INTO notifications (kind = mention) · filterAudience(): quem silenciou ou bloqueou não recebe'), log('ws', 'notification {type:"mention"} → user:ana_dev · o sino soma 1');
     if (following[ME].has(next.a)) state.hidden.add(id);
     render();
   }
@@ -1955,6 +2056,8 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (d.simAppeal) return simulateAppeal(Number(d.simAppeal));
     if (d.appealOk) return decideAppeal(Number(d.appealOk), true);
     if (d.appealNo) return decideAppeal(Number(d.appealNo), false);
+    if (d.ntab) { state.ntab = d.ntab; if (d.ntab === 'mencoes') log('http', 'GET /api/mentions → 200', 'SELECT post_id FROM mentions WHERE user_id = me ORDER BY post_id DESC'); render(); return; }
+    if (d.stab) { state.stab = d.stab; logSearch(); render(); return; }
     if (d.qtab) { mod.qtab = d.qtab; mod.confirm = null; render(); return; }
     if (d.askResolve) { mod.notes = { ...(mod.notes || {}), [d.askResolve]: document.getElementById('note-' + d.askResolve)?.value ?? '' }; mod.confirm = { id: Number(d.askResolve), action: d.action }; render(); return; }
     if (d.confirmCancel !== undefined) { mod.confirm = null; render(); return; }
@@ -1997,8 +2100,23 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (d.open && !(state.view === 'thread' && state.focal === d.open)) openThread(d.open);
   });
   const putPrefs = (detail) => log('http', 'PUT /api/feed/preferencias → 200', detail);
+  let searchTimer = null;
   document.addEventListener('input', (e) => {
     const el = e.target, a = el.dataset.algo;
+    if (el.id === 'q') {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        const before = state.q.length >= 2;
+        state.q = el.value.trim();
+        if (state.q.length >= 2) logSearch();
+        if (state.q.length >= 2 || before || state.q.length === 1) {
+          render();
+          const q = document.getElementById('q');
+          if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+        }
+      }, 300);
+      return;
+    }
     if (el.type === 'range' && a) {
       const v = Number(el.value);
       if (a === 'w') { algo.weights[el.dataset.key] = v / 100; document.getElementById(el.id + '-v').textContent = v + '%'; document.querySelectorAll('[data-share]').forEach((sp) => { sp.textContent = shareOf(sp.dataset.share) + '%'; }); }
@@ -2022,6 +2140,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   document.addEventListener('submit', (e) => {
     e.preventDefault();
     const f = e.target;
+    if (f.dataset.search !== undefined) return;
     if (f.dataset.reportform !== undefined) return submitReport(f);
     if (f.dataset.login !== undefined) return doLogin(document.getElementById('g-email').value, document.getElementById('g-pass').value);
     if (f.dataset.kwform !== undefined) {
@@ -2053,6 +2172,8 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   document.body.dataset.auth = 'in';
   gate.hidden = true;
   startDay();
+  // Abre com o que chegou no último dia como não lido (como o seed do app).
+  state.nRead = new Set(notifications().filter((x) => x.created < NOW - 86400000).map((x) => x.key));
   go('home');
 })();
 </script>
