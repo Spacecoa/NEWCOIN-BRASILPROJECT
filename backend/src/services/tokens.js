@@ -2,8 +2,8 @@ import { config } from '../config.js';
 import { query, withTransaction } from '../db.js';
 import { conflict, notFound } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
-import { bus } from '../realtime/bus.js';
 import { EVAPORATION } from './evaporation.js';
+import { notify } from './notifications.js';
 import { assertCanInteract } from './relations.js';
 
 // Token interno. Regras (ver docs/09-token-interno.md):
@@ -122,7 +122,7 @@ export async function tipPost(userId, postId) {
     await client.query('UPDATE posts SET tip_count = tip_count + 1 WHERE id = $1', [target]);
     return { target, created: true, authorId };
   });
-  if (result.created) bus.emit('notification', { userIds: [result.authorId], type: 'tip', post: { data: { id: result.target } } });
+  if (result.created) await notify({ kind: 'tip', actorId: userId, userIds: [result.authorId], postId: result.target });
   return result.target;
 }
 

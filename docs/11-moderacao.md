@@ -34,6 +34,8 @@ Com `{ muted: false }`, os silenciados aparecem: é o caso do perfil, da thread 
 
 As consultas que **sugerem** conteúdo também filtram, com o mesmo SQL (`hiddenAuthorsSql`): o feed "Para você" (para não gastar o limite da sessão com posts que seriam escondidos), as sugestões das missões e a busca de pessoas. As missões que dão alcance ("amplificar", "ponte") também não sugerem contas com denúncia aberta.
 
+**Notificações seguem as mesmas regras.** Quem silenciou ou tem bloqueio com quem agiu não recebe o aviso (nem em tempo real, nem na tela de notificações). Avisos antigos de quem foi silenciado, bloqueado ou suspenso depois somem da lista e do contador, assim como os de posts apagados ou removidos pela moderação.
+
 **Bloqueio impede interação.** `assertCanInteract()` recusa com 403 os seguintes casos:
 - seguir;
 - responder;

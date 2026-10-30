@@ -174,6 +174,8 @@ O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limi
 
 **Correção aplicada no login (28/10/2026):** o bcrypt roda sempre, contra um hash falso de mesmo custo quando a conta não existe, e a mensagem é única ("E-mail ou senha incorretos"). O login agora é por e-mail e senha. O cadastro ainda responde 409 para e-mail repetido; resolver isso exige confirmação por e-mail.
 
+**Recuperar senha (30/10/2026):** `POST /api/auth/senha/esqueci` dá a mesma resposta exista ou não a conta, então não abre um novo jeito de descobrir quem tem conta. O link é um token aleatório de 32 bytes: o banco guarda só o hash SHA-256, ele vale 30 minutos e uma vez só. Há no máximo 3 por hora por conta e limite por IP. Trocar a senha invalida os outros links e encerra todas as sessões. A tela tira o token da barra de endereço assim que o lê. O e-mail ainda não sai de verdade (vai para o log do servidor); um serviço de e-mail real fica para a produção.
+
 ### 4.8 M4 — Limite de login só por IP · Média
 
 **Evidência:** `routes/auth.js:25` usa a chave `req.ip`, e login e cadastro dividem o mesmo contador. Não há `app.set('trust proxy', …)`.

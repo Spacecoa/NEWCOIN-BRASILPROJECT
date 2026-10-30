@@ -29,6 +29,7 @@ const PATHS = {
   chart: 'M4 20V11m5.3 9V5m5.4 15v-7m5.3 7V8M3 20.5h18',
   book: 'M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5zm0 15A1.5 1.5 0 0 0 6.5 21H19',
   shield: 'M12 3 5 6v5c0 4.4 3 8.3 7 10 4-1.7 7-5.6 7-10V6z',
+  bell: 'M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15zm4 3.5a2 2 0 0 0 4 0',
 };
 
 export default function Icon({ name, filled = false, className = 'h-5 w-5' }) {

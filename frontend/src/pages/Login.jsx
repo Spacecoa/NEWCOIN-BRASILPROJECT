@@ -98,6 +98,9 @@ export default function Login() {
       onSubmit={submit}
       footer={
         <>
+          {/* Depois do botão Entrar: a ordem do Tab continua e-mail, senha, entrar. */}
+          <Link to="/esqueci-senha" className="font-semibold text-brand-600 hover:underline">Esqueci minha senha</Link>
+          <br />
           Não tem conta? <Link to="/cadastro" className="text-brand-600 hover:underline">Cadastre-se</Link>. Dados de teste: <code>ana_dev@exemplo.test</code> / <code>senha1234</code>
         </>
       }

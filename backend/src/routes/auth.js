@@ -7,6 +7,7 @@ import { failureCounter, rateLimit } from '../lib/rateLimit.js';
 import { registerWithInvite } from '../services/invites.js';
 import { touchActivity } from '../services/evaporation.js';
 import { activeSuspension } from '../services/moderation.js';
+import { requestReset, resetPassword } from '../services/passwordReset.js';
 import { createSession, revokeAllSessions, revokeByRefresh, revokeSession, rotateSession } from '../services/sessions.js';
 import { createUser, findUserForLogin, formatUser, getUserById } from '../services/users.js';
 
@@ -150,6 +151,28 @@ router.post('/logout-all', requireAuth, async (req, res) => {
   const ended = await revokeAllSessions(req.user.id);
   clearRefreshCookie(res);
   res.json({ ended });
+});
+
+// Esqueci a senha. Mesma resposta para qualquer e-mail (não revela quem tem conta); o limite
+// por IP segura quem tenta mandar e-mails em massa, e o serviço só manda 3 por hora por conta.
+const resetLimiter = rateLimit({ name: 'auth:reset', limit: 10, windowSec: 15 * 60, key: (req) => req.ip });
+const RESET_SENT = 'Se houver uma conta com este e-mail, enviamos um link para criar uma senha nova. Ele vale por 30 minutos.';
+
+router.post('/senha/esqueci', resetLimiter, async (req, res) => {
+  const { email } = parse(z.object({ email: z.string().trim().toLowerCase().pipe(z.email('e-mail inválido')) }).strict(), req.body);
+  await requestReset(email);
+  res.json({ ok: true, message: RESET_SENT });
+});
+
+// Troca a senha pelo link. Divide o limite com o login: não vira outro lugar de testar senhas.
+router.post('/senha/redefinir', authLimiter, async (req, res) => {
+  const { token, password } = parse(
+    z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'link inválido'), password: registerSchema.shape.password }).strict(),
+    req.body,
+  );
+  await resetPassword(token, password);
+  clearRefreshCookie(res);
+  res.json({ ok: true, message: 'Senha nova salva. Entre com ela; os outros aparelhos saíram da conta.' });
 });
 
 router.get('/me', requireAuth, async (req, res) => {
