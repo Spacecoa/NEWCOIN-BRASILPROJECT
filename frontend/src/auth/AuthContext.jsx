@@ -9,7 +9,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(tokenStore.get);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  // Aviso mostrado na tela de entrar (ex.: "Você saiu da sua conta.").
+  // Aviso mostrado na faixa de visitante e na tela de entrar (ex.: "Você saiu da sua conta.").
   const [notice, setNotice] = useState(null);
   const userRef = useRef(null);
   userRef.current = user;
@@ -61,6 +61,7 @@ export function AuthProvider({ children }) {
       token,
       loading,
       notice,
+      clearNotice: () => setNotice(null),
       socket: user ? getSocket(user.id) : null,
       login: async (email, password) => finish(await api('/api/auth/login', { method: 'POST', body: { email, password } })),
       register: async (input) => finish(await api('/api/auth/register', { method: 'POST', body: input })),

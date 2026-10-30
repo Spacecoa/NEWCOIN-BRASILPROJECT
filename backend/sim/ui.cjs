@@ -108,13 +108,13 @@ sim('Cadastro e entrada', 'Entrar: erro claro com senha errada, mostrar/ocultar 
   await page.locator('nav[aria-label="Principal (celular)"] a', { hasText: 'Perfil' }).click();
   await page.getByRole('button', { name: 'Sair', exact: true }).first().click();
   await page.getByText(/Você está só lendo/).waitFor();
-  const notes = [];
-  if (!/Você saiu/.test(await body(page))) notes.push('ao sair, nada confirma que a sessão terminou: o aviso "Você saiu da sua conta." só aparece na tela de entrar, e quem sai cai na versão de visitante da mesma página');
+  // Quem sai cai na versão de leitura da mesma página: a faixa confirma a saída.
+  check((await page.getByRole('status').filter({ hasText: 'Você saiu da sua conta.' }).count()) === 1, 'ao sair, a faixa de visitante deveria dizer "Você saiu da sua conta."');
   await page.reload();
   await page.getByText(/Você está só lendo/).waitFor();
   eq((await api(null, 'POST', '/api/auth/refresh')).s, 401, 'sem o cookie, a sessão não volta sozinha');
   await context.close();
-  return { detail: 'erro claro, senha mostrar/ocultar, sessão mantida e encerrada', notes };
+  return { detail: 'erro claro, senha mostrar/ocultar, sessão mantida e encerrada, saída confirmada' };
 });
 
 // 3
@@ -539,9 +539,7 @@ sim('Brasil na tela', 'Aba Brasil (visitante): 5 cartões, selo, data da confer�
   eq(await cards.count(), 5, 'cartões');
   const txt = await body(page);
   for (const v of ['4,58%', 'R$ 922,51', '5,3%', '2,0%']) check(txt.includes(v), `faltou o número ${v}`);
-  check(/13,75\s?%/.test(txt), 'faltou o número 13,75% (Selic)');
-  const notas = [];
-  if (/13,75 %/.test(txt)) notas.push('a Selic aparece como "13,75 % ao ano" (com espaço antes do %), enquanto os outros indicadores aparecem como "4,58%"');
+  check(txt.includes('13,75% ao ano'), 'a Selic deveria aparecer como "13,75% ao ano", sem espaço antes do %, como os outros indicadores');
   for (const s of ['Fonte única, conferida', 'Conferência parcial', 'Confirmado por 3 conferências']) check(txt.includes(s), `faltou o selo "${s}"`);
   check(/não se atualizam sozinhos/.test(txt), 'faltou avisar que os números não se atualizam sozinhos');
   check(txt.includes('Em dez/2021: 10,06%'), 'faltou o valor de 5 anos atrás no cartão da inflação');
@@ -552,7 +550,7 @@ sim('Brasil na tela', 'Aba Brasil (visitante): 5 cartões, selo, data da confer�
   for (const s of ['Histórico', 'dez/2021', 'R$ 690,51', 'Ainda não conferida', 'Publicado pela fonte em']) check(c.toLowerCase().includes(s.toLowerCase()), `a cesta deveria mostrar "${s}"`);
   check((await cesta.getByRole('link', { name: /Ver a publicação/ }).getAttribute('href')).startsWith('https://www.dieese.org.br'), 'link da publicação do DIEESE');
   await context.close();
-  return { detail: '5 cartões, selos, histórico e links', notes: notas };
+  return { detail: '5 cartões, selos, histórico e links' };
 });
 
 // 21
@@ -654,18 +652,22 @@ sim('Navegação e erros', 'Abas do celular levam às telas certas; rota inexist
   await page.getByRole('heading', { name: `Pessoa ${a.u}` }).first().waitFor();
   await page.goto(WEB + '/pagina-que-nao-existe');
   await page.getByText('Página não encontrada.').waitFor();
-  const notes = [];
   await page.goto(WEB + '/');
   await page.getByRole('tab', { name: 'Seguindo' }).waitFor();
   await context.setOffline(true);
   await nav.getByRole('link', { name: 'Canais' }).click();
   await page.waitForTimeout(2500);
   const t = await body(page);
-  if (/Failed to fetch|NetworkError|Load failed/.test(t)) notes.push('sem rede, as telas mostram a mensagem técnica do navegador em inglês ("Failed to fetch"); em Canais ela aparece junto de "Carregando…" e sem o botão "Tentar de novo" que Início e Explorar têm');
-  else if (/^\s*Carregando…\s*$/m.test(t) && !/erro|conexão|rede|falha|tente/i.test(t)) notes.push('sem rede, a tela de Canais fica em "Carregando…" sem dizer o que houve');
+  check(!/Failed to fetch|NetworkError|Load failed/.test(t), 'sem rede, a tela não pode mostrar a mensagem técnica do navegador em inglês');
+  check(/Sem conexão com o servidor/.test(t), 'sem rede, Canais deveria dizer "Sem conexão com o servidor…"');
+  check(!/Carregando…/.test(t), 'sem rede, Canais não pode ficar em "Carregando…"');
+  // Volta a rede: "Tentar de novo" carrega a lista sem recarregar a página.
   await context.setOffline(false);
+  await page.getByRole('button', { name: 'Tentar de novo' }).click();
+  await page.getByRole('heading', { name: 'Canais' }).first().waitFor();
+  await page.getByRole('link', { name: /Café/ }).first().waitFor();
   await context.close();
-  return { detail: 'abas e rota inexistente ok', notes };
+  return { detail: 'abas, rota inexistente, aviso sem rede em português e "Tentar de novo"' };
 });
 
 (async () => {

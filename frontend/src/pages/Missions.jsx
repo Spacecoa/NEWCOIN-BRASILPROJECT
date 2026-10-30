@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import Icon from '../components/Icon.jsx';
+import LoadError from '../components/LoadError.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
 
@@ -194,7 +195,7 @@ export default function Missions() {
     load();
   }
 
-  if (error && !data) return <p className="p-8 text-center text-zinc-500">{error}</p>;
+  if (error && !data) return <LoadError message={error} onRetry={() => { setError(null); load(); }} />;
   if (!data) return <p className="p-8 text-center text-zinc-500">Carregando…</p>;
   const cardOffersInvite = data.enabled && data.missions.some((m) => m.id === 'convidar' && m.status === 'todo');
 

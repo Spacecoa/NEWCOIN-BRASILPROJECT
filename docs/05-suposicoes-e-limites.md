@@ -27,7 +27,7 @@ Todo comportamento "inspirado em" uma plataforma tem uma suposição por trás. 
 
 ## Decisões do protótipo (e o que elas simplificam)
 
-1. **Sem mídia, quotes, enquetes, edição, bloqueio ou silenciamento.** Simplifica o modelo. Os campos e tabelas necessários estão descritos na arquitetura.
+1. **Sem mídia, quotes, enquetes nem edição de post.** Simplifica o modelo. Os campos e tabelas necessários estão descritos na arquitetura. Silenciar e bloquear existem desde então (ver [`docs/11`](11-moderacao.md)).
 2. **Contagem simples de caracteres** (`char_length`). O X usa "caracteres ponderados" (alguns contam 2, URLs contam 23).
 3. **Sessão.** Token de acesso de 15 min só na memória da aba, e renovação por cookie `HttpOnly` + `SameSite=Strict` com rotação (ver `docs/10` §4.3). Em HTTPS, ligue `COOKIE_SECURE=true`.
 4. **Sem verificação de e-mail, recuperação de senha nem 2FA.**

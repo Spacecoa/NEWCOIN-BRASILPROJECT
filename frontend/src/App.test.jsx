@@ -86,5 +86,23 @@ describe('visitante (sem conta)', () => {
     expect(await screen.findByPlaceholderText(/Responder a/)).toBeInTheDocument();
     expect(screen.queryByText(/Você está só lendo/)).not.toBeInTheDocument();
   });
-});
 
+  it('ao sair, a versão de leitura confirma a saída, e o aviso pode ser fechado', async () => {
+    renderAt('/post/501');
+    const base = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (url, init) =>
+      String(url).endsWith('/api/auth/login') ? { ok: true, status: 200, json: async () => ({ token: 't', user: users.ana }) } : base(url, init),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Entrar para responder' }));
+    await userEvent.type(await screen.findByLabelText('E-mail'), 'ana@exemplo.test');
+    await userEvent.type(screen.getByLabelText('Senha'), 'senha1234');
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    await screen.findByPlaceholderText(/Responder a/);
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Sair' })[0]);
+    expect(await screen.findByText(/Você está só lendo/)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Você saiu da sua conta.');
+    await userEvent.click(screen.getByRole('button', { name: 'Fechar aviso' }));
+    expect(screen.queryByText('Você saiu da sua conta.')).not.toBeInTheDocument();
+  });
+});

@@ -3,6 +3,7 @@ import { useParams } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Avatar from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
+import LoadError from '../components/LoadError.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
 import { applyDifference, applyIncoming, mergeReactions } from '../lib/channelSync.js';
@@ -167,7 +168,7 @@ export default function Channel() {
     }
   }
 
-  if (error && !channel) return <p className="p-8 text-center text-zinc-500">{error}</p>;
+  if (error && !channel) return <LoadError message={error} onRetry={() => { setError(null); loadHistory().catch((e) => setError(e.message)); }} />;
   if (!channel) return <p className="p-8 text-center text-zinc-500">Carregando…</p>;
   const canPost = channel.viewer_role && (channel.kind === 'group' || channel.viewer_role !== 'member');
   const canModerate = ['owner', 'admin'].includes(channel.viewer_role);

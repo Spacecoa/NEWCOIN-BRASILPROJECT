@@ -1,10 +1,12 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
+import { useAuth } from '../auth/AuthContext.jsx';
 import Icon from './Icon.jsx';
 
 // Quem ainda não entrou lê os posts, os perfis e os dados do país, mas não interage.
 // A faixa do topo diz isso e leva para entrar ou criar conta, guardando a página de origem.
 export default function VisitorLayout() {
   const { pathname, search } = useLocation();
+  const { notice, clearNotice } = useAuth();
   const state = { from: pathname + search };
   const items = [
     ['/', 'home', 'Início'],
@@ -24,6 +26,15 @@ export default function VisitorLayout() {
             Criar conta
           </Link>
         </div>
+        {/* Quem acabou de sair cai aqui, na versão de leitura da mesma página: o aviso confirma a saída. */}
+        {notice && (
+          <div role="status" className="mt-2 flex items-center gap-2 rounded-2xl bg-brand-50 px-4 py-2 text-sm text-brand-700 dark:bg-zinc-900 dark:text-brand-500">
+            <span className="min-w-0 flex-1">{notice}</span>
+            <button type="button" onClick={clearNotice} aria-label="Fechar aviso" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
+              <Icon name="close" className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
       <main className="min-w-0 flex-1 pb-24 md:border-x md:border-zinc-100 md:dark:border-zinc-900">
         <Outlet />

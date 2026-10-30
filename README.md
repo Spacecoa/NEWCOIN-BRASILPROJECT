@@ -50,8 +50,10 @@ Também há uma versão publicada em https://claude.ai/artifact/1KYADm2kxRoJqg8r
 | 11 | **Moderação** (silenciar, bloquear, denunciar e a fila da moderação, em linguagem simples) | [`docs/11-moderacao.md`](docs/11-moderacao.md) |
 | 12 | **Regras da instância e recursos** (decisões citam a regra; recurso aceito desfaz a decisão) | [`docs/12-regras-e-recursos.md`](docs/12-regras-e-recursos.md) |
 | 13 | **Informação oficial e verificação tripla** (análise: fontes abertas do desenvolvimento brasileiro integradas ao app) | [`docs/13-informacao-oficial-e-verificacao.md`](docs/13-informacao-oficial-e-verificacao.md) |
-| 14 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
-| 15 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
+| 14 | **Análise de brechas por módulo** (reengenharia do app atrás de falhas exploráveis, com as correções feitas) | [`docs/14-analise-de-brechas-por-modulo.md`](docs/14-analise-de-brechas-por-modulo.md) |
+| 15 | **Simulações de uso** (100 cenários automatizados conferindo o app contra os documentos) | [`docs/15-simulacoes-de-usabilidade.md`](docs/15-simulacoes-de-usabilidade.md), [`backend/sim/`](backend/sim) |
+| 16 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
+| 17 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
 
 ## Stack
 
@@ -92,8 +94,10 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 
 ```bash
 cd backend  && npm test   # 213 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
-cd frontend && npm test   # 68 testes: lógica e componentes (jsdom)
+cd frontend && npm test   # 70 testes: lógica e componentes (jsdom)
 ```
+
+No GitHub, os testes do backend e do frontend (e o build do frontend) rodam em cada PR (`.github/workflows/ci.yml`).
 
 Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL`. Os testes de integração **apagam** o banco de teste e o banco 1 do Redis.
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import Icon from '../components/Icon.jsx';
+import LoadError from '../components/LoadError.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
 import { fullDate, relativeTime } from '../lib/time.js';
@@ -42,11 +43,15 @@ export default function Wallet() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const load = () => {
+    setError(null);
     api('/api/carteira').then(setData).catch((e) => setError(e.message));
+  };
+  useEffect(() => {
+    load();
   }, []);
 
-  if (error) return <p className="p-8 text-center text-zinc-500">{error}</p>;
+  if (error) return <LoadError message={error} onRetry={load} />;
   if (!data) return <p className="p-8 text-center text-zinc-500">Carregando…</p>;
   const { token, balance, totals, ledger } = data;
 

@@ -30,6 +30,8 @@ export const tokenStore = {
   },
 };
 
+export const OFFLINE_MESSAGE = 'Sem conexão com o servidor. Confira sua internet e tente de novo.';
+
 export class ApiError extends Error {
   constructor(status, body) {
     super(body?.error ?? `Erro ${status}`);
@@ -43,12 +45,18 @@ async function rawFetch(path, { method = 'GET', body, token }) {
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(path, {
-    method,
-    headers,
-    credentials: 'same-origin',
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      headers,
+      credentials: 'same-origin',
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    // O navegador só diz "Failed to fetch" (em inglês) quando não há rede ou o servidor não responde.
+    throw new ApiError(0, { error: OFFLINE_MESSAGE });
+  }
   const data = await res.json().catch(() => null);
   return { res, data };
 }

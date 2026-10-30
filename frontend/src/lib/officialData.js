@@ -20,7 +20,8 @@ export function formatValue(v, unit, decimals = 1) {
   if (v === null || v === undefined) return '—';
   const n = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(v);
   if (unit === 'R$') return `R$ ${n}`;
-  if (unit === '%') return `${n}%`;
+  // "%" e "% ao ano" colam no número ("13,75% ao ano"), como nos outros indicadores.
+  if (unit.startsWith('%')) return `${n}${unit}`;
   return `${n} ${unit}`;
 }
 

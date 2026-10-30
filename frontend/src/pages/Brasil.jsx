@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext.jsx';
+import LoadError from '../components/LoadError.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import Sparkline from '../components/Sparkline.jsx';
 import { api } from '../lib/api.js';
@@ -184,7 +185,10 @@ export default function Brasil() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-  const load = () => api('/api/dados').then((r) => setData(r.data)).catch((e) => setError(e.message));
+  const load = () => {
+    setError(null);
+    return api('/api/dados').then((r) => setData(r.data)).catch((e) => setError(e.message));
+  };
   useEffect(() => {
     load();
   }, []);
@@ -233,7 +237,7 @@ export default function Brasil() {
             ))}
           </ul>
         </details>
-        {error && <p role="alert" className="text-rose-600">{error}</p>}
+        {error && (data ? <p role="alert" className="text-rose-600">{error}</p> : <LoadError message={error} onRetry={load} className="py-4" />)}
         {!data && !error && <p className="text-zinc-400">Carregando…</p>}
         {nothing && (
           <p role="status" className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">

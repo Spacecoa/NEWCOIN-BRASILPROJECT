@@ -30,7 +30,17 @@ Na primeira rodada, 14 simulações falharam. **12 eram erros das próprias simu
 | D4 | `docs/10`: M4 quase todo corrigido, M5 e M6 parciais, com o que ainda falta | — |
 | D5 | O seed também apaga as regras da instância e `moderator_names_missing`, e recria as 7 regras padrão. Uma regra feita à mão some depois do seed (8 → 7) | conferido no banco de desenvolvimento |
 
-**Nova rodada depois das correções: 100 de 100 passaram** (76 de API e 24 na tela). As 3 observações de usabilidade (§4.2) continuam em aberto.
+**Nova rodada depois das correções: 100 de 100 passaram** (76 de API e 24 na tela).
+
+**Segunda rodada de correções (30/10/2026):** as 3 observações de usabilidade (§4.2) também foram resolvidas, e as simulações S078, S096 e S100 passaram a **reprovar** se elas voltarem (antes só anotavam):
+
+| # | O que mudou |
+|---|---|
+| S100 | Sem rede, o app diz "Sem conexão com o servidor. Confira sua internet e tente de novo." em vez de "Failed to fetch". Toda tela que carrega dados (Canais, Brasil, perfil, thread, Meu algoritmo, canal, regras, carteira, missões e a fila da moderação) mostra "Tentar de novo", que carrega sem recarregar a página |
+| S078 | Ao sair, a faixa de visitante mostra "Você saiu da sua conta.", com um botão para fechar o aviso |
+| S096 | A Selic aparece como "13,75% ao ano", sem espaço antes do `%`, no app e na demo |
+
+Rodada final: 100 de 100, sem observações.
 
 ## 2. Como foi feito
 
@@ -84,7 +94,7 @@ Na primeira rodada, 14 simulações falharam. **12 eram erros das próprias simu
 
 O resto da acessibilidade passou: todos os botões, links e campos têm nome, não há imagem sem `alt`, o idioma é `pt-BR`, toda tela tem título e a ordem do Tab no login é e-mail, senha, mostrar senha, entrar.
 
-### 4.2 Observações de usabilidade (as simulações passam, mas vale melhorar)
+### 4.2 Observações de usabilidade (as simulações passam, mas vale melhorar) · **resolvidas em 30/10/2026, ver §1**
 
 1. **Sem rede (S100):** as telas mostram a mensagem técnica do navegador em inglês, "Failed to fetch". Início e Explorar oferecem "Tentar de novo". **Canais não oferece, e mostra "Carregando…" junto do erro.** Sugestão: uma mensagem em português ("Sem conexão. Tente de novo.") e o botão em todas as telas.
 2. **Ao sair (S078):** nada confirma que a sessão terminou. O aviso "Você saiu da sua conta." só existe na tela de entrar, mas hoje quem sai cai na versão de visitante da mesma página. A faixa "Você está só lendo" é a única pista. Sugestão: mostrar o aviso na faixa.

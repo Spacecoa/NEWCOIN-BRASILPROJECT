@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import Icon from '../components/Icon.jsx';
+import LoadError from '../components/LoadError.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
 
@@ -12,8 +13,13 @@ export default function Channels() {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState(null);
 
+  const [loadError, setLoadError] = useState(null);
+  const load = () => {
+    setLoadError(null);
+    api('/api/channels').then((r) => setChannels(r.data)).catch((e) => setLoadError(e.message));
+  };
   useEffect(() => {
-    api('/api/channels').then((r) => setChannels(r.data)).catch((e) => setError(e.message));
+    load();
   }, []);
 
   async function create(e) {
@@ -54,7 +60,9 @@ export default function Channels() {
         </form>
       )}
       {error && <p role="alert" className="p-4 text-rose-600">{error}</p>}
-      {!channels ? (
+      {loadError && !channels ? (
+        <LoadError message={loadError} onRetry={load} />
+      ) : !channels ? (
         <p className="p-8 text-center text-zinc-500">Carregando…</p>
       ) : (
         <ul>
