@@ -271,7 +271,7 @@ sim('Visitantes', 'Visitante lê tudo o que é público, mas nenhuma interação
   for (const path of ['/api/posts', `/api/posts/${p.id}`, `/api/posts/${p.id}/thread`, `/api/users/${a.u}`, `/api/users/${a.u}/posts`, `/federation/users/${a.u}/outbox`, '/api/instancia/regras', '/api/dados', '/api/token', '/api/feed/algoritmo']) {
     status(await call(null, 'GET', path), 200, `GET ${path} sem login`);
   }
-  eq((await getPost(null, p.id)).j.data.viewer, { liked: false, reposted: false, tipped: false }, 'viewer do visitante');
+  eq((await getPost(null, p.id)).j.data.viewer, { liked: false, reposted: false, tipped: false, can_edit: false }, 'viewer do visitante');
   const tries = [['POST', '/api/posts', { text: 'x' }], ['POST', `/api/posts/${p.id}/like`], ['POST', `/api/posts/${p.id}/repost`], ['POST', `/api/posts/${p.id}/recompensa`], ['POST', `/api/users/${a.u}/follow`], ['POST', `/api/users/${a.u}/mute`], ['POST', `/api/users/${a.u}/block`], ['POST', '/api/denuncias', { post_id: p.id, reason: 'spam' }], ['DELETE', `/api/posts/${p.id}`], ['GET', '/api/carteira'], ['GET', '/api/channels'], ['GET', '/api/missoes'], ['GET', '/api/timeline'], ['GET', '/api/mentions'], ['GET', '/api/feed/candidatos']];
   for (const [m, path, body] of tries) status(await call(null, m, path, body), 401, `${m} ${path} sem login`);
   const g = (await getPost(a, p.id)).j.data;

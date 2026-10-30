@@ -12,6 +12,9 @@ import RichText from './RichText.jsx';
 import WhyPanel from './WhyPanel.jsx';
 import PostMenu from './PostMenu.jsx';
 import ReportDialog from './ReportDialog.jsx';
+import EditHistory from './EditHistory.jsx';
+import QuoteDialog from './QuoteDialog.jsx';
+import QuotedPost from './QuotedPost.jsx';
 import { block, mute } from '../lib/moderation.js';
 
 // Ação minimalista: ícone em traço, contador só quando > 0, alvo de toque de 44 px.
@@ -79,6 +82,11 @@ export default function PostCard({ post, store, onChange, onDelete, onHideAuthor
   const [tipError, setTipError] = useState(null);
   const [reporting, setReporting] = useState(false);
   const [hidden, setHidden] = useState(null); // { kind: 'mute' | 'block', username }
+  const [editing, setEditing] = useState(null); // texto em edição
+  const [editError, setEditError] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [repostMenu, setRepostMenu] = useState(false);
+  const [quoting, setQuoting] = useState(false);
   const repostRef = post.referenced_posts.find((r) => r.type === 'reposted');
   const shown = repostRef ? store.posts[repostRef.id] : post;
   if (!shown) return null; // original apagado
@@ -86,7 +94,9 @@ export default function PostCard({ post, store, onChange, onDelete, onHideAuthor
   const reposter = repostRef ? store.users[post.author_id] : null;
   const parent = shown.in_reply_to_post_id ? store.posts[shown.in_reply_to_post_id] : null;
   const parentAuthor = parent ? store.users[parent.author_id] : null;
-  const { like_count, reply_count, repost_count } = shown.public_metrics;
+  const { like_count, reply_count, repost_count, quote_count = 0 } = shown.public_metrics;
+  const quotedRef = shown.referenced_posts.find((r) => r.type === 'quoted');
+  const quoted = quotedRef ? store.posts[quotedRef.id] : null;
 
   async function act(path, active) {
     if (!me) return toLogin();
@@ -119,6 +129,19 @@ export default function PostCard({ post, store, onChange, onDelete, onHideAuthor
     setHidden(null);
   }
 
+  async function saveEdit(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditError(null);
+    try {
+      onChange?.(await api(`/api/posts/${shown.id}`, { method: 'PATCH', body: { text: editing } }));
+      setEditing(null);
+      setShowHistory(false);
+    } catch (err) {
+      setEditError(err.message);
+    }
+  }
+
   async function remove() {
     if (!confirm('Apagar este post?')) return;
     await api(`/api/posts/${post.id}`, { method: 'DELETE' });
@@ -127,6 +150,18 @@ export default function PostCard({ post, store, onChange, onDelete, onHideAuthor
 
   // A janela de denúncia fica sempre na mesma posição da árvore: se o cartão virar aviso
   // (bloquear depois de denunciar), ela continua aberta na tela de confirmação.
+  const quoteDialog = quoting && (
+    <QuoteDialog
+      post={shown}
+      author={author}
+      onClose={() => setQuoting(false)}
+      onPosted={(result) => {
+        setQuoting(false);
+        onChange?.(result);
+        onChange?.({ data: { ...shown, public_metrics: { ...shown.public_metrics, quote_count: quote_count + 1 } } });
+      }}
+    />
+  );
   const dialog = reporting && (
     <ReportDialog
       postId={shown.id}
@@ -162,6 +197,7 @@ export default function PostCard({ post, store, onChange, onDelete, onHideAuthor
   return (
     <>
     {dialog}
+    {quoteDialog}
     <article
       onClick={() => !highlight && !reporting && navigate(`/post/${shown.id}`)}
       className={`px-4 py-3 ${highlight ? '' : 'cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/60'}`}
@@ -186,6 +222,19 @@ export default function PostCard({ post, store, onChange, onDelete, onHideAuthor
             <time dateTime={shown.created_at} title={fullDate(shown.created_at)} className="text-sm text-zinc-400">
               {relativeTime(shown.created_at)}
             </time>
+            {shown.edit_count > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowHistory((v) => !v);
+                }}
+                aria-expanded={showHistory}
+                className="text-sm text-zinc-400 underline-offset-2 hover:underline"
+              >
+                · editado
+              </button>
+            )}
             {canModerate && (
               <PostMenu username={author.username} onMute={() => hideAuthor('mute')} onBlock={() => hideAuthor('block')} onReport={() => setReporting(true)} />
             )}
@@ -195,21 +244,60 @@ export default function PostCard({ post, store, onChange, onDelete, onHideAuthor
               Em resposta a {parentAuthor ? <span className="text-brand-600">@{parentAuthor.username}</span> : 'um post'}
             </p>
           )}
-          <div className={highlight ? 'mt-2 text-xl leading-snug' : 'mt-0.5'}>
-            <RichText text={shown.text} />
-          </div>
+          {editing !== null ? (
+            <form onSubmit={saveEdit} onClick={(e) => e.stopPropagation()} className="mt-1">
+              <label htmlFor={`edit-${shown.id}`} className="sr-only">Editar post</label>
+              <textarea
+                id={`edit-${shown.id}`}
+                value={editing}
+                onChange={(e) => setEditing(e.target.value)}
+                rows={3}
+                className="w-full resize-none rounded-2xl bg-zinc-50 px-3 py-2 text-base outline-none focus:ring-2 focus:ring-brand-500/40 dark:bg-zinc-900"
+              />
+              <p className="text-xs text-zinc-500">A versão anterior fica no histórico, aberta a quem lê.</p>
+              {editError && <p role="alert" className="text-sm text-rose-600">{editError}</p>}
+              <div className="mt-1 flex justify-end gap-2">
+                <button type="button" onClick={() => { setEditing(null); setEditError(null); }} className="min-h-11 rounded-full px-4 text-sm font-semibold text-zinc-600 dark:text-zinc-300">
+                  Cancelar
+                </button>
+                <button disabled={!editing.trim() || editing.length > 280} className="min-h-11 rounded-full bg-brand-600 px-4 text-sm font-extrabold text-white disabled:opacity-40">
+                  Salvar edição
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className={highlight ? 'mt-2 text-xl leading-snug' : 'mt-0.5'}>
+              <RichText text={shown.text} />
+            </div>
+          )}
+          {showHistory && <EditHistory postId={shown.id} />}
           {shown.media?.length > 0 && <PostMedia media={shown.media} />}
+          {quotedRef && <QuotedPost post={quoted} author={quoted ? store.users[quoted.author_id] : null} />}
+          {highlight && quote_count > 0 && <p className="mt-2 text-sm text-zinc-500">{quote_count} {quote_count === 1 ? 'citação' : 'citações'}</p>}
           {highlight && <p className="mt-3 text-sm text-zinc-400">{fullDate(shown.created_at)}</p>}
           <footer className="mt-1 flex max-w-sm items-center justify-between">
             <ActionButton label="Responder" icon="reply" count={reply_count} hideCount={hideMetrics} onClick={() => navigate(`/post/${shown.id}`)} />
-            <ActionButton
-              label={shown.viewer.reposted ? 'Desfazer repost' : 'Repostar'}
-              icon="repost"
-              count={repost_count}
-              hideCount={hideMetrics}
-              active={shown.viewer.reposted}
-              onClick={() => act('repost', shown.viewer.reposted)}
-            />
+            {/* Repostar ou citar: o mesmo botão abre as duas opções. */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <ActionButton
+                label="Repostar ou citar"
+                icon="repost"
+                count={repost_count}
+                hideCount={hideMetrics}
+                active={shown.viewer.reposted}
+                onClick={() => (me ? setRepostMenu((v) => !v) : toLogin())}
+              />
+              {repostMenu && (
+                <div role="menu" className="absolute left-0 top-10 z-20 w-52 rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-zinc-100 dark:bg-zinc-950 dark:ring-zinc-800">
+                  <button role="menuitem" type="button" onClick={() => { setRepostMenu(false); act('repost', shown.viewer.reposted); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900">
+                    <Icon name="repost" className="h-5 w-5 text-zinc-500" /> {shown.viewer.reposted ? 'Desfazer repost' : 'Repostar'}
+                  </button>
+                  <button role="menuitem" type="button" onClick={() => { setRepostMenu(false); setQuoting(true); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900">
+                    <Icon name="quote" className="h-5 w-5 text-zinc-500" /> Citar
+                  </button>
+                </div>
+              )}
+            </div>
             <ActionButton
               label={shown.viewer.liked ? 'Descurtir' : 'Curtir'}
               icon="heart"
@@ -218,6 +306,9 @@ export default function PostCard({ post, store, onChange, onDelete, onHideAuthor
               active={shown.viewer.liked}
               onClick={() => act('like', shown.viewer.liked)}
             />
+            {me && shown.author_id === me.id && !repostRef && shown.viewer.can_edit && editing === null && (
+              <ActionButton label="Editar" icon="edit" onClick={() => setEditing(shown.text)} />
+            )}
             {!(me && shown.author_id === me.id) && (
               <ActionButton
                 label={shown.viewer.tipped ? `Você recompensou com 1 ${token.symbol}` : `Recompensar com 1 ${token.symbol}`}

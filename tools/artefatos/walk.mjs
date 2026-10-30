@@ -81,6 +81,29 @@ r = await call(A, 'POST', `/api/posts/${P.id}/like`); rec('Posts', 'Curtir', r.s
 r = await call(A, 'POST', `/api/posts/${P.id}/repost`); rec('Posts', 'Republicar', r.s === 200, `reposts: ${r.j?.data?.public_metrics?.repost_count}`, r.ms);
 r = await call(A, 'GET', '/api/mentions'); rec('Posts', 'Menções', r.s === 200 && r.j.data.some((p) => p.id === P.id), `${r.j?.data?.length} menções; a nova aparece`, r.ms);
 
+// Editar e citar
+{
+  r = await call(B2, 'POST', '/api/posts', { text: 'Mutirão da horta no sábado às 8h' }); const E = r.j.data;
+  rec('Editar e citar', 'Post novo pode ser editado pela autora', E.viewer.can_edit === true, `can_edit=${E.viewer.can_edit}`, r.ms);
+  r = await call(B2, 'PATCH', `/api/posts/${E.id}`, { text: 'Mutirão da horta no sábado às 9h' });
+  rec('Editar e citar', 'Editar o texto', r.s === 200 && r.j.data.edit_count === 1, `“${r.j?.data?.text}”, edit_count ${r.j?.data?.edit_count}`, r.ms);
+  r = await call(null, 'GET', `/api/posts/${E.id}/edicoes`);
+  rec('Editar e citar', 'Histórico aberto a quem lê, sem conta', r.s === 200 && r.j.data.previous[0]?.text === 'Mutirão da horta no sábado às 8h', `versão 1: “${r.j?.data?.previous?.[0]?.text}”`, r.ms);
+  r = await call(A, 'PATCH', `/api/posts/${E.id}`, { text: 'invadido' }); rec('Editar e citar', 'Só quem escreveu edita', r.s === 403, `HTTP ${r.s}: ${r.j?.error}`, r.ms);
+  const rep = await call(A, 'POST', '/api/denuncias', { post_id: E.id, reason: 'spam' });
+  r = await call(B2, 'PATCH', `/api/posts/${E.id}`, { text: 'apagando a prova' });
+  rec('Editar e citar', 'Com denúncia em análise, não edita', rep.s === 201 && r.s === 409, `HTTP ${r.s}: ${r.j?.error}`, r.ms);
+  r = await call(A, 'POST', '/api/posts', { text: 'Vou levar mudas!', quote_of_id: E.id }); const Q = r.j?.data;
+  rec('Editar e citar', 'Citar post', r.s === 201 && Q.referenced_posts[0]?.type === 'quoted' && r.j.includes.posts.some((x) => x.id === E.id), `referenced_posts [{type:"quoted"}], o original vem em includes`, r.ms);
+  r = await call(B2, 'GET', `/api/posts/${E.id}`); rec('Editar e citar', 'Contador de citações', r.j?.data?.public_metrics?.quote_count === 1, `quote_count ${r.j?.data?.public_metrics?.quote_count}`, r.ms);
+  r = await call(B2, 'GET', '/api/notificacoes'); rec('Editar e citar', 'Quem foi citado recebe aviso', r.j.data.some((n) => n.kind === 'quote' && n.post_id === Q.id), 'Bruno: “Ana citou seu post”', r.ms);
+  await call(B2, 'POST', `/api/posts/${Q.id}/repost`);
+  const { j: tl } = await call(A, 'GET', '/api/users/bruno_pesquisa/posts?max_results=5');
+  const repostId = tl.data.find((x) => x.referenced_posts?.some((y) => y.type === 'reposted' && y.id === Q.id))?.id;
+  r = await call(A, 'POST', '/api/posts', { text: 'citando um repost', quote_of_id: repostId });
+  rec('Editar e citar', 'Repost não pode ser citado (cita o original)', !!repostId && r.s === 409, `HTTP ${r.s}: ${r.j?.error}`, r.ms);
+}
+
 // Busca de posts
 r = await call(null, 'GET', '/api/posts/busca?q=' + encodeURIComponent('comunitárias')); rec('Busca', 'Acha pelo radical e sem acento', r.s === 200 && r.j.data.some((p) => p.id === P.id), `“comunitárias” acha “comunitária”; ${r.j?.data?.length} post(s)`, r.ms);
 r = await call(null, 'GET', '/api/posts/busca?q=postgres'); const ids = r.j.data.map((p) => BigInt(p.id));

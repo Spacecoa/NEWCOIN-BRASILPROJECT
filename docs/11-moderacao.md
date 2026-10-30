@@ -34,6 +34,10 @@ Com `{ muted: false }`, os silenciados aparecem: é o caso do perfil, da thread 
 
 As consultas que **sugerem** conteúdo também filtram, com o mesmo SQL (`hiddenAuthorsSql`): o feed "Para você" (para não gastar o limite da sessão com posts que seriam escondidos), as sugestões das missões e a busca de pessoas. As missões que dão alcance ("amplificar", "ponte") também não sugerem contas com denúncia aberta.
 
+**Editar não apaga a prova.** Post com denúncia em análise não pode ser editado (como já não pode ser apagado de vez), e toda versão anterior de um post editado fica no histórico público (`GET /api/posts/:id/edicoes`).
+
+**Citar respeita o bloqueio.** Quem tem bloqueio com a autora não consegue citar o post (403), e quem tem bloqueio com a autora do original vê a citação de outra pessoa sem o post citado ("Este post não está disponível").
+
 **Imagens seguem o post.** Post removido pela moderação, apagado ou de conta suspensa para de servir as imagens dele na hora (`GET /api/midia/:id` responde 404); um recurso aceito traz o post e as imagens de volta.
 
 **Notificações seguem as mesmas regras.** Quem silenciou ou tem bloqueio com quem agiu não recebe o aviso (nem em tempo real, nem na tela de notificações). Avisos antigos de quem foi silenciado, bloqueado ou suspenso depois somem da lista e do contador, assim como os de posts apagados ou removidos pela moderação.

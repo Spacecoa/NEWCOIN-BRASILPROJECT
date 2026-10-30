@@ -16,6 +16,7 @@ const ICON = {
   mention: ['at', 'text-sky-600'],
   follow: ['user', 'text-brand-600'],
   tip: ['coin', 'text-amber-500'],
+  quote: ['quote', 'text-emerald-600'],
 };
 
 function NotificationItem({ group, users, posts }) {
@@ -25,7 +26,7 @@ function NotificationItem({ group, users, posts }) {
   const to = group.kind === 'follow' ? `/u/${actors[0]?.username}` : `/post/${group.post_id}`;
   const [icon, color] = ICON[group.kind];
   // Respostas e menções mostram o post de quem escreveu; nos demais, o post é seu.
-  const theirs = group.kind === 'reply' || group.kind === 'mention';
+  const theirs = group.kind === 'reply' || group.kind === 'mention' || group.kind === 'quote';
   return (
     <li>
       <Link

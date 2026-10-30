@@ -228,7 +228,7 @@ describe('Posts: leitura aberta, interação só com login (decisão do projeto)
     expect((await api().get(`/api/posts/${p.id}/thread`)).body.data.map((x) => x.id)).toEqual([p.id, r.id]);
     expect(JSON.stringify((await api().get('/federation/users/autora/outbox')).body)).toContain('visível para todo mundo');
     // Quem lê sem login não tem "viewer": nada aparece como curtido ou recompensado.
-    expect((await api().get(`/api/posts/${p.id}`)).body.data.viewer).toEqual({ liked: false, reposted: false, tipped: false });
+    expect((await api().get(`/api/posts/${p.id}`)).body.data.viewer).toEqual({ liked: false, reposted: false, tipped: false, can_edit: false });
   });
 
   it('sem login, nenhuma interação funciona: postar, curtir, repostar, responder, recompensar, seguir, silenciar, bloquear, denunciar, feedback', async () => {

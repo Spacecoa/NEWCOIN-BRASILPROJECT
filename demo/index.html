@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--
   Demo interativa do Ágora: página única, roda no navegador sem servidor.
-  Simula o app (feed Seguindo e Para você, Meu algoritmo, threads, imagens, notificações, busca,
+  Simula o app (feed Seguindo e Para você, Meu algoritmo, threads, imagens, editar e citar, notificações, busca,
   canal em tempo real, missões do dia e carteira NWC) com dados fictícios do seed. O painel "Bastidores"
   mostra o que o backend real faria a cada ação. Abra este arquivo direto no navegador.
   Cópia estática: o app de verdade está em backend/ e frontend/.
@@ -142,6 +142,24 @@ body[data-view="channel"] .logpill { bottom: calc(140px + env(safe-area-inset-bo
 .composer .cimg textarea { min-height: 52px; font-size: 14px; border-radius: 12px; padding: 8px 10px; }
 .cimg .linkbtn { justify-self: start; color: var(--muted); font-size: 13px; min-height: 32px; }
 .ihint { margin-right: auto; font-size: 13px; color: var(--muted); }
+.qembed { display: block; width: 100%; text-align: left; margin-top: 8px; border: 1px solid var(--line); border-radius: 16px; padding: 8px 12px; font-size: 14px; }
+.qembed .qh { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.qembed .qh b { font-weight: 800; }
+.qembed .qt { margin-top: 2px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.qembed img { display: block; width: 100%; max-height: 140px; object-fit: cover; border-radius: 10px; margin-top: 6px; }
+.qembed.gone { color: var(--muted); }
+.rwrap { position: relative; }
+.rmenu { position: absolute; left: 0; top: 40px; z-index: 20; width: 190px; background: var(--bg); border-radius: 16px; padding: 6px; box-shadow: 0 8px 28px var(--overlay); border: 1px solid var(--line); }
+.rmenu button { display: flex; gap: 10px; align-items: center; width: 100%; min-height: 44px; padding: 0 10px; border-radius: 10px; text-align: left; }
+.rmenu button:hover { background: var(--soft); }
+.editbox { display: grid; gap: 6px; margin-top: 4px; }
+.editbox textarea { width: 100%; min-height: 72px; resize: none; border: 0; border-radius: 14px; background: var(--soft); color: var(--ink); font: inherit; font-size: 16px; padding: 10px 12px; }
+.editbox .row2 { display: flex; justify-content: flex-end; gap: 8px; }
+.editbox small { color: var(--muted); }
+.edited { color: var(--faint); font-size: 14px; text-decoration: underline dotted; text-underline-offset: 3px; }
+.hist { margin-top: 6px; background: var(--soft); border-radius: 14px; padding: 10px 12px; font-size: 14px; display: grid; gap: 8px; }
+.hist h4 { margin: 0; font-size: 14px; font-weight: 800; }
+.hist small { color: var(--muted); display: block; }
 .pmedia { display: grid; gap: 3px; margin-top: 8px; border-radius: 16px; overflow: hidden; }
 .pmedia.multi { grid-template-columns: 1fr 1fr; }
 .pmedia figure { margin: 0; position: relative; }
@@ -513,7 +531,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
 <body data-auth="out">
 <header class="intro">
   <h1>Ágora <span>em ação</span></h1>
-  <p>Demonstração interativa com dados fictícios (só a aba Brasil traz números reais, das fontes oficiais). Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste (com imagens, cada uma com descrição), recompense posts com o token NWC, cumpra as missões do dia, acompanhe quem interagiu no sino de notificações, busque posts no Explorar, veja os últimos números oficiais do país na aba Brasil, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância, cita as regras e decide recursos) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
+  <p>Demonstração interativa com dados fictícios (só a aba Brasil traz números reais, das fontes oficiais). Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste (com imagens, cada uma com descrição), edite e cite posts, recompense posts com o token NWC, cumpra as missões do dia, acompanhe quem interagiu no sino de notificações, busque posts no Explorar, veja os últimos números oficiais do país na aba Brasil, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância, cita as regras e decide recursos) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
 </header>
 
 <section class="gate" id="gate" aria-label="Entrar">
@@ -566,6 +584,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     <form class="composer" data-compose="compose-sheet">
       <label for="compose-sheet" hidden>Novo post</label>
       <textarea id="compose-sheet" placeholder="O que está acontecendo?" maxlength="400"></textarea>
+      <div id="sheet-quote"></div>
       <div class="cimgs" id="compose-sheet-imgs"></div>
       <div class="row"><input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden data-imgpick="compose-sheet"><button type="button" class="iconbtn imgbtn" data-imgadd="compose-sheet" aria-label="Adicionar imagem"><svg class="i" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5zM4 16l4.5-4.5 4 4 2.5-2.5L20 18M15.5 9.5h.01"/></svg></button><span class="counter" id="compose-sheet-count">280</span><button class="primary" type="submit" disabled>Postar</button></div>
     </form>
@@ -667,6 +686,19 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     posts.get(keyToId.n2).media = [{ src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), w: 720, h: 420, alt: 'Mapa desenhado de um bairro: quarteirões cinza separados por ruas brancas, uma praça verde no meio, um rio azul atravessando de cima a baixo e um marcador laranja na escola onde o grupo se reúne.' }];
   }
 
+  // A Nina cita o mapa do Otávio, e um post da Ana já foi editado (com o histórico).
+  {
+    const created = new Date(NOW - 25 * 60000);
+    const qid = snowflake(+created);
+    posts.set(qid, { id: qid, author: 'nina_nova', text: 'Quero ajudar nesse mapa! Também moro perto de um rio e dá para marcar as pontes.', replyTo: null, repostOf: null, quoteOf: keyToId.n2, conv: qid, likes: new Set(['otavio_recife']), tips: new Set(), created });
+    const mine = [...posts.values()].filter((p) => p.author === ME && !p.replyTo && !p.repostOf).sort((x, y) => (BigInt(x.id) > BigInt(y.id) ? 1 : -1))[0]; // o mais antigo
+    if (mine) {
+      const typo = mine.text.replace(/(?<![@\w])[A-Za-zÀ-ú]{5,}/, (w) => w + w.slice(-1));
+      mine.history = [{ text: typo, until: new Date(+mine.created + 4 * 60000) }];
+      mine.editedAt = new Date(+mine.created + 4 * 60000);
+    }
+  }
+
   // ---------- Canal Café (grupo) ----------
   const channel = { slug: 'cafe', title: 'Café', kind: 'group', pts: 0, members: 7, connected: true, localPts: 0, messages: [] };
   const CHAT_SEED = [
@@ -693,7 +725,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     { a: 'bruno_pesquisa', t: 'Publiquei os slides da aula sobre timelines. Tem diagrama de fan-out e tudo.' },
     { a: 'karen_ml', t: 'Pergunta séria: quem topa testar federação entre duas instâncias Ágora na semana que vem? @ana_dev' },
     { a: 'heitor_net', t: 'WebFinger funcionando entre duas máquinas da rede do laboratório. Próximo passo: inbox assinado.' },
-  ], gapNote: null, ntab: 'tudo', nRead: null, nFresh: new Set(), q: '', stab: 'posts' };
+  ], gapNote: null, rmenu: null, quoting: null, editing: null, hist: new Set(), ntab: 'tudo', nRead: null, nFresh: new Set(), q: '', stab: 'posts' };
 
   // ---------- Utilidades ----------
   const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1066,6 +1098,8 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     block: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM5.6 5.6l12.8 12.8',
     shield: 'M12 3 5 6v5c0 4.4 3 8.3 7 10 4-1.7 7-5.6 7-10V6z',
     bell: 'M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15zm4 3.5a2 2 0 0 0 4 0',
+    edit: 'M4 20h4L19 9l-4-4L4 16zm9-13 4 4',
+    quote: 'M7 17c-1.7 0-3-1.3-3-3V9a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H7m10 3c-1.7 0-3-1.3-3-3V9a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2',
     image: 'M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5zM4 16l4.5-4.5 4 4 2.5-2.5L20 18M15.5 9.5h.01',
   };
   const svgI = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${PATHS[name]}"/></svg>`;
@@ -1102,21 +1136,66 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
       ${p.repostOf ? `<div class="repost-line">${svgI('repost', 'sm')} ${p.author === ME ? 'Você repostou' : esc(USERS[p.author].name) + ' repostou'}</div>` : ''}
       ${avatar(shown.author)}
       <div style="min-width:0">
-        <div class="meta"><button class="name" data-profile="${u.username}">${esc(u.name)}</button><span class="handle">@${u.username}</span><span class="when" title="${full(shown.created)}">· ${rel(shown.created)}</span></div>
+        <div class="meta"><button class="name" data-profile="${u.username}">${esc(u.name)}</button><span class="handle">@${u.username}</span><span class="when" title="${full(shown.created)}">· ${rel(shown.created)}</span>${shown.history?.length ? `<button class="edited" data-hist="${shown.id}" aria-expanded="${state.hist.has(shown.id)}">editado</button>` : ''}</div>
         ${parent ? `<div class="replyto">Em resposta a <button class="mention" data-profile="${parent.author}">@${parent.author}</button></div>` : ''}
-        <p class="text">${richText(shown.text)}</p>${shown.media?.length ? mediaHTML(shown.media) : ''}
+        ${state.editing === shown.id
+          ? `<form class="editbox" data-editform="${shown.id}"><label for="edit-${shown.id}" hidden>Editar post</label><textarea id="edit-${shown.id}" maxlength="400">${esc(shown.text)}</textarea><small>A versão anterior fica no histórico, aberta a quem lê.</small><div class="row2"><button type="button" class="chip" data-editcancel>Cancelar</button><button class="primary" type="submit">Salvar edição</button></div></form>`
+          : `<p class="text">${richText(shown.text)}</p>`}${state.hist.has(shown.id) ? histHTML(shown) : ''}${shown.media?.length ? mediaHTML(shown.media) : ''}${shown.quoteOf !== undefined && shown.quoteOf !== null ? quoteHTML(shown.quoteOf) : ''}
         ${focal ? `<div class="idline">id ${shown.id} · conversation_id ${shown.conv} · ${full(shown.created)}</div>` : ''}
         <div class="actions">
           <button class="act" data-reply="${shown.id}" aria-label="Responder">${svgI('reply', 'sm')}${hm ? '' : n(replyCount(shown.id))}</button>
-          <button class="act" data-repost="${shown.id}" aria-pressed="${rp}" aria-label="${rp ? 'Desfazer repost' : 'Repostar'}">${svgI('repost', 'sm')}${hm ? '' : n(repostCount(shown.id))}</button>
+          <span class="rwrap"><button class="act" data-rmenu="${p.id}" aria-pressed="${rp}" aria-haspopup="menu" aria-expanded="${state.rmenu === p.id}" aria-label="Repostar ou citar">${svgI('repost', 'sm')}${hm ? '' : n(repostCount(shown.id))}</button>${state.rmenu === p.id ? `<div class="rmenu" role="menu"><button role="menuitem" data-repost="${shown.id}">${svgI('repost', 'sm')} ${rp ? 'Desfazer repost' : 'Repostar'}</button><button role="menuitem" data-quote="${shown.id}">${svgI('quote', 'sm')} Citar</button></div>` : ''}</span>
           <button class="act" data-like="${shown.id}" aria-pressed="${liked}" aria-label="${liked ? 'Descurtir' : 'Curtir'}">${svgI('heart', liked ? 'sm fill' : 'sm')}${hm ? '' : n(shown.likes.size)}</button>
           ${shown.author !== ME
             ? `<button class="act" data-tip="${shown.id}" aria-pressed="${shown.tips.has(ME)}" aria-label="${shown.tips.has(ME) ? 'Você recompensou com 1 ' + TOKEN.symbol : 'Recompensar com 1 ' + TOKEN.symbol}">${svgI('coin', 'sm')}${hm ? '' : n(shown.tips.size)}</button>`
             : shown.tips.size && !hm ? `<span class="act" role="img" aria-label="${shown.tips.size} recompensas recebidas">${svgI('coin', 'sm')}<span>${shown.tips.size}</span></span>` : ''}
+          ${canEdit(shown, p) ? `<button class="act" data-edit="${shown.id}" aria-label="Editar">${svgI('edit', 'sm')}</button>` : ''}
         </div>
         ${rank ? whyHTML(shown, rank) : ''}
       </div>
     </article>`;
+  }
+
+  // ---------- Editar e citar ----------
+  // Editar: só a autora, nos primeiros 30 minutos e até 5 vezes; o histórico fica público.
+  const canEdit = (shown, p) => shown.author === ME && !p.repostOf && Date.now() - shown.created < 30 * 60000 && (shown.history?.length ?? 0) < 5;
+  const histHTML = (post) => `<div class="hist" role="region" aria-label="Histórico de edições"><h4>Histórico de edições</h4><div><small>Atual, desde ${full(post.editedAt)}</small>${esc(post.text)}</div>${[...post.history].reverse().map((v, i, all) => `<div><small>Versão ${all.length - i}, até ${full(v.until)}</small>${esc(v.text)}</div>`).join('')}</div>`;
+  function quoteHTML(id) {
+    const q = posts.get(id);
+    if (!q || hiddenAuthor(q.author)) return '<div class="qembed gone">Este post não está disponível.</div>';
+    const qu = USERS[q.author];
+    return `<button class="qembed" data-open="${q.id}" aria-label="Post citado de ${esc(qu.name)}: ${esc(q.text)}"><span class="qh"><b>${esc(qu.name)}</b><span class="handle">@${qu.username} · ${rel(q.created)}</span></span><span class="qt">${esc(q.text)}</span>${q.media?.length ? `<img src="${q.media[0].src}" alt="${esc(q.media[0].alt)}">` : ''}</button>`;
+  }
+  function openQuote(id) {
+    state.quoting = id;
+    document.getElementById('sheet-quote').innerHTML = quoteHTML(id).replace('<button class="qembed"', '<div class="qembed"').replace(/<\/button>$/, '</div>').replace(/ data-open="[^"]*"/, '');
+    const f = document.querySelector('form[data-compose="compose-sheet"]');
+    f.querySelector('button[type=submit]').textContent = 'Citar';
+    f.querySelector('textarea').placeholder = 'O que você quer dizer sobre isso?';
+    render();
+    sheet.hidden = false;
+    setTimeout(() => document.getElementById('compose-sheet').focus(), 50);
+  }
+  function closeQuote() {
+    if (!state.quoting) return;
+    state.quoting = null;
+    document.getElementById('sheet-quote').innerHTML = '';
+    const f = document.querySelector('form[data-compose="compose-sheet"]');
+    f.querySelector('button[type=submit]').textContent = 'Postar';
+    f.querySelector('textarea').placeholder = 'O que está acontecendo?';
+  }
+  function saveEdit(id, text) {
+    const post = posts.get(id);
+    text = text.trim();
+    if (!text || text.length > 280 || text === post.text) { state.editing = null; render(); return; }
+    post.history = [...(post.history ?? []), { text: post.text, until: new Date() }];
+    post.text = text;
+    post.editedAt = new Date();
+    state.editing = null;
+    log('http', `PATCH /api/posts/${short(id)} → 200`, `{ text } · edit_count = ${post.history.length} · dentro de 30 min e sem denúncia em análise`);
+    log('sql', 'BEGIN · SELECT … FOR UPDATE · INSERT post_edits (texto anterior) · UPDATE posts SET text, edited_at · recalcula mentions · COMMIT');
+    toast('Post editado. A versão anterior fica no histórico.');
+    render();
   }
 
   // Menu "⋯" (post ou perfil). Bloquear pede confirmação dentro do menu.
@@ -1532,14 +1611,15 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
       const target = p.repostOf ? posts.get(p.repostOf) : p.replyTo ? posts.get(p.replyTo) : null;
       if (target && target.author === ME) add(p.repostOf ? 'repost' : 'reply', p.author, p.repostOf ? target.id : p.id, p.created);
       else if (!p.repostOf && p.author !== ME && p.text.includes('@' + ME)) add('mention', p.author, p.id, p.created);
+      if (p.quoteOf && posts.get(p.quoteOf)?.author === ME) add('quote', p.author, p.id, p.created);
     }
     followersOf(ME).forEach((u, i) => add('follow', u, null, new Date(NOW - (20 + i * 7) * 3600000)));
     return list.sort((a, b) => b.created - a.created);
   }
   const unreadCount = () => { if (!state.nRead) return 0; return notifications().filter((x) => !state.nRead.has(x.key)).length; };
-  const VERB = { like: 'curtiu seu post', repost: 'repostou seu post', reply: 'respondeu você', mention: 'mencionou você', follow: 'começou a seguir você', tip: `recompensou seu post com 1 ${TOKEN.symbol}` };
+  const VERB = { quote: 'citou seu post', like: 'curtiu seu post', repost: 'repostou seu post', reply: 'respondeu você', mention: 'mencionou você', follow: 'começou a seguir você', tip: `recompensou seu post com 1 ${TOKEN.symbol}` };
   const VERBS = { like: 'curtiram seu post', repost: 'repostaram seu post', follow: 'começaram a seguir você', tip: 'recompensaram seu post' };
-  const NICON = { like: 'heart', repost: 'repost', reply: 'reply', mention: 'at', follow: 'user', tip: 'coin' };
+  const NICON = { quote: 'quote', like: 'heart', repost: 'repost', reply: 'reply', mention: 'at', follow: 'user', tip: 'coin' };
   function renderNotifications() {
     let html = header('Notificações', state.ntab === 'mencoes' ? 'Posts que citam você' : 'Quem interagiu com você');
     html += `<div class="tabsw" role="tablist" aria-label="Tipo de notificação"><button role="tab" aria-selected="${state.ntab === 'tudo'}" data-ntab="tudo">Tudo</button><button role="tab" aria-selected="${state.ntab === 'mencoes'}" data-ntab="mencoes">Menções</button></div>`;
@@ -1559,7 +1639,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
       const names = g.actors.map((u) => USERS[u].name);
       const who = g.actors.length === 1 ? `<b>${esc(names[0])}</b> ${VERB[g.kind]}` : g.actors.length === 2 ? `<b>${esc(names[0])}</b> e <b>${esc(names[1])}</b> ${VERBS[g.kind]}` : `<b>${esc(names[0])}</b> e mais ${g.actors.length - 1} ${VERBS[g.kind]}`;
       const p = g.postId ? posts.get(g.postId) : null;
-      const theirs = g.kind === 'reply' || g.kind === 'mention';
+      const theirs = g.kind === 'reply' || g.kind === 'mention' || g.kind === 'quote';
       const target = g.kind === 'follow' ? `data-profile="${g.actors[0]}"` : `data-open="${g.postId}"`;
       return `<button class="nitem ${g.fresh ? 'new' : ''}" ${target}><span class="ni">${svgI(NICON[g.kind], g.kind === 'like' ? 'fill' : '')}</span><span class="nb"><span class="nt">${who} <span class="handle">· ${rel(g.created)}</span>${g.fresh ? '<span class="sr"> (nova)</span>' : ''}</span>${p ? `<span class="np ${theirs ? 'theirs' : ''}">${esc(p.text)}</span>` : ''}</span></button>`;
     }).join('') + '</div>';
@@ -1948,7 +2028,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     go('profile', { push: state.view !== 'profile' || state.profile !== u });
   }
 
-  function createPost(author, text, replyTo = null, media = []) {
+  function createPost(author, text, replyTo = null, media = [], quoteOf = null) {
     const created = new Date();
     const id = snowflake(created.getTime());
     const parent = replyTo ? posts.get(replyTo) : null;
@@ -1957,7 +2037,11 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
       log('http', `POST /api/midia → 201`, `imagem ${i + 1}: tipo conferido pelos bytes, EXIF/GPS/XMP/IPTC removidos, ${m.w}×${m.h}`);
       log('sql', 'INSERT INTO media (bytes sem metadados, post_id NULL) · sem post, some em 1 dia');
     });
-    posts.set(id, { id, author, text, replyTo, repostOf: null, conv: parent ? parent.conv : id, likes: new Set(), tips: new Set(), created, media: media.map(({ src, alt, w, h }) => ({ src, alt: alt.trim(), w, h })) });
+    posts.set(id, { id, author, text, replyTo, repostOf: null, quoteOf, conv: parent ? parent.conv : id, likes: new Set(), tips: new Set(), created, media: media.map(({ src, alt, w, h }) => ({ src, alt: alt.trim(), w, h })) });
+    if (quoteOf) {
+      log('sql', `SELECT post citado FOR UPDATE · assertCanInteract (bloqueio) · quote_count+1`);
+      log('ws', `notification {type:"quote"} → user:${posts.get(quoteOf).author}`);
+    }
     if (media.length) log('sql', `UPDATE media SET post_id, position, alt (${media.length} imagem${media.length > 1 ? 's' : ''}, descrição obrigatória)`);
     const audience = followersOf(author).length + 1;
     log('http', `POST /api/posts → 201${author === ME ? '' : '  (como @' + author + ')'}`, JSON.stringify(replyTo ? { text: text.slice(0, 28) + '…', reply_to_id: short(replyTo) } : { text: text.slice(0, 36) + '…' }));
@@ -2005,6 +2089,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   }
 
   function toggleRepost(id) {
+    state.rmenu = null;
     const existing = [...posts.values()].find((p) => p.repostOf === id && p.author === ME);
     if (existing) {
       posts.delete(existing.id);
@@ -2107,7 +2192,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (d.openlog !== undefined) { logPanel.classList.add('open'); unseen = 0; document.getElementById('log-unseen').hidden = true; return; }
     if (d.closelog !== undefined) { logPanel.classList.remove('open'); return; }
     if (d.opensheet !== undefined) { state.tab = 'seguindo'; if (state.view !== 'home') go('home'); else render(); sheet.hidden = false; setTimeout(() => document.getElementById('compose-sheet').focus(), 50); return; }
-    if (d.closesheet !== undefined) { sheet.hidden = true; return; }
+    if (d.closesheet !== undefined) { sheet.hidden = true; closeQuote(); return; }
     if (d.tab) { state.tab = d.tab; state.shownFy = PAGE; if (d.tab === 'interesses') logForYou(); else readTimeline(); render(); return; }
     if (d.why) { state.why.has(d.why) ? state.why.delete(d.why) : state.why.add(d.why); render(); return; }
     if (d.feedback) {
@@ -2142,6 +2227,11 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (d.simAppeal) return simulateAppeal(Number(d.simAppeal));
     if (d.appealOk) return decideAppeal(Number(d.appealOk), true);
     if (d.appealNo) return decideAppeal(Number(d.appealNo), false);
+    if (d.rmenu) { state.rmenu = state.rmenu === d.rmenu ? null : d.rmenu; render(); return; }
+    if (d.quote) { state.rmenu = null; openQuote(d.quote); return; }
+    if (d.edit) { state.editing = d.edit; render(); const ta = document.getElementById('edit-' + d.edit); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } return; }
+    if (d.editcancel !== undefined) { state.editing = null; render(); return; }
+    if (d.hist) { state.hist.has(d.hist) ? state.hist.delete(d.hist) : state.hist.add(d.hist); if (state.hist.has(d.hist)) log('http', `GET /api/posts/${short(d.hist)}/edicoes → 200`, 'versão atual + anteriores, com datas'); render(); return; }
     if (d.imgadd) { document.querySelector(`[data-imgpick="${d.imgadd}"]`)?.click(); return; }
     if (d.imgdel) { const [fid, i] = d.imgdel.split(':'); drafts[fid]?.splice(Number(i), 1); refreshDraft(fid); return; }
     if (d.ntab) { state.ntab = d.ntab; if (d.ntab === 'mencoes') log('http', 'GET /api/mentions → 200', 'SELECT post_id FROM mentions WHERE user_id = me ORDER BY post_id DESC'); render(); return; }
@@ -2231,6 +2321,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     e.preventDefault();
     const f = e.target;
     if (f.dataset.search !== undefined) return;
+    if (f.dataset.editform) return saveEdit(f.dataset.editform, f.querySelector('textarea').value);
     if (f.dataset.reportform !== undefined) return submitReport(f);
     if (f.dataset.login !== undefined) return doLogin(document.getElementById('g-email').value, document.getElementById('g-pass').value);
     if (f.dataset.kwform !== undefined) {
@@ -2252,7 +2343,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     const media = drafts[f.dataset.compose] ?? [];
     if (media.some((m) => !m.alt.trim())) return;
     delete drafts[f.dataset.compose];
-    if (f.dataset.compose === 'compose-sheet') { const id = createPost(ME, text, null, media); state.fresh.add(id); state.shown++; ta.value = ''; refreshDraft('compose-sheet'); sheet.hidden = true; }
+    if (f.dataset.compose === 'compose-sheet') { const id = createPost(ME, text, null, media, state.quoting); state.fresh.add(id); state.shown++; ta.value = ''; refreshDraft('compose-sheet'); closeQuote(); sheet.hidden = true; if (state.view !== 'home') { go('home'); return; } }
     else if (f.dataset.compose === 'compose-reply') { const id = createPost(ME, text, state.focal, media); state.fresh.add(id); }
     else { const id = createPost(ME, text, null, media); state.fresh.add(id); state.shown++; }
     render();

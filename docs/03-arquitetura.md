@@ -257,7 +257,9 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | GET | `/api/notificacoes/nao-lidas` | ✔ | Só o contador |
 | POST | `/api/notificacoes/lidas` | ✔ | `{newest_id?}` marca como lidas até o mais novo que a pessoa viu |
 | GET | `/api/posts` | opc. | Timeline pública da instância |
-| POST | `/api/posts` | ✔ | `{text, reply_to_id?, media?: [{id, alt}]}` → post criado + autor (até 4 imagens, descrição obrigatória) |
+| POST | `/api/posts` | ✔ | `{text, reply_to_id?, quote_of_id?, media?: [{id, alt}]}` → post criado + autor (até 4 imagens, descrição obrigatória; `quote_of_id` cita outro post, que vai em `includes`) |
+| PATCH | `/api/posts/:id` | ✔ autor | `{text}`: edita nos primeiros 30 minutos, até 5 vezes, sem denúncia em análise; a versão anterior vai para o histórico |
+| GET | `/api/posts/:id/edicoes` | opc. | Histórico de edições (versão atual e anteriores, com datas) |
 | POST | `/api/midia` | ✔ | Bytes de uma imagem JPEG, PNG ou WebP (até 2 MB e 4096 px). O tipo é conferido pelos bytes e os metadados (EXIF/GPS, XMP, IPTC, textos) são removidos. Devolve `{id, url, width, height}`; sem post, some em 1 dia |
 | GET | `/api/midia/:id` | — | A imagem, só enquanto o post estiver no ar e a conta não estiver suspensa |
 | GET | `/api/posts/busca?q=` | opc. | Busca posts por palavras (português, sem diferença de acento, pelo radical), mais recentes primeiro e sem ordenar por curtidas; aceita "aspas", -palavra e OR; paginação por `until_id` |
