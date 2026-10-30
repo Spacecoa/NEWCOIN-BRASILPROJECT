@@ -1213,7 +1213,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
       ] },
   ];
   const bd = { open: new Set() };
-  const fmtBR = (v, unit, dec) => { const n = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec }).format(v); return unit === 'R$' ? `R$ ${n}` : unit === '%' ? `${n}%` : `${n} ${unit}`; };
+  const fmtBR = (v, unit, dec) => { const n = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec }).format(v); return unit === 'R$' ? `R$ ${n}` : unit.startsWith('%') ? `${n}${unit}` : `${n} ${unit}`; };
   // Linha do histórico com os pontos reais do registro (só desenha com 2 ou mais).
   function spark(hist, title) {
     if (hist.length < 2) return '';

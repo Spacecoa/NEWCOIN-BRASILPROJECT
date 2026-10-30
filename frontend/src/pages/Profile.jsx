@@ -5,6 +5,7 @@ import { useLoginRedirect } from '../lib/useLoginRedirect.js';
 import Avatar from '../components/Avatar.jsx';
 import Feed from '../components/Feed.jsx';
 import Icon from '../components/Icon.jsx';
+import LoadError from '../components/LoadError.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
 import { block, mute } from '../lib/moderation.js';
@@ -56,7 +57,7 @@ export default function Profile() {
     }));
   }
 
-  if (error) return <p className="p-8 text-center text-zinc-500">{error}</p>;
+  if (error) return <LoadError message={error} onRetry={() => { setError(null); load().catch((e) => setError(e.message)); }} />;
   if (!profile) return <p className="p-8 text-center text-zinc-500">Carregando…</p>;
   const isMe = me?.id === profile.id;
   const m = profile.public_metrics;

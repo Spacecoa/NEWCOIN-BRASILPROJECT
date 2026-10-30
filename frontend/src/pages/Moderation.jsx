@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import LoadError from '../components/LoadError.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
 import { loadReasons, RESOLUTION_LABEL } from '../lib/moderation.js';
@@ -224,7 +225,7 @@ export default function Moderation() {
         ))}
       </div>
       <div className="px-4 pb-8">
-        {error && <p role="alert" className="py-8 text-center text-zinc-500">{error}</p>}
+        {error && <LoadError message={error} onRetry={load} className="py-8" />}
         {!error && !items && <p className="py-8 text-center text-zinc-400">Carregando…</p>}
         {items && !items.length && (
           <p className="py-8 text-center text-zinc-500">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import Composer from '../components/Composer.jsx';
+import LoadError from '../components/LoadError.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import PostCard from '../components/PostCard.jsx';
 import { api } from '../lib/api.js';
@@ -43,7 +44,7 @@ export default function Thread() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  if (error) return <p className="p-8 text-center text-zinc-500">{error}</p>;
+  if (error) return <LoadError message={error} onRetry={() => { setError(null); load(); }} />;
   if (!order) return <p className="p-8 text-center text-zinc-500">Carregando…</p>;
 
   const posts = order.map((pid) => store.posts[pid]).filter(Boolean);

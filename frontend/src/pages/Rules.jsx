@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
+import LoadError from '../components/LoadError.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import RulesList from '../components/RulesList.jsx';
 import { api } from '../lib/api.js';
@@ -82,10 +83,14 @@ export default function Rules() {
   const Main = user ? 'div' : 'main';
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const load = () => {
+    setError(null);
+    loadRules({ fresh: true }).then(setData).catch((e) => setError(e.message));
+  };
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    loadRules({ fresh: true }).then(setData).catch((e) => setError(e.message));
+    load();
   }, []);
 
   return (
@@ -93,7 +98,7 @@ export default function Rules() {
     <Main className={user ? '' : 'mx-auto max-w-xl pb-10'}>
       <PageHeader back title="Regras da instância" subtitle={data?.updated_at ? `Atualizadas em ${new Date(data.updated_at).toLocaleDateString('pt-BR')}` : 'Valem para todas as pessoas daqui'} />
       <div className="space-y-6 px-4 pb-8">
-        {error && <p role="alert" className="text-zinc-500">{error}</p>}
+        {error && <LoadError message={error} onRetry={load} className="py-8" />}
         {!data && !error && <p className="text-zinc-400">Carregando…</p>}
         {data && (editing ? (
           <RulesEditor rules={data.rules} onSaved={(d) => { setData(d); setEditing(false); }} onCancel={() => setEditing(false)} />

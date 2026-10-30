@@ -56,6 +56,7 @@ describe('formatação', () => {
     expect(periodLabel('2026T2')).toBe('2º tri/2026');
     expect(formatValue(750.1, 'R$', 2)).toBe('R$ 750,10');
     expect(formatValue(4.23, '%', 2)).toBe('4,23%');
+    expect(formatValue(13.75, '% ao ano', 2)).toBe('13,75% ao ano');
     expect(changeLabel({ value: 2.1 }, { value: 1.6, period: '2026T1' }, '%', 1)).toBe('+0,5 ponto desde 1º tri/2026');
     expect(dateLabel('2026-10-09')).toBe('9 out 2026');
     expect(dateLabel('2026-10')).toBe('out/2026');

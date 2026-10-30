@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import LoadError from '../components/LoadError.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { api } from '../lib/api.js';
@@ -85,7 +86,7 @@ export default function Interests() {
     load();
   }, []);
 
-  if (error && !data) return <p className="p-8 text-center text-zinc-500">{error}</p>;
+  if (error && !data) return <LoadError message={error} onRetry={() => { setError(null); load(); }} />;
   if (!draft) return <p className="p-8 text-center text-zinc-500">Carregando…</p>;
 
   const set = (patch) => {
