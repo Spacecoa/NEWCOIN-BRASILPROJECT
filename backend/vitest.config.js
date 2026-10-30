@@ -14,6 +14,10 @@ export default defineConfig({
       JWT_SECRET: 'segredo-de-teste-com-mais-de-32-caracteres-0123456789',
       INSTANCE_DOMAIN: 'agora.test',
       DISABLE_RATE_LIMIT: '1',
+      // Os testes conferem o painel mudando dentro do mesmo teste; o cache tem teste próprio.
+      MISSIONS_COLLECTIVE_CACHE_SEC: '0',
+      // Nos testes a distribuição roda dentro do pedido; a fila tem teste próprio (fanout.test.js).
+      FANOUT_QUEUE: '0',
       CORS_ORIGIN: 'http://localhost:5173',
     },
   },

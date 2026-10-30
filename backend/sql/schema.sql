@@ -510,3 +510,9 @@ BEGIN
       CHECK (kind IN ('like', 'repost', 'reply', 'mention', 'follow', 'tip', 'quote'));
   END IF;
 END $$;
+
+-- Busca de pessoas por parte do nome (ILIKE '%…%'): índices de trigramas no lugar de varrer a
+-- tabela (docs/10, B2). username é citext: a consulta compara username::text para usar o índice.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS users_username_trgm_idx ON users USING gin ((username::text) gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS users_display_name_trgm_idx ON users USING gin (display_name gin_trgm_ops);

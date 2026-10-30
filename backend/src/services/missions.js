@@ -144,13 +144,21 @@ const DEFS = {
     suggest: async ([me]) =>
       (
         await query(
-          `SELECT u.username, u.display_name FROM users u
+          // Parte dos 2000 posts mais recentes (pela chave, sem varrer as contas) e fica com
+          // quem postou por último e está fora do círculo de quem pede (docs/10, M2).
+          `WITH recent AS (
+             SELECT author_id, max(id) AS last_id FROM (
+               SELECT author_id, id FROM posts WHERE created_at > now() - interval '14 days' ORDER BY id DESC LIMIT 2000
+             ) x GROUP BY author_id
+           ), circle AS (
+             SELECT theirs.followee_id AS id FROM follows mine JOIN follows theirs ON theirs.follower_id = mine.followee_id
+              WHERE mine.follower_id = $1
+           )
+           SELECT u.username, u.display_name FROM recent r JOIN users u ON u.id = r.author_id
            WHERE u.id <> $1 AND u.id NOT IN ${HIDDEN} AND NOT ${UNDER_REVIEW('u.id')}
              AND NOT EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $1 AND f.followee_id = u.id)
-             AND NOT EXISTS (SELECT 1 FROM follows mine JOIN follows theirs ON theirs.follower_id = mine.followee_id
-                             WHERE mine.follower_id = $1 AND theirs.followee_id = u.id)
-             AND EXISTS (SELECT 1 FROM posts p WHERE p.author_id = u.id AND p.created_at > now() - interval '14 days')
-           ORDER BY (SELECT max(id) FROM posts p WHERE p.author_id = u.id) DESC LIMIT 3`,
+             AND u.id NOT IN (SELECT id FROM circle)
+           ORDER BY r.last_id DESC LIMIT 3`,
           [me],
         )
       ).rows.map((r) => ({ type: 'user', ...r })),
@@ -220,7 +228,20 @@ async function today(tz) {
 }
 
 /** Painel coletivo: só números da rede inteira, nunca de pessoas individuais. */
+// O painel é igual para todo mundo: guardado por 60 s em cada processo, em vez de recalculado
+// a cada GET /api/missoes (docs/10, M2). Os números são da semana ou do dia; 1 minuto não muda nada.
+const collectiveCache = new Map(); // tz → { at, value }
+export const resetCollectiveCache = () => collectiveCache.clear();
+
 async function collective(tz) {
+  const hit = collectiveCache.get(tz);
+  if (hit && Date.now() - hit.at < config.collectiveCacheSec * 1000) return hit.value;
+  const value = await collectiveQuery(tz);
+  collectiveCache.set(tz, { at: Date.now(), value });
+  return value;
+}
+
+async function collectiveQuery(tz) {
   const { rows } = await query(
     `SELECT
        (SELECT count(*)::int FROM users u WHERE ${NEW_USER}) AS novos_membros_semana,

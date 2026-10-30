@@ -5,8 +5,9 @@ import { extractMentions } from '../lib/text.js';
 import { bus } from '../realtime/bus.js';
 import { attachMedia, mediaForPosts } from './media.js';
 import { notify, retract } from './notifications.js';
-import { assertCanInteract, filterAudience, hiddenAuthors } from './relations.js';
-import { fanOut } from './timeline.js';
+import { assertCanInteract, hiddenAuthors } from './relations.js';
+import { distribute } from './fanout.js';
+import { deletionAudience } from './timeline.js';
 import { getUsersByIds } from './users.js';
 
 // ---------------------------------------------------------------------------
@@ -159,10 +160,10 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
     return { mentionedIds: mentioned, parentAuthorId: parentAuthor, quotedAuthorId: quotedAuthor };
   });
 
-  // Quem silenciou ou tem bloqueio com o autor não recebe o aviso em tempo real nem notificação.
-  const audience = await filterAudience(authorId, await fanOut(id, authorId));
+  // Timelines dos seguidores e aviso em tempo real: pela fila (docs/10, M1). Quem silenciou ou
+  // tem bloqueio com o autor não recebe o aviso em tempo real nem notificação.
+  await distribute(id, authorId);
   const post = await getPost(id, authorId);
-  bus.emit('post:created', { post, audience });
   // Quem foi respondido recebe "respondeu"; os demais citados, "mencionou" (um aviso por pessoa).
   if (parentAuthorId) await notify({ kind: 'reply', actorId: authorId, userIds: [parentAuthorId], postId: id, post });
   if (quotedAuthorId) await notify({ kind: 'quote', actorId: authorId, userIds: [quotedAuthorId], postId: id, post });
@@ -222,7 +223,7 @@ export async function getEdits(id, viewerId) {
  * poder decidir e a prova não sumir (docs/14, M-3). Um recurso aceito não o traz de volta.
  */
 export async function deletePost(userId, id) {
-  await withTransaction(async (client) => {
+  const audience = await withTransaction(async (client) => {
     const { rows } = await client.query(
       `SELECT author_id, reply_to_id, repost_of_id, quote_of_id, removed_at, deleted_by_author_at,
               EXISTS (SELECT 1 FROM reports r WHERE r.post_id = posts.id AND r.status = 'aberta') AS under_review
@@ -231,9 +232,10 @@ export async function deletePost(userId, id) {
     );
     if (!rows[0] || rows[0].deleted_by_author_at) throw notFound('Post não encontrado');
     if (rows[0].author_id !== userId) throw forbidden('Só o autor pode apagar o post');
+    const audience = await deletionAudience(id, client);
     if (rows[0].removed_at || rows[0].under_review) {
       await client.query('UPDATE posts SET removed_at = COALESCE(removed_at, now()), deleted_by_author_at = now() WHERE id = $1', [id]);
-      return;
+      return audience;
     }
     if (rows[0].reply_to_id) {
       await client.query('UPDATE posts SET reply_count = GREATEST(reply_count - 1, 0) WHERE id = $1', [rows[0].reply_to_id]);
@@ -245,9 +247,10 @@ export async function deletePost(userId, id) {
       await client.query('UPDATE posts SET quote_count = GREATEST(quote_count - 1, 0) WHERE id = $1', [rows[0].quote_of_id]);
     }
     await client.query('DELETE FROM posts WHERE id = $1', [id]);
+    return audience;
   });
   // O ID pode continuar em timelines no Redis; a hidratação descarta IDs inexistentes.
-  bus.emit('post:deleted', { id });
+  bus.emit('post:deleted', { id, audience });
 }
 
 /** Confere que o post existe e que quem age pode interagir com o autor do original. */
@@ -303,9 +306,7 @@ export async function repost(userId, postId) {
     return { inserted: rowCount > 0, originalId, originalAuthor: target.original_author };
   });
   if (created.inserted) {
-    const audience = await filterAudience(userId, await fanOut(id, userId));
-    const post = await getPost(id, userId);
-    bus.emit('post:created', { post, audience });
+    await distribute(id, userId);
     await notify({ kind: 'repost', actorId: userId, userIds: [created.originalAuthor], postId: created.originalId });
   }
   return getPost(created.originalId, userId);

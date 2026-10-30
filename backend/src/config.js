@@ -87,7 +87,13 @@ export const config = {
   tokenName: env.TOKEN_NAME ?? 'NewCoin',
   tokenSymbol: env.TOKEN_SYMBOL ?? 'NWC',
   missionTimezone: env.MISSION_TZ ?? 'America/Sao_Paulo',
+  // Painel coletivo das missões: igual para todos, recalculado no máximo a cada N segundos.
+  collectiveCacheSec: num(env.MISSIONS_COLLECTIVE_CACHE_SEC, 60),
   timelineCacheSize: Number(env.TIMELINE_CACHE_SIZE ?? 800),
+  // GET /api/metricas só existe com este token (e exige o mesmo token no cabeçalho).
+  metricsToken: env.METRICS_TOKEN || null,
+  // Distribuir posts para os seguidores por fila no Redis (1) ou dentro do pedido (0).
+  fanoutQueue: env.FANOUT_QUEUE !== '0',
   // Contas que moderam a instância (usernames separados por vírgula), promovidas ao iniciar.
   // Coleta automática das fontes oficiais da aba "Brasil em dados" (minutos). Desligada por
   // padrão: a aba usa o registro conferido à mão (src/official/registro.js).

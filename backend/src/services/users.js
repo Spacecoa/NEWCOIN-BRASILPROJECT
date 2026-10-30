@@ -145,7 +145,7 @@ export async function searchUsers(q, limit = 10, viewerId = null) {
   // Busca não mostra contas suspensas nem quem tem bloqueio com quem busca.
   const { rows } = await query(
     `SELECT ${USER_COLS} FROM users
-     WHERE (username ILIKE $1 OR display_name ILIKE $1)
+     WHERE (username::text ILIKE $1 OR display_name ILIKE $1) -- ::text: usa o índice de trigramas
        AND id NOT IN ${hiddenAuthorsSql('$3', { muted: false })}
      ORDER BY username LIMIT $2`,
     [`%${q.replace(/[%_\\]/g, '\\$&')}%`, limit, viewerId ?? 0],

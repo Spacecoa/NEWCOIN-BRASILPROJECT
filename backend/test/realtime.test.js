@@ -40,6 +40,20 @@ describe('tempo real (Socket.io)', () => {
     await expect(open('invalido')).rejects.toThrow('unauthorized');
   });
 
+  it('aviso de post apagado vai só para quem pode ter o post na tela', async () => {
+    const carol = await signup('carol');
+    await api().post('/api/users/bob/follow').set(alice.auth);
+    const p = await post(bob, 'vai ser apagado');
+    const [sa, sc] = await Promise.all([open(alice.token), open(carol.token)]);
+    const got = { alice: null, carol: null };
+    sa.on('post:deleted', (e) => (got.alice = e));
+    sc.on('post:deleted', (e) => (got.carol = e));
+    await api().delete(`/api/posts/${p.id}`).set(bob.auth);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(got.alice).toEqual({ id: p.id }); // segue o autor
+    expect(got.carol).toBeNull(); // não segue: não recebe
+  });
+
   it('entrega novos posts a quem segue o autor (timeline:new)', async () => {
     await api().post('/api/users/bob/follow').set(alice.auth);
     const s = await open(alice.token);

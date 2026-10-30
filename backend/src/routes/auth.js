@@ -73,7 +73,8 @@ const loginSchema = z
   .refine((v) => v.email || v.login, { message: 'informe o e-mail', path: ['email'] });
 
 // Limite de tentativas por IP para mitigar força bruta.
-const authLimiter = rateLimit({ name: 'auth', limit: 20, windowSec: 15 * 60, key: (req) => req.ip });
+// Falha fechada: com o Redis fora do ar, recusa (503) em vez de deixar testar senhas sem limite.
+const authLimiter = rateLimit({ name: 'auth', limit: 20, windowSec: 15 * 60, key: (req) => req.ip, failClosed: true });
 
 router.post('/register', authLimiter, async (req, res) => {
   const { invite_code: inviteCode, accept_rules: _accepted, ...input } = parse(registerSchema, req.body);
@@ -84,12 +85,16 @@ router.post('/register', authLimiter, async (req, res) => {
 // Além do limite por IP, um limite de SENHAS ERRADAS por conta: quem testa a senha de uma
 // pessoa a partir de muitos IPs para em 10 erros a cada 15 min (docs/14, A-4). Só erros
 // contam; ainda assim, quem atacar uma conta pode atrasar o login dela nessa janela.
-const accountFailures = failureCounter({ name: 'auth:account', limit: 10, windowSec: 15 * 60 });
+const accountFailures = failureCounter({ name: 'auth:account', limit: 10, windowSec: 15 * 60, failClosed: true });
 
 router.post('/login', authLimiter, async (req, res) => {
   const { email, login, password } = parse(loginSchema, req.body);
   const accountKey = String(email ?? login).toLowerCase();
   const gate = await accountFailures.check(accountKey);
+  if (gate.unavailable) {
+    res.set('retry-after', '5');
+    return res.status(503).json({ error: 'O controle de tentativas está fora do ar. Tente de novo em alguns segundos.', retry_after: 5 });
+  }
   if (gate.blocked) {
     res.set('retry-after', String(gate.retryAfter));
     return res.status(429).json({ error: 'Muitas tentativas com senha errada para esta conta. Tente de novo em alguns minutos.', retry_after: gate.retryAfter });
@@ -155,7 +160,7 @@ router.post('/logout-all', requireAuth, async (req, res) => {
 
 // Esqueci a senha. Mesma resposta para qualquer e-mail (não revela quem tem conta); o limite
 // por IP segura quem tenta mandar e-mails em massa, e o serviço só manda 3 por hora por conta.
-const resetLimiter = rateLimit({ name: 'auth:reset', limit: 10, windowSec: 15 * 60, key: (req) => req.ip });
+const resetLimiter = rateLimit({ name: 'auth:reset', limit: 10, windowSec: 15 * 60, key: (req) => req.ip, failClosed: true });
 const RESET_SENT = 'Se houver uma conta com este e-mail, enviamos um link para criar uma senha nova. Ele vale por 30 minutos.';
 
 router.post('/senha/esqueci', resetLimiter, async (req, res) => {

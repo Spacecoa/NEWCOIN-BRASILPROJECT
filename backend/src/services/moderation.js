@@ -5,6 +5,7 @@ import { checkPassword, dummyHash } from '../lib/auth.js';
 import { bus } from '../realtime/bus.js';
 import { getActiveRule } from './rules.js';
 import { revokeAllSessions } from './sessions.js';
+import { deletionAudience } from './timeline.js';
 
 // Denúncias e a fila da moderação da instância.
 //
@@ -158,7 +159,7 @@ export async function resolveReport(moderatorId, reportId, { action, note = '', 
       await close(c, 'post_id = $1', [report.post_id], 'acatada');
       await sanction(c, 'post_removido', report.post_id, report.post_text);
     });
-    bus.emit('post:deleted', { id: report.post_id });
+    bus.emit('post:deleted', { id: report.post_id, audience: await deletionAudience(report.post_id) });
   } else if (action === 'suspender') {
     if (report.target_user_id === moderatorId) throw conflict('Não é possível suspender a própria conta');
     if (report.target_is_moderator) throw conflict('Contas da moderação não podem ser suspensas por aqui');

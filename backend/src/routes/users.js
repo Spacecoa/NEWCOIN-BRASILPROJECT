@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { optionalAuth, requireAuth } from '../lib/auth.js';
 import { parse } from '../lib/errors.js';
 import { pageMeta, parsePageParams } from '../lib/pagination.js';
+import { rateLimit } from '../lib/rateLimit.js';
 import { hydrate } from '../services/posts.js';
 import { userTimelineIds } from '../services/timeline.js';
 import * as relations from '../services/relations.js';
@@ -10,7 +11,9 @@ import * as users from '../services/users.js';
 
 const router = Router();
 
-router.get('/', optionalAuth, async (req, res) => {
+// Busca de pessoas: limite próprio, além do geral (docs/10, B2).
+const searchLimiter = rateLimit({ name: 'users:search', limit: 120, windowSec: 5 * 60 });
+router.get('/', optionalAuth, searchLimiter, async (req, res) => {
   const q = parse(z.string().trim().min(1).max(50), req.query.q ?? '');
   res.json({ data: await users.searchUsers(q, 10, req.user?.id) });
 });
