@@ -35,8 +35,8 @@ wait_up http://localhost:4000/api/health
 (cd "$ROOT/backend" && PORT=4030 WORKER_ID=3 ACCESS_TOKEN_TTL_SEC=5 exec node src/server.js >"$OUT/api-curta.log" 2>&1) & PIDS+=($!)
 wait_up http://localhost:4030/api/health
 (cd "$ROOT/frontend" && npm run build >/dev/null)
-(cd "$ROOT/frontend" && BACKEND_URL=http://localhost:4000 exec npx vite preview --port 4173 --strictPort >"$OUT/web.log" 2>&1) & PIDS+=($!)
-(cd "$ROOT/frontend" && BACKEND_URL=http://localhost:4030 exec npx vite preview --port 4175 --strictPort >"$OUT/web-curta.log" 2>&1) & PIDS+=($!)
+(cd "$ROOT/frontend" && BACKEND_URL=http://localhost:4000 exec ./node_modules/.bin/vite preview --port 4173 --strictPort >"$OUT/web.log" 2>&1) & PIDS+=($!)
+(cd "$ROOT/frontend" && BACKEND_URL=http://localhost:4030 exec ./node_modules/.bin/vite preview --port 4175 --strictPort >"$OUT/web-curta.log" 2>&1) & PIDS+=($!)
 wait_up http://localhost:4173/; wait_up http://localhost:4175/
 
 echo "3/6 passo a passo na API"
