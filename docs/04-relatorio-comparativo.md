@@ -57,7 +57,7 @@ Um padrão comum chama atenção: **as duas plataformas devolvem entidades relac
 | Item | Motivo |
 |---|---|
 | Timeline "Para você" baseada em engajamento | Substituída por um algoritmo **aberto** de interesses declarados (ver [`07-atencao-e-algoritmo-aberto.md`](07-atencao-e-algoritmo-aberto.md)) |
-| Mídia, quotes, enquetes, edição | Imagens entraram (até 4 por post, com descrição obrigatória e sem metadados; ver `docs/10` §4.14), no formato `media[]` com `alt`, como o `includes.media` do X. Vídeo, quotes, enquetes e edição seguem fora do escopo |
+| Mídia, quotes, enquetes, edição | Imagens entraram (até 4 por post, com descrição obrigatória e sem metadados; ver `docs/10` §4.14), no formato `media[]` com `alt`, como o `includes.media` do X. Citar (`quote_of_id`, como o `quoted` do `referenced_tweets` do X) e editar (30 minutos, até 5 vezes, histórico público, como a edição do X) também entraram. Vídeo e enquetes seguem fora do escopo |
 | Cliente MTProto ou uso da API real do Telegram | Desnecessário para aprender o desenho, e evitaria qualquer risco de violar os ToS |
 | Federação server-to-server | Exige assinatura HTTP, inbox e moderação. Só as pré-condições foram implementadas |
 | Criptografia ponta a ponta (chats secretos) | Outra área de estudo (Signal Protocol / MTProto E2E) |

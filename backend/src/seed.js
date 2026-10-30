@@ -232,6 +232,28 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
         );
       }
     }
+
+    // Uma citação (a Nina cita o mapa do Otávio) e um post editado com o histórico, para as telas
+    // mostrarem as duas coisas. A citação fica fora da lista `posts`, que logo abaixo separa os
+    // posts das recém-chegadas.
+    if (ana) {
+      const mapPost = posts.at(-1);
+      const nina = userByName.get('nina_nova');
+      const qid = id();
+      await db.query(
+        `INSERT INTO posts (id, author_id, text, conversation_id, quote_of_id, created_at) VALUES ($1,$2,$3,$1,$4,$5)`,
+        [qid, nina, 'Quero ajudar nesse mapa! Também moro perto de um rio e dá para marcar as pontes.', mapPost.id, snowflakeToDate(qid)],
+      );
+      await db.query('UPDATE posts SET quote_count = quote_count + 1 WHERE id = $1', [mapPost.id]);
+      const mine = posts.filter((p) => p.author === ana.id && !p.repostOf && !p.replyTo).at(-1);
+      if (mine) {
+        const { rows: cur } = await db.query('SELECT text, created_at FROM posts WHERE id = $1', [mine.id]);
+        await db.query("UPDATE posts SET edited_at = created_at + interval '4 minutes', edit_count = 1 WHERE id = $1", [mine.id]);
+        await db.query("INSERT INTO post_edits (id, post_id, text, edited_at) VALUES ($1, $2, $3, $4::timestamptz + interval '4 minutes')", [
+          id(), mine.id, cur[0].text.replace(/(?<![@\w])[A-Za-zÀ-ú]{5,}/, (w) => w + w.slice(-1)), cur[0].created_at, // versão com um erro de digitação
+        ]);
+      }
+    }
     const newcomerPostIds = new Set(posts.slice(-NEWCOMERS.length).map((p) => p.id));
 
     let likes = 0;
@@ -315,13 +337,14 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
       }
     }
 
-    // Notificações do que o seed já fez (curtidas, seguidores, respostas e menções), em ordem de
+    // Notificações do que o seed já fez (curtidas, seguidores, respostas, menções e citações), em ordem de
     // acontecimento (curtidas com a data do post, que o seed não guarda). Só o último dia fica como não lido, para o contador não começar enorme.
     const { rows: happened } = await db.query(
       `SELECT * FROM (
          SELECT p.author_id AS user_id, l.user_id AS actor_id, 'like' AS kind, l.post_id, p.created_at FROM likes l JOIN posts p ON p.id = l.post_id
          UNION ALL SELECT followee_id, follower_id, 'follow', NULL, created_at FROM follows
          UNION ALL SELECT parent.author_id, r.author_id, 'reply', r.id, r.created_at FROM posts r JOIN posts parent ON parent.id = r.reply_to_id
+         UNION ALL SELECT o.author_id, q.author_id, 'quote', q.id, q.created_at FROM posts q JOIN posts o ON o.id = q.quote_of_id
          UNION ALL SELECT m.user_id, p.author_id, 'mention', p.id, p.created_at FROM mentions m JOIN posts p ON p.id = m.post_id
            WHERE p.reply_to_id IS NULL OR m.user_id <> (SELECT author_id FROM posts WHERE id = p.reply_to_id)
        ) n WHERE user_id <> actor_id ORDER BY created_at`,

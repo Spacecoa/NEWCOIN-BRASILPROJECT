@@ -180,7 +180,7 @@ sim('Posts na tela', 'Responder na thread: a resposta aparece na árvore e o cam
 });
 
 // 6
-sim('Posts na tela', 'Curtir e repostar na timeline: botões alternam, contadores mudam, desfazer volta ao estado anterior', 'README', async () => {
+sim('Posts na tela', 'Curtir e repostar na timeline (pelo menu Repostar ou citar): botões alternam, contadores mudam, desfazer volta ao estado anterior', 'README', async () => {
   const a = await reg('lk');
   const b = await reg('lk');
   await follow(a, b.u);
@@ -192,12 +192,16 @@ sim('Posts na tela', 'Curtir e repostar na timeline: botões alternam, contadore
   await card.getByRole('button', { name: 'Descurtir' }).waitFor();
   eq(await card.getByRole('button', { name: 'Descurtir' }).getAttribute('aria-pressed'), 'true', 'aria-pressed');
   check((await card.innerText()).includes('1'), 'o contador de curtidas deveria mostrar 1');
-  await card.getByRole('button', { name: 'Repostar' }).click();
-  await card.getByRole('button', { name: 'Desfazer repost' }).waitFor();
-  await card.getByRole('button', { name: 'Descurtir' }).click();
-  await card.getByRole('button', { name: 'Curtir' }).waitFor();
-  await card.getByRole('button', { name: 'Desfazer repost' }).click();
-  await card.getByRole('button', { name: 'Repostar' }).waitFor();
+  // O botão de repost abre um menu com "Repostar" e "Citar".
+  const repostBtn = card.first().getByRole('button', { name: 'Repostar ou citar' });
+  await repostBtn.click();
+  await card.first().getByRole('menuitem', { name: 'Repostar' }).click();
+  await page.waitForFunction((t) => [...document.querySelectorAll('article')].some((a) => a.innerText.includes(t) && a.querySelector('[aria-label="Repostar ou citar"][aria-pressed="true"]')), `post para curtir ${cur}`);
+  await card.first().getByRole('button', { name: 'Descurtir' }).click();
+  await card.first().getByRole('button', { name: 'Curtir' }).waitFor();
+  await card.first().getByRole('button', { name: 'Repostar ou citar' }).click();
+  await card.first().getByRole('menuitem', { name: 'Desfazer repost' }).click();
+  await page.waitForFunction((t) => [...document.querySelectorAll('article')].filter((a) => a.innerText.includes(t)).every((a) => a.querySelector('[aria-label="Repostar ou citar"]')?.getAttribute('aria-pressed') === 'false'), `post para curtir ${cur}`);
   await context.close();
 });
 

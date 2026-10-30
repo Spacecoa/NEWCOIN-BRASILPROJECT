@@ -13,6 +13,8 @@ const idParam = z.string().regex(/^\d{1,20}$/, 'ID inválido');
 const createSchema = z.object({
   text: z.string().trim().min(1, 'o texto não pode ser vazio').max(280, 'máximo de 280 caracteres'),
   reply_to_id: idParam.nullish(),
+  // Citar: o post novo mostra este outro dentro dele.
+  quote_of_id: idParam.nullish(),
   // Imagens já enviadas (POST /api/midia). A descrição é obrigatória: é o que leitores de tela
   // leem para quem não enxerga a imagem.
   media: z
@@ -55,6 +57,17 @@ router.post('/', requireAuth, createLimiter, async (req, res) => {
 
 router.get('/:id', optionalAuth, async (req, res) => {
   res.json(await posts.getPost(parse(idParam, req.params.id), req.user?.id));
+});
+
+// Editar o texto (30 minutos, até 5 vezes). Conta no mesmo limite de criar posts.
+const editSchema = z.object({ text: createSchema.shape.text }).strict();
+router.patch('/:id', requireAuth, createLimiter, async (req, res) => {
+  res.json(await posts.editPost(req.user.id, parse(idParam, req.params.id), parse(editSchema, req.body).text));
+});
+
+/** Histórico de edições: aberto a quem pode ler o post. */
+router.get('/:id/edicoes', optionalAuth, async (req, res) => {
+  res.json(await posts.getEdits(parse(idParam, req.params.id), req.user?.id));
 });
 
 router.get('/:id/thread', optionalAuth, async (req, res) => {

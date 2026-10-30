@@ -8,6 +8,7 @@
 - **Mensageria no estilo Telegram:** canais (broadcast) e grupos em tempo real, com `pts` por canal para detectar e recuperar lacunas, reações com emoji e papéis owner/admin/member. Grupo é só de quem entrou, e quem administra pode remover pessoas.
 - **Notificações:** quem curtiu, repostou, respondeu, mencionou, seguiu ou recompensou, com contador no sino da navegação, aviso em tempo real e a aba **Menções**. Avisos seguidos do mesmo post se juntam ("Ana e mais 2 curtiram seu post"), e silenciar ou bloquear vale também aqui.
 - **Imagens nos posts:** até 4 por post, cada uma com **descrição obrigatória** (para quem usa leitor de tela). O app reduz a foto no aparelho antes de enviar, e o servidor confere o tipo pelos próprios bytes e **remove os metadados**, como a localização do GPS. Post apagado ou removido pela moderação leva a imagem junto.
+- **Editar e citar:** dá para **editar** o texto de um post nos primeiros 30 minutos, até 5 vezes. O post ganha o selo "editado", e as versões anteriores ficam abertas a quem lê. Post com denúncia em análise não pode ser editado. **Citar** cria um post novo com o original dentro dele, pelo mesmo botão de repost; a pessoa citada recebe um aviso, quem tem bloqueio com a autora não consegue citar e, para quem bloqueou a autora, o post citado não aparece.
 - **Busca:** no Explorar, a mesma caixa busca **posts** (pelas palavras, em português, sem diferença de acento) e **pessoas**. Os posts vêm do mais recente ao mais antigo, sem ordenar por curtidas, como o resto do app. Aceita "frase entre aspas" e -palavra para excluir.
 - **Recuperar senha:** "Esqueci minha senha" na tela de entrar manda um link de uso único, válido por 30 minutos, sem revelar quais e-mails têm conta. No protótipo o e-mail não sai de verdade: o link aparece no log do servidor (`[e-mail]`).
 - **Visitantes só leem:** timeline, posts, threads, perfis, a aba Brasil e as regras são abertos a quem não tem conta. Curtir, repostar, responder, recompensar e seguir pedem login, que leva de volta à mesma página.
@@ -97,8 +98,8 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 ### Testes
 
 ```bash
-cd backend  && npm test   # 242 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
-cd frontend && npm test   # 83 testes: lógica e componentes (jsdom)
+cd backend  && npm test   # 249 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd frontend && npm test   # 88 testes: lógica e componentes (jsdom)
 ```
 
 No GitHub, os testes do backend e do frontend (e o build do frontend) rodam em cada PR (`.github/workflows/ci.yml`).

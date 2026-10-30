@@ -2,16 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import { ACCEPTED, prepareImage } from '../lib/imageResize.js';
 import Icon from './Icon.jsx';
+import QuotedPost from './QuotedPost.jsx';
 
 export const MAX_LENGTH = 280;
 export const MAX_IMAGES = 4;
 
 /**
- * Caixa de criação de post. Com `replyTo`, cria uma resposta (thread).
+ * Caixa de criação de post. Com `replyTo`, cria uma resposta (thread); com `quoteOf`, uma citação.
  * Aceita até 4 imagens, cada uma com descrição obrigatória (lida por leitores de tela).
  * Chama onPosted({ data, includes }) com o post criado.
  */
-export default function Composer({ replyTo = null, onPosted, placeholder = 'O que está acontecendo?', autoFocus = false, bare = false, id }) {
+export default function Composer({ replyTo = null, quoteOf = null, quoteAuthor = null, onPosted, placeholder = 'O que está acontecendo?', autoFocus = false, bare = false, id }) {
   const fieldId = id ?? (replyTo ? `reply-${replyTo}` : 'composer');
   const [text, setText] = useState('');
   const [images, setImages] = useState([]); // { key, blob, url, alt }
@@ -57,7 +58,7 @@ export default function Composer({ replyTo = null, onPosted, placeholder = 'O qu
         const { data } = await api('/api/midia', { method: 'POST', body: img.blob });
         media.push({ id: data.id, alt: img.alt.trim() });
       }
-      const result = await api('/api/posts', { method: 'POST', body: { text, reply_to_id: replyTo, ...(media.length ? { media } : {}) } });
+      const result = await api('/api/posts', { method: 'POST', body: { text, reply_to_id: replyTo, ...(quoteOf ? { quote_of_id: quoteOf.id } : {}), ...(media.length ? { media } : {}) } });
       setText('');
       setImages([]);
       onPosted?.(result);
@@ -85,6 +86,7 @@ export default function Composer({ replyTo = null, onPosted, placeholder = 'O qu
         rows={3}
         className="w-full resize-none rounded-2xl bg-zinc-50 px-4 py-3 text-base outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-500/40 dark:bg-zinc-900"
       />
+      {quoteOf && <QuotedPost post={quoteOf} author={quoteAuthor} link={false} />}
       {images.length > 0 && (
         <ul className="mt-2 grid gap-3" aria-label="Imagens do post">
           {images.map((img, i) => (
@@ -146,7 +148,7 @@ export default function Composer({ replyTo = null, onPosted, placeholder = 'O qu
           disabled={disabled}
           className="min-h-11 rounded-full bg-brand-600 px-5 font-extrabold text-white hover:bg-brand-700 disabled:opacity-40"
         >
-          {sending && images.length ? 'Enviando…' : replyTo ? 'Responder' : 'Postar'}
+          {sending && images.length ? 'Enviando…' : replyTo ? 'Responder' : quoteOf ? 'Citar' : 'Postar'}
         </button>
       </div>
     </form>

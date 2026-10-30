@@ -480,3 +480,33 @@ CREATE TABLE IF NOT EXISTS media (
 );
 CREATE INDEX IF NOT EXISTS media_post_idx ON media (post_id, position) WHERE post_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS media_pending_idx ON media (owner_id, created_at) WHERE post_id IS NULL;
+
+-- Citar post: um post novo que mostra outro dentro dele (como o "quote" do X).
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS quote_of_id BIGINT REFERENCES posts(id) ON DELETE SET NULL;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS quote_count INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS posts_quote_of_idx ON posts (quote_of_id) WHERE quote_of_id IS NOT NULL;
+
+-- Editar post: só o texto, nos primeiros 30 minutos e até 5 vezes. Cada versão anterior
+-- fica guardada e aberta a quem lê o post: editar não apaga o que já foi dito.
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS edit_count SMALLINT NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS post_edits (
+  id        BIGINT PRIMARY KEY,
+  post_id   BIGINT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  text      TEXT   NOT NULL,             -- o texto como estava ANTES desta edição
+  edited_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS post_edits_post_idx ON post_edits (post_id, id);
+
+-- Notificações ganham o tipo 'quote' (citou seu post); só troca a regra se ainda não aceitar.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'notifications_kind_check' AND pg_get_constraintdef(oid) LIKE '%quote%'
+  ) THEN
+    ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_kind_check;
+    ALTER TABLE notifications ADD CONSTRAINT notifications_kind_check
+      CHECK (kind IN ('like', 'repost', 'reply', 'mention', 'follow', 'tip', 'quote'));
+  END IF;
+END $$;

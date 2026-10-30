@@ -9,7 +9,7 @@ import { getUsersByIds } from './users.js';
 //  - ninguém é notificado da própria ação;
 //  - quem silenciou ou tem bloqueio com quem agiu não recebe (mesmo filtro do tempo real);
 //  - a mesma ação não notifica duas vezes, e desfazê-la (descurtir, deixar de seguir…) apaga o aviso.
-export const KINDS = ['like', 'repost', 'reply', 'mention', 'follow', 'tip'];
+export const KINDS = ['like', 'repost', 'reply', 'mention', 'follow', 'tip', 'quote'];
 
 /**
  * Grava e avisa em tempo real. `post` (opcional) é o post hidratado que vai junto no evento.

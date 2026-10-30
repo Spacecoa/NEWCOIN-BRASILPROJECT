@@ -14,8 +14,10 @@ import { getUsersByIds } from './users.js';
 // { id, text, author_id, created_at, conversation_id, in_reply_to_post_id,
 //   referenced_posts: [{ type: 'replied_to' | 'reposted', id }],
 //   public_metrics: { like_count, reply_count, repost_count },
-//   viewer: { liked, reposted },
-//   media: [{ id, type: 'photo', url, width, height, alt }] }
+//   viewer: { liked, reposted, tipped, can_edit },
+//   media: [{ id, type: 'photo', url, width, height, alt }],
+//   edited_at, edit_count }
+// Citação: referenced_posts traz { type: 'quoted', id } e o post citado vai em includes.
 // Usuários e posts referenciados vão em `includes` (como as "expansions" do X),
 // evitando duplicar o mesmo autor em cada item da lista.
 // ---------------------------------------------------------------------------
@@ -24,6 +26,7 @@ function formatPost(row, media = new Map()) {
   const referenced = [];
   if (row.reply_to_id) referenced.push({ type: 'replied_to', id: row.reply_to_id });
   if (row.repost_of_id) referenced.push({ type: 'reposted', id: row.repost_of_id });
+  if (row.quote_of_id) referenced.push({ type: 'quoted', id: row.quote_of_id });
   return {
     id: row.id,
     text: row.text,
@@ -37,9 +40,12 @@ function formatPost(row, media = new Map()) {
       reply_count: row.reply_count,
       repost_count: row.repost_count,
       tip_count: row.tip_count ?? 0,
+      quote_count: row.quote_count ?? 0,
     },
-    viewer: { liked: row.liked ?? false, reposted: row.reposted ?? false, tipped: row.tipped ?? false },
+    viewer: { liked: row.liked ?? false, reposted: row.reposted ?? false, tipped: row.tipped ?? false, can_edit: row.can_edit ?? false },
     media: media.get(row.id) ?? [],
+    edited_at: row.edited_at ?? null,
+    edit_count: row.edit_count ?? 0,
   };
 }
 
@@ -49,7 +55,10 @@ async function fetchPostRows(ids, viewerId) {
     `SELECT p.*,
        EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $2) AS liked,
        EXISTS (SELECT 1 FROM posts r WHERE r.repost_of_id = p.id AND r.author_id = $2) AS reposted,
-       EXISTS (SELECT 1 FROM tips t WHERE t.post_id = p.id AND t.user_id = $2) AS tipped
+       EXISTS (SELECT 1 FROM tips t WHERE t.post_id = p.id AND t.user_id = $2) AS tipped,
+       (p.author_id = $2 AND p.repost_of_id IS NULL AND p.edit_count < ${EDIT.maxEdits}
+         AND p.created_at > now() - make_interval(mins => ${EDIT.windowMin})
+         AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.post_id = p.id AND r.status = 'aberta')) AS can_edit
      FROM posts p WHERE p.id = ANY($1::bigint[]) AND p.removed_at IS NULL`,
     [ids, viewerId ?? null],
   );
@@ -99,16 +108,29 @@ async function resolveMentions(client, text) {
   return rows.map((r) => r.id);
 }
 
+// Editar: só o texto, nos primeiros 30 minutos e até 5 vezes; as versões anteriores ficam públicas.
+export const EDIT = { windowMin: 30, maxEdits: 5 };
+
 // Cada menção vira notificação: sem teto, um post alcançaria ~50 pessoas (docs/14, P-1).
 export const MAX_MENTIONS = 10;
 
 /** POST /api/posts — cria um post (ou reply, se reply_to_id vier preenchido). */
-export async function createPost(authorId, { text, reply_to_id: replyToId = null, media = [] }) {
+export async function createPost(authorId, { text, reply_to_id: replyToId = null, quote_of_id: quoteOfId = null, media = [] }) {
   if (extractMentions(text).length > MAX_MENTIONS) throw badRequest(`Mencione no máximo ${MAX_MENTIONS} pessoas por post`);
   const id = nextId();
-  const { mentionedIds, parentAuthorId } = await withTransaction(async (client) => {
+  if (replyToId && quoteOfId) throw badRequest('Responda ou cite: os dois juntos não');
+  const { mentionedIds, parentAuthorId, quotedAuthorId } = await withTransaction(async (client) => {
     let conversationId = id; // post raiz: a conversa é ele mesmo
     let parentAuthor = null;
+    let quotedAuthor = null;
+    if (quoteOfId) {
+      const { rows } = await client.query('SELECT author_id, repost_of_id FROM posts WHERE id = $1 AND removed_at IS NULL FOR UPDATE', [quoteOfId]);
+      if (!rows[0]) throw notFound('Post citado não existe');
+      if (rows[0].repost_of_id) throw conflict('Cite o post original, não o repost');
+      await assertCanInteract(authorId, rows[0].author_id, client);
+      quotedAuthor = rows[0].author_id;
+      await client.query('UPDATE posts SET quote_count = quote_count + 1 WHERE id = $1', [quoteOfId]);
+    }
     if (replyToId) {
       // FOR UPDATE serializa o incremento de reply_count no post pai.
       const { rows } = await client.query(
@@ -123,8 +145,8 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
       await client.query('UPDATE posts SET reply_count = reply_count + 1 WHERE id = $1', [replyToId]);
     }
     await client.query(
-      `INSERT INTO posts (id, author_id, text, reply_to_id, conversation_id) VALUES ($1, $2, $3, $4, $5)`,
-      [id, authorId, text, replyToId, conversationId],
+      `INSERT INTO posts (id, author_id, text, reply_to_id, conversation_id, quote_of_id) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, authorId, text, replyToId, conversationId, quoteOfId],
     );
     await attachMedia(client, authorId, id, media);
     const mentioned = (await resolveMentions(client, text)).filter((uid) => uid !== authorId);
@@ -134,7 +156,7 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
         [id, mentioned],
       );
     }
-    return { mentionedIds: mentioned, parentAuthorId: parentAuthor };
+    return { mentionedIds: mentioned, parentAuthorId: parentAuthor, quotedAuthorId: quotedAuthor };
   });
 
   // Quem silenciou ou tem bloqueio com o autor não recebe o aviso em tempo real nem notificação.
@@ -143,8 +165,53 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
   bus.emit('post:created', { post, audience });
   // Quem foi respondido recebe "respondeu"; os demais citados, "mencionou" (um aviso por pessoa).
   if (parentAuthorId) await notify({ kind: 'reply', actorId: authorId, userIds: [parentAuthorId], postId: id, post });
-  await notify({ kind: 'mention', actorId: authorId, userIds: mentionedIds.filter((uid) => uid !== parentAuthorId), postId: id, post });
+  if (quotedAuthorId) await notify({ kind: 'quote', actorId: authorId, userIds: [quotedAuthorId], postId: id, post });
+  await notify({ kind: 'mention', actorId: authorId, userIds: mentionedIds.filter((uid) => uid !== parentAuthorId && uid !== quotedAuthorId), postId: id, post });
   return post;
+}
+
+/**
+ * Editar o texto. Regras: só quem escreveu, só posts (não reposts), nos primeiros 30 minutos,
+ * até 5 vezes e sem denúncia em análise (editar não pode apagar a prova). A versão anterior
+ * vai para post_edits. Menções são recalculadas e só quem passou a ser citado recebe aviso.
+ */
+export async function editPost(userId, id, text) {
+  if (extractMentions(text).length > MAX_MENTIONS) throw badRequest(`Mencione no máximo ${MAX_MENTIONS} pessoas por post`);
+  const added = await withTransaction(async (client) => {
+    const { rows } = await client.query(
+      `SELECT author_id, text, repost_of_id, edit_count, created_at > now() - make_interval(mins => $2) AS in_window,
+              EXISTS (SELECT 1 FROM reports r WHERE r.post_id = posts.id AND r.status = 'aberta') AS under_review
+         FROM posts WHERE id = $1 AND removed_at IS NULL FOR UPDATE`,
+      [id, EDIT.windowMin],
+    );
+    const p = rows[0];
+    if (!p) throw notFound('Post não encontrado');
+    if (p.author_id !== userId) throw forbidden('Só quem escreveu pode editar o post');
+    if (p.repost_of_id) throw conflict('Repost não tem texto para editar');
+    if (p.under_review) throw conflict('Este post tem uma denúncia em análise e não pode ser editado agora');
+    if (!p.in_window) throw conflict(`Só dá para editar nos primeiros ${EDIT.windowMin} minutos`);
+    if (p.edit_count >= EDIT.maxEdits) throw conflict(`Este post já foi editado ${EDIT.maxEdits} vezes`);
+    if (p.text === text) return [];
+    await client.query('INSERT INTO post_edits (id, post_id, text) VALUES ($1, $2, $3)', [nextId(), id, p.text]);
+    await client.query('UPDATE posts SET text = $2, edited_at = now(), edit_count = edit_count + 1 WHERE id = $1', [id, text]);
+    const before = new Set((await client.query('SELECT user_id FROM mentions WHERE post_id = $1', [id])).rows.map((r) => r.user_id));
+    const now = (await resolveMentions(client, text)).filter((uid) => uid !== userId);
+    await client.query('DELETE FROM mentions WHERE post_id = $1 AND NOT (user_id = ANY($2::bigint[]))', [id, now]);
+    if (now.length) await client.query('INSERT INTO mentions (post_id, user_id) SELECT $1, unnest($2::bigint[]) ON CONFLICT DO NOTHING', [id, now]);
+    return now.filter((uid) => !before.has(uid));
+  });
+  const post = await getPost(id, userId);
+  await notify({ kind: 'mention', actorId: userId, userIds: added, postId: id, post });
+  return post;
+}
+
+/** Versões anteriores de um post (a mais antiga primeiro), para quem lê conferir o que mudou. */
+export async function getEdits(id, viewerId) {
+  const post = await getPost(id, viewerId); // 404 se o post não está visível para quem pede
+  const { rows } = await query('SELECT text, edited_at FROM post_edits WHERE post_id = $1 ORDER BY id', [id]);
+  // Cada linha guarda o texto ANTES de uma edição: a versão 1 vale do post até a 1ª edição.
+  const versions = rows.map((r, i) => ({ version: i + 1, text: r.text, until: r.edited_at }));
+  return { data: { current: { version: versions.length + 1, text: post.data.text, since: post.data.edited_at }, previous: versions } };
 }
 
 /**
@@ -157,7 +224,7 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
 export async function deletePost(userId, id) {
   await withTransaction(async (client) => {
     const { rows } = await client.query(
-      `SELECT author_id, reply_to_id, repost_of_id, removed_at, deleted_by_author_at,
+      `SELECT author_id, reply_to_id, repost_of_id, quote_of_id, removed_at, deleted_by_author_at,
               EXISTS (SELECT 1 FROM reports r WHERE r.post_id = posts.id AND r.status = 'aberta') AS under_review
          FROM posts WHERE id = $1 FOR UPDATE`,
       [id],
@@ -173,6 +240,9 @@ export async function deletePost(userId, id) {
     }
     if (rows[0].repost_of_id) {
       await client.query('UPDATE posts SET repost_count = GREATEST(repost_count - 1, 0) WHERE id = $1', [rows[0].repost_of_id]);
+    }
+    if (rows[0].quote_of_id) {
+      await client.query('UPDATE posts SET quote_count = GREATEST(quote_count - 1, 0) WHERE id = $1', [rows[0].quote_of_id]);
     }
     await client.query('DELETE FROM posts WHERE id = $1', [id]);
   });

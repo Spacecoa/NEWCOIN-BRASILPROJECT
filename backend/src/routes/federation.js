@@ -46,6 +46,8 @@ router.get('/federation/users/:username', async (req, res) => {
   });
 });
 
+const quoteOf = (p) => p.referenced_posts.find((r) => r.type === 'quoted')?.id;
+
 /** Últimos 20 posts públicos do usuário como uma OrderedCollection simplificada. */
 router.get('/federation/users/:username/outbox', async (req, res) => {
   const userId = await getUserIdByUsername(req.params.username);
@@ -67,7 +69,10 @@ router.get('/federation/users/:username/outbox', async (req, res) => {
         // ActivityStreams trata `content` como HTML: o texto vai escapado (docs/14, F-1).
         content: `<p>${escapeHtml(p.text)}</p>`,
         published: p.created_at,
+        updated: p.edited_at ?? undefined,
         inReplyTo: p.in_reply_to_post_id ? `${base()}/posts/${p.in_reply_to_post_id}` : null,
+        // Citação no formato que Misskey e Akkoma entendem.
+        quoteUrl: quoteOf(p) ? `${base()}/posts/${quoteOf(p)}` : undefined,
         // Imagens como Mastodon espera: Document com o tipo, o endereço e a descrição em `name`.
         attachment: p.media.map((m) => ({ type: 'Document', mediaType: m.mime, url: `${base()}${m.url}`, name: m.alt, width: m.width, height: m.height })),
       },

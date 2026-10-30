@@ -41,6 +41,7 @@ const VERB = {
   mention: 'mencionou você',
   follow: 'começou a seguir você',
   tip: 'recompensou seu post com 1 NWC',
+  quote: 'citou seu post',
 };
 const VERB_MANY = {
   like: 'curtiram seu post',
@@ -51,7 +52,7 @@ const VERB_MANY = {
 
 /**
  * Junta avisos seguidos do mesmo tipo sobre o mesmo post ("Ana e mais 2 curtiram seu post").
- * Respostas e menções nunca se juntam: cada uma é um post diferente, que vale ler.
+ * Respostas, menções e citações nunca se juntam: cada uma é um post diferente, que vale ler.
  */
 export function groupNotifications(items) {
   const groups = [];
