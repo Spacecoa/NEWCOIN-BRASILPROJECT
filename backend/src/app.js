@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js';
 import channelRoutes from './routes/channels.js';
 import federationRoutes from './routes/federation.js';
 import feedRoutes from './routes/feed.js';
+import mediaRoutes from './routes/media.js';
 import missionRoutes from './routes/missions.js';
 import moderationRoutes from './routes/moderation.js';
 import notificationRoutes from './routes/notifications.js';
@@ -46,6 +47,7 @@ export function createApp() {
   app.use('/api', moderationRoutes);
   app.use('/api', officialDataRoutes);
   app.use('/api', notificationRoutes);
+  app.use('/api', mediaRoutes);
   app.use(federationRoutes);
 
   app.use((_req, res) => res.status(404).json({ error: 'Rota não encontrada' }));
@@ -56,7 +58,10 @@ export function createApp() {
     if (err instanceof HttpError) {
       return res.status(err.status).json({ error: err.message, details: err.details });
     }
-    if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Conteúdo grande demais (máximo de 32 KB)' });
+    if (err.type === 'entity.too.large') {
+      const limit = err.limit >= 1024 * 1024 ? `${err.limit / 1024 / 1024} MB` : `${Math.round(err.limit / 1024)} KB`;
+      return res.status(413).json({ error: `Conteúdo grande demais (máximo de ${limit})` });
+    }
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'JSON inválido' });
     if (err.status >= 400 && err.status < 500) return res.status(err.status).json({ error: 'Pedido inválido' });
     // Consulta cancelada pelo tempo-limite (57014) ou pool sem conexão livre: servidor ocupado.

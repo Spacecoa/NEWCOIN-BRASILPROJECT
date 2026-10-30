@@ -68,6 +68,8 @@ router.get('/federation/users/:username/outbox', async (req, res) => {
         content: `<p>${escapeHtml(p.text)}</p>`,
         published: p.created_at,
         inReplyTo: p.in_reply_to_post_id ? `${base()}/posts/${p.in_reply_to_post_id}` : null,
+        // Imagens como Mastodon espera: Document com o tipo, o endereço e a descrição em `name`.
+        attachment: p.media.map((m) => ({ type: 'Document', mediaType: m.mime, url: `${base()}${m.url}`, name: m.alt, width: m.width, height: m.height })),
       },
     })),
   });

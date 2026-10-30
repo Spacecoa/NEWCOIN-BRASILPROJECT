@@ -40,6 +40,37 @@ function ActionButton({ label, icon, active = false, count, onClick, hideCount =
  * Renderiza um post. Se for repost, mostra o original com o cabeçalho "X repostou".
  * `store` = { posts, users } normalizados; `onChange` recebe { data, includes }.
  */
+/**
+ * Imagens do post. A descrição vai no alt (leitores de tela) e aparece ao tocar em "Descrição".
+ * Uma imagem ocupa a largura toda na proporção dela; duas a quatro viram uma grade.
+ */
+function PostMedia({ media }) {
+  const single = media.length === 1;
+  return (
+    <div className={`mt-2 grid gap-1 overflow-hidden rounded-2xl ${single ? '' : 'grid-cols-2'}`}>
+      {media.map((m) => (
+        <figure key={m.id} className="relative m-0">
+          <a href={m.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label={`Abrir imagem: ${m.alt}`}>
+            <img
+              src={m.url}
+              alt={m.alt}
+              width={m.width}
+              height={m.height}
+              loading="lazy"
+              className={`w-full bg-zinc-100 object-cover dark:bg-zinc-900 ${single ? 'max-h-[32rem]' : 'aspect-square'}`}
+              style={single ? { aspectRatio: `${m.width} / ${m.height}` } : undefined}
+            />
+          </a>
+          <details className="absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] rounded-lg bg-black/70 text-xs text-white" onClick={(e) => e.stopPropagation()}>
+            <summary className="cursor-pointer list-none px-2 py-1 font-extrabold">Descrição</summary>
+            <p className="px-2 pb-2">{m.alt}</p>
+          </details>
+        </figure>
+      ))}
+    </div>
+  );
+}
+
 export default function PostCard({ post, store, onChange, onDelete, onHideAuthor, highlight = false, hideMetrics = false }) {
   const { user: me } = useAuth();
   const navigate = useNavigate();
@@ -167,6 +198,7 @@ export default function PostCard({ post, store, onChange, onDelete, onHideAuthor
           <div className={highlight ? 'mt-2 text-xl leading-snug' : 'mt-0.5'}>
             <RichText text={shown.text} />
           </div>
+          {shown.media?.length > 0 && <PostMedia media={shown.media} />}
           {highlight && <p className="mt-3 text-sm text-zinc-400">{fullDate(shown.created_at)}</p>}
           <footer className="mt-1 flex max-w-sm items-center justify-between">
             <ActionButton label="Responder" icon="reply" count={reply_count} hideCount={hideMetrics} onClick={() => navigate(`/post/${shown.id}`)} />

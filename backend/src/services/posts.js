@@ -3,6 +3,7 @@ import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { nextId } from '../lib/ids.js';
 import { extractMentions } from '../lib/text.js';
 import { bus } from '../realtime/bus.js';
+import { attachMedia, mediaForPosts } from './media.js';
 import { notify, retract } from './notifications.js';
 import { assertCanInteract, filterAudience, hiddenAuthors } from './relations.js';
 import { fanOut } from './timeline.js';
@@ -13,12 +14,13 @@ import { getUsersByIds } from './users.js';
 // { id, text, author_id, created_at, conversation_id, in_reply_to_post_id,
 //   referenced_posts: [{ type: 'replied_to' | 'reposted', id }],
 //   public_metrics: { like_count, reply_count, repost_count },
-//   viewer: { liked, reposted } }
+//   viewer: { liked, reposted },
+//   media: [{ id, type: 'photo', url, width, height, alt }] }
 // Usuários e posts referenciados vão em `includes` (como as "expansions" do X),
 // evitando duplicar o mesmo autor em cada item da lista.
 // ---------------------------------------------------------------------------
 
-function formatPost(row) {
+function formatPost(row, media = new Map()) {
   const referenced = [];
   if (row.reply_to_id) referenced.push({ type: 'replied_to', id: row.reply_to_id });
   if (row.repost_of_id) referenced.push({ type: 'reposted', id: row.repost_of_id });
@@ -37,6 +39,7 @@ function formatPost(row) {
       tip_count: row.tip_count ?? 0,
     },
     viewer: { liked: row.liked ?? false, reposted: row.reposted ?? false, tipped: row.tipped ?? false },
+    media: media.get(row.id) ?? [],
   };
 }
 
@@ -63,14 +66,14 @@ async function fetchPostRows(ids, viewerId) {
  * de propósito o perfil, a thread ou um post específico.
  */
 export async function hydrate(ids, viewerId, { muted = true } = {}) {
-  const [rows, hidden] = await Promise.all([fetchPostRows(ids, viewerId), hiddenAuthors(viewerId, { muted })]);
-  const byId = new Map(rows.map((r) => [r.id, formatPost(r)]));
+  const [rows, hidden, media] = await Promise.all([fetchPostRows(ids, viewerId), hiddenAuthors(viewerId, { muted }), mediaForPosts(ids)]);
+  const byId = new Map(rows.map((r) => [r.id, formatPost(r, media)]));
   let data = ids.map((id) => byId.get(id)).filter((p) => p && !hidden.has(p.author_id));
 
   // Expansão de referências (1 nível, como referenced_tweets.id no X).
   const refIds = [...new Set(data.flatMap((p) => p.referenced_posts.map((r) => r.id)))].filter((id) => !byId.has(id));
-  const refRows = await fetchPostRows(refIds, viewerId);
-  const allRefs = refRows.map(formatPost);
+  const [refRows, refMedia] = await Promise.all([fetchPostRows(refIds, viewerId), mediaForPosts(refIds)]);
+  const allRefs = refRows.map((r) => formatPost(r, refMedia));
   const hiddenRef = new Set(allRefs.filter((p) => hidden.has(p.author_id)).map((p) => p.id));
   // Repost de quem está escondido também some; respostas ficam, mas sem o post de origem.
   data = data.filter((p) => !p.referenced_posts.some((r) => r.type === 'reposted' && (hiddenRef.has(r.id) || hidden.has(byId.get(r.id)?.author_id))));
@@ -100,7 +103,7 @@ async function resolveMentions(client, text) {
 export const MAX_MENTIONS = 10;
 
 /** POST /api/posts — cria um post (ou reply, se reply_to_id vier preenchido). */
-export async function createPost(authorId, { text, reply_to_id: replyToId = null }) {
+export async function createPost(authorId, { text, reply_to_id: replyToId = null, media = [] }) {
   if (extractMentions(text).length > MAX_MENTIONS) throw badRequest(`Mencione no máximo ${MAX_MENTIONS} pessoas por post`);
   const id = nextId();
   const { mentionedIds, parentAuthorId } = await withTransaction(async (client) => {
@@ -123,6 +126,7 @@ export async function createPost(authorId, { text, reply_to_id: replyToId = null
       `INSERT INTO posts (id, author_id, text, reply_to_id, conversation_id) VALUES ($1, $2, $3, $4, $5)`,
       [id, authorId, text, replyToId, conversationId],
     );
+    await attachMedia(client, authorId, id, media);
     const mentioned = (await resolveMentions(client, text)).filter((uid) => uid !== authorId);
     if (mentioned.length) {
       await client.query(

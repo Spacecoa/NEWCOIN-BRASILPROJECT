@@ -88,6 +88,32 @@ rec('Busca', 'Mais recentes primeiro, aberta a visitantes', r.s === 200 && ids.e
 r = await call(null, 'GET', '/api/posts/busca?q=' + encodeURIComponent('horta -sábado')); rec('Busca', 'Excluir palavra com -palavra', r.s === 200 && !r.j.data.some((p) => p.id === P.id), `“horta -sábado” deixa o post de fora`, r.ms);
 r = await call(null, 'GET', '/api/posts/busca?q=a'); rec('Busca', 'Busca curta demais é recusada', r.s === 400, `HTTP ${r.s}: ${r.j?.error}`, r.ms);
 
+// Imagens
+{
+  const { encodePng, pngChunk } = await import(new URL('../../backend/src/lib/png.js', import.meta.url));
+  const png = encodePng(320, 160, (x, y) => [x % 256, y % 256, 140], [pngChunk('tEXt', Buffer.from('GPS\0-23.5505,-46.6333', 'latin1'))]);
+  const up = async (tok, bytes, type = 'image/png') => {
+    const t = performance.now();
+    const res = await fetch(B + '/api/midia', { method: 'POST', headers: { 'content-type': type, ...(tok ? { authorization: 'Bearer ' + tok } : {}) }, body: bytes });
+    return { s: res.status, j: await res.json().catch(() => null), ms: +(performance.now() - t).toFixed(1) };
+  };
+  r = await up(null, png); rec('Imagens', 'Enviar imagem pede login', r.s === 401, `HTTP ${r.s}`, r.ms);
+  r = await up(B2, png); const M = r.j?.data;
+  rec('Imagens', 'Enviar uma foto', r.s === 201, `${M?.type}, ${M?.width}×${M?.height}, ${M?.size} bytes`, r.ms);
+  r = await up(B2, Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>')); rec('Imagens', 'SVG disfarçado de PNG é recusado', r.s === 400, `HTTP ${r.s}: ${r.j?.error}`, r.ms);
+  r = await up(B2, Buffer.concat([png, Buffer.alloc(2 * 1024 * 1024)])); rec('Imagens', 'Imagem acima de 2 MB é recusada', r.s === 413, `HTTP ${r.s}: ${r.j?.error}`, r.ms);
+  r = await call(B2, 'POST', '/api/posts', { text: 'Mutirão da horta, sábado', media: [{ id: M.id, alt: ' ' }] }); rec('Imagens', 'Descrição é obrigatória', r.s === 400, `HTTP ${r.s}: ${r.j?.details?.[0]?.message ?? r.j?.error}`, r.ms);
+  r = await call(A, 'POST', '/api/posts', { text: 'pegando a imagem do Bruno', media: [{ id: M.id, alt: 'x' }] }); rec('Imagens', 'Ninguém anexa a imagem de outra pessoa', r.s === 400, `HTTP ${r.s}: ${r.j?.error}`, r.ms);
+  r = await call(B2, 'POST', '/api/posts', { text: 'Mutirão da horta, sábado', media: [{ id: M.id, alt: 'Faixas de cor em degradê, imagem de teste' }] }); const PI = r.j?.data;
+  rec('Imagens', 'Post com imagem e descrição', r.s === 201 && PI?.media?.[0]?.alt, `“${PI?.media?.[0]?.alt}”`, r.ms);
+  const file = await fetch(B + M.url);
+  const bytes = Buffer.from(await file.arrayBuffer());
+  rec('Imagens', 'Localização removida antes de guardar', file.status === 200 && !bytes.toString('latin1').includes('GPS'), `o arquivo servido não tem o texto “GPS” que a foto trazia; ${bytes.length} de ${png.length} bytes`);
+  rec('Imagens', 'Servida com cabeçalhos fechados', file.headers.get('content-type') === 'image/png' && file.headers.get('x-content-type-options') === 'nosniff' && /sandbox/.test(file.headers.get('content-security-policy') ?? ''), `${file.headers.get('content-type')}, nosniff, CSP com sandbox`);
+  r = await call(B2, 'DELETE', `/api/posts/${PI.id}`); const gone = await fetch(B + M.url);
+  rec('Imagens', 'Apagar o post apaga a imagem', gone.status === 404, `a imagem passa a responder HTTP ${gone.status}`);
+}
+
 // Notificações
 // Ana curtiu, repostou e respondeu o post do Bruno: esses avisos são dele. Ela foi mencionada e ganhou uma seguidora.
 r = await call(B2, 'GET', '/api/notificacoes'); const nb = r.j.data.filter((n) => n.post_id === P.id || n.post_id === RP.id).map((n) => n.kind);

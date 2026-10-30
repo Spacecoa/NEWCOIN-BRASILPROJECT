@@ -43,7 +43,9 @@ export class ApiError extends Error {
 
 async function rawFetch(path, { method = 'GET', body, token }) {
   const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // Arquivo (imagem) vai como bytes, com o tipo dele; o resto vai como JSON.
+  const isFile = typeof Blob !== 'undefined' && body instanceof Blob;
+  if (body !== undefined) headers['Content-Type'] = isFile ? body.type || 'application/octet-stream' : 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
   let res;
   try {
@@ -51,7 +53,7 @@ async function rawFetch(path, { method = 'GET', body, token }) {
       method,
       headers,
       credentials: 'same-origin',
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isFile ? body : JSON.stringify(body),
     });
   } catch {
     // O navegador só diz "Failed to fetch" (em inglês) quando não há rede ou o servidor não responde.

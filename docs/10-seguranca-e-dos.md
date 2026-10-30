@@ -277,6 +277,17 @@ O `post:deleted` continua indo para todas as conexões. Ele só leva o id do pos
   - proteger contra SSRF ao buscar atores remotos (bloquear IPs internos e limitar tempo e tamanho das respostas);
   - limitar a entrega por domínio.
 
+### 4.14 Envio de imagens (30/10/2026)
+
+O envio de imagens é a primeira rota que recebe arquivos. Como ficou:
+- **Tipo pelos bytes:** o servidor reconhece JPEG, PNG e WebP pela assinatura do arquivo e ignora o `Content-Type`. SVG, HTML e o resto são recusados, então ninguém hospeda um script disfarçado de imagem.
+- **Metadados removidos:** EXIF (com a localização do GPS), XMP, IPTC, comentários e textos embutidos saem antes de gravar. O app já reduz e regrava a foto no aparelho, e o servidor limpa de novo para quem envia direto pela API.
+- **Limites:** 2 MB, 4096 px de lado e 16 milhões de pixels por imagem; 4 por post; 30 envios por hora; no máximo 8 imagens esperando um post, e as que ficam sem post somem em 1 dia.
+- **Ao servir:** a resposta leva o tipo conferido, `nosniff` e `Content-Security-Policy: default-src 'none'; sandbox`, e só sai enquanto o post estiver no ar.
+- **Descrição obrigatória** em cada imagem, para acessibilidade.
+
+As imagens ficam no Postgres (`bytea`): é simples para o protótipo, mas numa instância grande o lugar delas é um armazenamento de arquivos com CDN.
+
 ## 5. DDoS volumétrico (camada de rede)
 
 Inundação de conexões, de pacotes ou de requisições vindas de muitas origens não se resolve só na aplicação. Para qualquer exposição fora da rede local:

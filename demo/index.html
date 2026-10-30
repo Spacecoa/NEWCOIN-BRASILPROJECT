@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--
   Demo interativa do Ágora: página única, roda no navegador sem servidor.
-  Simula o app (feed Seguindo e Para você, Meu algoritmo, threads, notificações, busca,
+  Simula o app (feed Seguindo e Para você, Meu algoritmo, threads, imagens, notificações, busca,
   canal em tempo real, missões do dia e carteira NWC) com dados fictícios do seed. O painel "Bastidores"
   mostra o que o backend real faria a cada ação. Abra este arquivo direto no navegador.
   Cópia estática: o app de verdade está em backend/ e frontend/.
@@ -133,6 +133,23 @@ body[data-view="channel"] .logpill { bottom: calc(140px + env(safe-area-inset-bo
 .composer textarea:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
 .composer .row { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
 .counter { font-size: 13px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.composer .imgbtn { margin-right: auto; color: var(--accent); }
+.cimgs { display: grid; gap: 10px; }
+.cimg { display: flex; gap: 10px; align-items: flex-start; }
+.cimg img { width: 72px; height: 72px; object-fit: cover; border-radius: 12px; flex: none; }
+.cimg .cf { min-width: 0; flex: 1; display: grid; gap: 4px; font-size: 13px; }
+.cimg .cf b { font-weight: 800; }
+.composer .cimg textarea { min-height: 52px; font-size: 14px; border-radius: 12px; padding: 8px 10px; }
+.cimg .linkbtn { justify-self: start; color: var(--muted); font-size: 13px; min-height: 32px; }
+.ihint { margin-right: auto; font-size: 13px; color: var(--muted); }
+.pmedia { display: grid; gap: 3px; margin-top: 8px; border-radius: 16px; overflow: hidden; }
+.pmedia.multi { grid-template-columns: 1fr 1fr; }
+.pmedia figure { margin: 0; position: relative; }
+.pmedia img { display: block; width: 100%; height: auto; background: var(--soft); }
+.pmedia.multi img { aspect-ratio: 1; object-fit: cover; }
+.pmedia figcaption { position: absolute; left: 6px; bottom: 6px; max-width: calc(100% - 12px); background: rgba(0, 0, 0, .7); color: #fff; font-size: 12px; border-radius: 8px; }
+.pmedia figcaption summary { cursor: pointer; list-style: none; padding: 3px 8px; font-weight: 800; }
+.pmedia figcaption p { margin: 0; padding: 0 8px 6px; }
 .counter.warn { color: var(--t-redis); } .counter.over { color: var(--t-ws); }
 .primary { min-height: 44px; background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 0 20px; font-weight: 800; }
 .primary:disabled { opacity: .4; cursor: default; }
@@ -496,7 +513,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
 <body data-auth="out">
 <header class="intro">
   <h1>Ágora <span>em ação</span></h1>
-  <p>Demonstração interativa com dados fictícios (só a aba Brasil traz números reais, das fontes oficiais). Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste, recompense posts com o token NWC, cumpra as missões do dia, acompanhe quem interagiu no sino de notificações, busque posts no Explorar, veja os últimos números oficiais do país na aba Brasil, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância, cita as regras e decide recursos) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
+  <p>Demonstração interativa com dados fictícios (só a aba Brasil traz números reais, das fontes oficiais). Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste (com imagens, cada uma com descrição), recompense posts com o token NWC, cumpra as missões do dia, acompanhe quem interagiu no sino de notificações, busque posts no Explorar, veja os últimos números oficiais do país na aba Brasil, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância, cita as regras e decide recursos) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
 </header>
 
 <section class="gate" id="gate" aria-label="Entrar">
@@ -549,7 +566,8 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     <form class="composer" data-compose="compose-sheet">
       <label for="compose-sheet" hidden>Novo post</label>
       <textarea id="compose-sheet" placeholder="O que está acontecendo?" maxlength="400"></textarea>
-      <div class="row"><span class="counter" id="compose-sheet-count">280</span><button class="primary" type="submit" disabled>Postar</button></div>
+      <div class="cimgs" id="compose-sheet-imgs"></div>
+      <div class="row"><input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden data-imgpick="compose-sheet"><button type="button" class="iconbtn imgbtn" data-imgadd="compose-sheet" aria-label="Adicionar imagem"><svg class="i" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5zM4 16l4.5-4.5 4 4 2.5-2.5L20 18M15.5 9.5h.01"/></svg></button><span class="counter" id="compose-sheet-count">280</span><button class="primary" type="submit" disabled>Postar</button></div>
     </form>
   </div>
 </div>
@@ -638,6 +656,16 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (s.k === 'p8' || s.k === 'p13') likes.add(ME);
     posts.set(id, { id, author: s.a, text: s.t || '', replyTo: parent ? parent.id : null, repostOf: orig ? orig.id : null, conv: parent ? parent.conv : (orig ? orig.conv : id), likes, tips: new Set(s.repost || NEWCOMERS.includes(s.a) || s.a === 'promo_rapida' ? [] : others.filter((u) => u !== s.a).slice(i % 5, (i % 5) + (i % 3))), created: new Date(NOW - s.m * 60000) });
   });
+
+  // O post do Otávio traz o mapa do bairro (o mesmo desenho do seed do app), com descrição.
+  {
+    const roads = [];
+    for (let x = 120; x < 720; x += 120) roads.push(`<rect x="${x - 7}" y="0" width="14" height="420"/>`);
+    for (let y = 105; y < 420; y += 105) roads.push(`<rect x="0" y="${y - 7}" width="720" height="14"/>`);
+    const river = Array.from({ length: 22 }, (_, i) => { const y = i * 20; return `${470 + Math.sin(y / 60) * 40},${y}`; }).join(' ');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420"><rect width="720" height="420" fill="#d6dad6"/><g fill="#fafaf8">${roads.join('')}</g><rect x="255" y="225" width="100" height="90" rx="6" fill="#86c478"/><polyline points="${river}" fill="none" stroke="#60a5dc" stroke-width="44" stroke-linejoin="round"/><circle cx="230" cy="140" r="16" fill="#ea7820"/></svg>`;
+    posts.get(keyToId.n2).media = [{ src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), w: 720, h: 420, alt: 'Mapa desenhado de um bairro: quarteirões cinza separados por ruas brancas, uma praça verde no meio, um rio azul atravessando de cima a baixo e um marcador laranja na escola onde o grupo se reúne.' }];
+  }
 
   // ---------- Canal Café (grupo) ----------
   const channel = { slug: 'cafe', title: 'Café', kind: 'group', pts: 0, members: 7, connected: true, localPts: 0, messages: [] };
@@ -1038,6 +1066,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     block: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM5.6 5.6l12.8 12.8',
     shield: 'M12 3 5 6v5c0 4.4 3 8.3 7 10 4-1.7 7-5.6 7-10V6z',
     bell: 'M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15zm4 3.5a2 2 0 0 0 4 0',
+    image: 'M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5zM4 16l4.5-4.5 4 4 2.5-2.5L20 18M15.5 9.5h.01',
   };
   const svgI = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${PATHS[name]}"/></svg>`;
   const NAV = [['home', 'home', 'Início'], ['brasil', 'chart', 'Brasil'], ['explore', 'search', 'Explorar'], ['notifications', 'bell', 'Notificações'], ['channel', 'channels', 'Canal'], ['me', 'user', 'Perfil']];
@@ -1075,7 +1104,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
       <div style="min-width:0">
         <div class="meta"><button class="name" data-profile="${u.username}">${esc(u.name)}</button><span class="handle">@${u.username}</span><span class="when" title="${full(shown.created)}">· ${rel(shown.created)}</span></div>
         ${parent ? `<div class="replyto">Em resposta a <button class="mention" data-profile="${parent.author}">@${parent.author}</button></div>` : ''}
-        <p class="text">${richText(shown.text)}</p>
+        <p class="text">${richText(shown.text)}</p>${shown.media?.length ? mediaHTML(shown.media) : ''}
         ${focal ? `<div class="idline">id ${shown.id} · conversation_id ${shown.conv} · ${full(shown.created)}</div>` : ''}
         <div class="actions">
           <button class="act" data-reply="${shown.id}" aria-label="Responder">${svgI('reply', 'sm')}${hm ? '' : n(replyCount(shown.id))}</button>
@@ -1403,8 +1432,56 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   const composerHTML = (id, placeholder, label) => `<form class="composer" data-compose="${id}">
       <label for="${id}" hidden>${label}</label>
       <textarea id="${id}" placeholder="${placeholder}" maxlength="400">${esc(state.draft)}</textarea>
-      <div class="row"><span class="counter" id="${id}-count">280</span><button class="primary" type="submit" disabled>${label}</button></div>
+      <div class="cimgs" id="${id}-imgs">${draftImgsHTML(id)}</div>
+      <div class="row"><input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden data-imgpick="${id}"><button type="button" class="iconbtn imgbtn" data-imgadd="${id}" aria-label="Adicionar imagem">${svgI('image')}</button><span class="counter" id="${id}-count">280</span><button class="primary" type="submit" disabled>${label}</button></div>
     </form>`;
+
+  // ---------- Imagens no post ----------
+  // Como no app: até 4 por post, descrição obrigatória, foto reduzida no aparelho (aqui a
+  // 1200 px) e regravada, o que tira a localização e os outros metadados.
+  const drafts = {};
+  const draftImgsHTML = (id) => (drafts[id] ?? []).map((m, i) => `<div class="cimg"><img src="${m.src}" alt=""><div class="cf"><label for="${id}-alt-${i}"><b>Descrição da imagem ${i + 1}</b> (obrigatória)</label><textarea id="${id}-alt-${i}" data-alt="${id}:${i}" maxlength="1000" placeholder="O que aparece na imagem, para quem não enxerga">${esc(m.alt)}</textarea><button type="button" class="linkbtn" data-imgdel="${id}:${i}">Tirar imagem ${i + 1}</button></div></div>`).join('');
+  function refreshDraft(id) {
+    const box = document.getElementById(id + '-imgs');
+    if (box) box.innerHTML = draftImgsHTML(id);
+    const add = document.querySelector(`[data-imgadd="${id}"]`);
+    if (add) add.hidden = (drafts[id] ?? []).length >= 4;
+    const ta = document.getElementById(id);
+    if (ta) updateCounter(ta);
+  }
+  function shrink(file) {
+    return new Promise((resolve, reject) => {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return reject(new Error('Escolha uma imagem JPEG, PNG ou WebP.'));
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Não deu para ler a imagem.'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Não deu para abrir a imagem.'));
+        img.onload = () => {
+          const k = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+          const c = document.createElement('canvas');
+          c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          resolve({ src: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height, alt: '', from: `${img.naturalWidth}×${img.naturalHeight}`, kb: Math.round(file.size / 1024) });
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  async function addImages(id, files) {
+    drafts[id] ??= [];
+    for (const f of [...files].slice(0, 4 - drafts[id].length)) {
+      try {
+        const m = await shrink(f);
+        drafts[id].push(m);
+        log('note', `imagem preparada no aparelho: ${m.from} → ${m.w}×${m.h}, regravada em JPEG (sem EXIF/GPS)`);
+      } catch (err) { toast(err.message); }
+    }
+    if (files.length > 4) toast('No máximo 4 imagens por post.');
+    refreshDraft(id);
+  }
+  const mediaHTML = (media) => `<div class="pmedia ${media.length > 1 ? 'multi' : ''}">${media.map((m) => `<figure><img src="${m.src}" alt="${esc(m.alt)}" width="${m.w}" height="${m.h}" loading="lazy"><figcaption><details><summary>Descrição</summary><p>${esc(m.alt)}</p></details></figcaption></figure>`).join('')}</div>`;
 
   function header(title, sub, extra = '', back = false) {
     return `<div class="head ${extra ? 'has-extra' : ''}">${back ? `<button class="iconbtn" data-back aria-label="Voltar">${svgI('back')}</button>` : ''}<div class="titles"><h2>${title}</h2><div class="sub">${sub}</div></div>${extra}</div>`;
@@ -1802,7 +1879,11 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     const c = document.getElementById(ta.id + '-count');
     c.textContent = left;
     c.className = 'counter' + (left < 0 ? ' over' : left < 20 ? ' warn' : '');
-    ta.form.querySelector('button[type=submit]').disabled = !ta.value.trim() || left < 0;
+    const missingAlt = (drafts[ta.form.dataset.compose] ?? []).some((m) => !m.alt.trim());
+    ta.form.querySelector('button[type=submit]').disabled = !ta.value.trim() || left < 0 || missingAlt;
+    let hint = ta.form.querySelector('.ihint');
+    if (missingAlt && !hint) { hint = document.createElement('span'); hint.className = 'ihint'; hint.textContent = 'Descreva cada imagem para postar.'; c.before(hint); }
+    if (!missingAlt && hint) hint.remove();
   }
 
   document.getElementById('me-card').innerHTML = `${avatar(ME, 'sm')}<div style="flex:1;min-width:0"><b>${USERS[ME].name}</b><small>@${ME}</small></div><button class="iconbtn" data-logout aria-label="Sair"><svg class="i sm" viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h10"/></svg></button>`;
@@ -1867,12 +1948,17 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     go('profile', { push: state.view !== 'profile' || state.profile !== u });
   }
 
-  function createPost(author, text, replyTo = null) {
+  function createPost(author, text, replyTo = null, media = []) {
     const created = new Date();
     const id = snowflake(created.getTime());
     const parent = replyTo ? posts.get(replyTo) : null;
     const answeredBefore = parent ? replyCount(parent.id) : 0;
-    posts.set(id, { id, author, text, replyTo, repostOf: null, conv: parent ? parent.conv : id, likes: new Set(), tips: new Set(), created });
+    media.forEach((m, i) => {
+      log('http', `POST /api/midia → 201`, `imagem ${i + 1}: tipo conferido pelos bytes, EXIF/GPS/XMP/IPTC removidos, ${m.w}×${m.h}`);
+      log('sql', 'INSERT INTO media (bytes sem metadados, post_id NULL) · sem post, some em 1 dia');
+    });
+    posts.set(id, { id, author, text, replyTo, repostOf: null, conv: parent ? parent.conv : id, likes: new Set(), tips: new Set(), created, media: media.map(({ src, alt, w, h }) => ({ src, alt: alt.trim(), w, h })) });
+    if (media.length) log('sql', `UPDATE media SET post_id, position, alt (${media.length} imagem${media.length > 1 ? 's' : ''}, descrição obrigatória)`);
     const audience = followersOf(author).length + 1;
     log('http', `POST /api/posts → 201${author === ME ? '' : '  (como @' + author + ')'}`, JSON.stringify(replyTo ? { text: text.slice(0, 28) + '…', reply_to_id: short(replyTo) } : { text: text.slice(0, 36) + '…' }));
     log('sql', `BEGIN · ${parent ? 'SELECT pai FOR UPDATE · reply_count+1 · ' : ''}INSERT posts (id ${short(id)}) · INSERT mentions · COMMIT`);
@@ -2056,6 +2142,8 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (d.simAppeal) return simulateAppeal(Number(d.simAppeal));
     if (d.appealOk) return decideAppeal(Number(d.appealOk), true);
     if (d.appealNo) return decideAppeal(Number(d.appealNo), false);
+    if (d.imgadd) { document.querySelector(`[data-imgpick="${d.imgadd}"]`)?.click(); return; }
+    if (d.imgdel) { const [fid, i] = d.imgdel.split(':'); drafts[fid]?.splice(Number(i), 1); refreshDraft(fid); return; }
     if (d.ntab) { state.ntab = d.ntab; if (d.ntab === 'mencoes') log('http', 'GET /api/mentions → 200', 'SELECT post_id FROM mentions WHERE user_id = me ORDER BY post_id DESC'); render(); return; }
     if (d.stab) { state.stab = d.stab; logSearch(); render(); return; }
     if (d.qtab) { mod.qtab = d.qtab; mod.confirm = null; render(); return; }
@@ -2103,6 +2191,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   let searchTimer = null;
   document.addEventListener('input', (e) => {
     const el = e.target, a = el.dataset.algo;
+    if (el.dataset.alt) { const [fid, i] = el.dataset.alt.split(':'); if (drafts[fid]?.[i]) drafts[fid][i].alt = el.value; const ta = document.getElementById(fid); if (ta) updateCounter(ta); return; }
     if (el.id === 'q') {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
@@ -2131,6 +2220,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   });
   document.addEventListener('change', (e) => {
     const el = e.target, a = el.dataset.algo;
+    if (el.dataset.imgpick) { addImages(el.dataset.imgpick, el.files); el.value = ''; return; }
     if (!a) return;
     if (a === 'half') algo.half_life = Number(el.value);
     if (a === 'hide') algo.hide_metrics = el.checked;
@@ -2159,9 +2249,12 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     const text = ta.value.trim();
     if (!text || text.length > 280) return;
     state.draft = '';
-    if (f.dataset.compose === 'compose-sheet') { const id = createPost(ME, text); state.fresh.add(id); state.shown++; ta.value = ''; updateCounter(ta); sheet.hidden = true; }
-    else if (f.dataset.compose === 'compose-reply') { const id = createPost(ME, text, state.focal); state.fresh.add(id); }
-    else { const id = createPost(ME, text); state.fresh.add(id); state.shown++; }
+    const media = drafts[f.dataset.compose] ?? [];
+    if (media.some((m) => !m.alt.trim())) return;
+    delete drafts[f.dataset.compose];
+    if (f.dataset.compose === 'compose-sheet') { const id = createPost(ME, text, null, media); state.fresh.add(id); state.shown++; ta.value = ''; refreshDraft('compose-sheet'); sheet.hidden = true; }
+    else if (f.dataset.compose === 'compose-reply') { const id = createPost(ME, text, state.focal, media); state.fresh.add(id); }
+    else { const id = createPost(ME, text, null, media); state.fresh.add(id); state.shown++; }
     render();
   });
 

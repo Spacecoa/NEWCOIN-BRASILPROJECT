@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { getRedis, closeRedis } from './cache.js';
 import { pool, withTransaction } from './db.js';
 import { hashPassword } from './lib/auth.js';
+import { cleanImage } from './lib/images.js';
+import { encodePng } from './lib/png.js';
 import { createSnowflake, snowflakeToDate } from './lib/snowflake.js';
 import { extractMentions } from './lib/text.js';
 import { migrate } from './migrate.js';
@@ -85,6 +87,20 @@ const NEWCOMERS = [
   ['nina_nova', 'Nina Barros', 'Estudo redes comunitárias e rádios livres.', 'Oi! Cheguei agora pelo convite da @ana_dev. Alguém recomenda grupos para quem estuda redes comunitárias?'],
   ['otavio_recife', 'Otávio Lins', 'Dados abertos e mapeamento de bairro em Recife.', 'Primeiro post: trabalho com dados abertos em Recife e quero conectar quem mapeia o próprio bairro.'],
 ];
+
+// Mapa desenhado do bairro do Otávio, para o seed ter um post com imagem (e descrição).
+const MAP_ALT = 'Mapa desenhado de um bairro: quarteirões cinza separados por ruas brancas, uma praça verde no meio, um rio azul atravessando de cima a baixo e um marcador laranja na escola onde o grupo se reúne.';
+function neighborhoodMap() {
+  const W = 720, H = 420;
+  const river = (y) => 470 + Math.sin(y / 60) * 40;
+  return encodePng(W, H, (x, y) => {
+    if (Math.hypot(x - 230, y - 140) < 16) return [234, 120, 32]; // escola
+    if (Math.abs(x - river(y)) < 22) return [96, 165, 220]; // rio
+    if (x % 120 < 14 || y % 105 < 14) return [250, 250, 248]; // ruas
+    if (x > 254 && x < 356 && y > 224 && y < 316) return [134, 196, 120]; // praça
+    return [214, 218, 214]; // quarteirões
+  });
+}
 
 const CHANNELS = [
   { slug: 'avisos', title: 'Avisos da instância', description: 'Comunicados oficiais (somente admins publicam).', kind: 'channel' },
@@ -208,6 +224,13 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
         }
       }
       await insertPost({ author: { id: uid }, text });
+      if (username === 'otavio_recife') {
+        const img = cleanImage(neighborhoodMap());
+        await db.query(
+          'INSERT INTO media (id, owner_id, post_id, position, mime, bytes, size, width, height, alt) VALUES ($1,$2,$3,0,$4,$5,$6,$7,$8,$9)',
+          [id(), uid, posts.at(-1).id, img.type, img.bytes, img.bytes.length, img.width, img.height, MAP_ALT],
+        );
+      }
     }
     const newcomerPostIds = new Set(posts.slice(-NEWCOMERS.length).map((p) => p.id));
 

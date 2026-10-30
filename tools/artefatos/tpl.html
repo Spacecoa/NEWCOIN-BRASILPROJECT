@@ -80,7 +80,7 @@ footer{font-size:13px;color:var(--muted)}
 <header>
   <div class="eyebrow">Análise completa · {{DATE}} · {{VERSION}}</div>
   <h1>Ágora por dentro: o que funciona e para que serve</h1>
-  <p class="lede">Rodei o app de verdade (Postgres, Redis, backend e frontend) com os dados do seed e percorri cada funcionalidade passo a passo, como uma pessoa usaria. Desde a última análise entraram a leitura sem conta, o algoritmo que fica só no aparelho, as notificações, a busca de posts, a recuperação de senha e os números reais da aba Brasil. Depois testei a sessão no navegador. Abaixo estão os resultados medidos, as telas reais no celular e a utilidade de cada parte.</p>
+  <p class="lede">Rodei o app de verdade (Postgres, Redis, backend e frontend) com os dados do seed e percorri cada funcionalidade passo a passo, como uma pessoa usaria. Nas últimas mudanças entraram a leitura sem conta, o algoritmo que fica só no aparelho, as notificações, a busca de posts, a recuperação de senha, as imagens nos posts e os números reais da aba Brasil. Depois testei a sessão no navegador. Abaixo estão os resultados medidos, as telas reais no celular e a utilidade de cada parte.</p>
 </header>
 
 <div class="stats">
@@ -97,8 +97,9 @@ footer{font-size:13px;color:var(--muted)}
     <p><b>Quem não tem conta lê, mas não interage.</b> Timeline, conversas, perfis, regras e a aba Brasil são abertos. Curtir, postar, seguir e responder levam ao login, e depois dele a pessoa volta ao mesmo post.</p>
     <p><b>O algoritmo de cada pessoa fica só no aparelho dela.</b> O servidor entrega os posts candidatos e não guarda preferências nem aprendizado. O feed Para você é montado no navegador, com o código aberto de <code>shared/ranking</code>.</p>
     <p><b>Notificações, busca e senha esquecida já funcionam.</b> O sino mostra quem curtiu, respondeu, repostou, mencionou, seguiu ou recompensou, respeitando quem foi silenciado ou bloqueado. A busca acha posts pelas palavras, sem diferença de acento, do mais recente ao mais antigo. "Esqueci minha senha" manda um link de uso único sem revelar quem tem conta.</p>
+    <p><b>Posts podem ter imagens.</b> Até 4, cada uma com descrição obrigatória para quem usa leitor de tela. O app reduz a foto no aparelho, e o servidor confere o tipo pelos bytes e tira a localização do GPS e os outros metadados antes de guardar.</p>
     <p><b>A aba Brasil mostra os últimos números oficiais.</b> Inflação, cesta básica, desemprego, PIB e Selic vêm de um registro conferido à mão nas fontes (IBGE, Banco Central, DIEESE), com selo de verificação e cinco anos de histórico. Eles não se atualizam sozinhos.</p>
-    <p><b>Ainda não está pronto para público.</b> O e-mail não sai de verdade, posts não têm imagens e há itens de segurança de prioridade média. Eles estão no fim da página.</p>
+    <p><b>Ainda não está pronto para público.</b> O e-mail não sai de verdade e há itens de segurança de prioridade média. Eles estão no fim da página.</p>
   </div>
 </section>
 

@@ -67,7 +67,7 @@ export default function Profile() {
 
   return (
     <>
-      <PageHeader back={!isMe} title={profile.display_name} subtitle={`${m.post_count} posts`}>
+      <PageHeader back={!isMe} title={profile.display_name} subtitle={`${m.post_count} ${m.post_count === 1 ? 'post' : 'posts'}`}>
         {isMe && (
           <Link to="/carteira" aria-label="Carteira" className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 md:hidden dark:hover:bg-zinc-900">
             <Icon name="wallet" />
