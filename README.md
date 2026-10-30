@@ -24,7 +24,7 @@ Visual mobile first e minimalista, com fonte arredondada (Nunito). No desktop, a
 
 ## Demo interativa
 
-Uma página única que roda no navegador, sem servidor, com os mesmos dados fictícios do seed. Ela simula o app inteiro: feed **Seguindo** e **Para você**, a tela **Meu algoritmo**, threads, canal em tempo real, **missões do dia** e a **carteira NWC**. O painel **Bastidores** mostra, a cada ação, as requisições HTTP, as consultas SQL, os comandos Redis e os eventos de WebSocket que o backend real faria.
+Uma página única que roda no navegador, sem servidor, com os mesmos dados fictícios do seed. Ela simula o app inteiro: feed **Seguindo** e **Para você**, a tela **Meu algoritmo**, threads, **notificações**, **busca de posts**, canal em tempo real, **missões do dia** e a **carteira NWC**. O painel **Bastidores** mostra, a cada ação, as requisições HTTP, as consultas SQL, os comandos Redis e os eventos de WebSocket que o backend real faria.
 
 | Para você, com explicação | Meu algoritmo | Missões do dia | Carteira NWC |
 |---|---|---|---|

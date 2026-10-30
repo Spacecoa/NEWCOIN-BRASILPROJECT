@@ -1,0 +1,32 @@
+const { chromium } = require('playwright');
+// Telas no celular (390 × 844, retina). Uso: node shots.cjs <pasta de saída>
+const W = process.env.WEB_URL ?? 'http://localhost:4173', OUT = process.argv[2] + '/shots/';
+require('node:fs').mkdirSync(OUT, { recursive: true });
+(async () => {
+  const b = await chromium.launch();
+  const vis = await (await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage();
+  await vis.goto(W + '/'); await vis.locator('article').first().waitFor(); await vis.waitForTimeout(600); await vis.screenshot({ path: OUT + 'visitante.png' });
+  await vis.goto(W + '/esqueci-senha'); await vis.waitForTimeout(600); await vis.screenshot({ path: OUT + 'esqueci.png' });
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const p = await ctx.newPage();
+  await p.goto(W + '/login'); await p.waitForTimeout(500); await p.screenshot({ path: OUT + 'login.png' });
+  await p.getByLabel('E-mail').fill('ana_dev@exemplo.test');
+  await p.getByLabel(/Senha/).fill('senha1234');
+  await p.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await p.getByText('Seguindo', { exact: true }).first().waitFor();
+  const shot = async (url, name, fn) => { await p.goto(W + url); await p.waitForTimeout(1300); if (fn) await fn(); await p.waitForTimeout(500); await p.screenshot({ path: OUT + name + '.png' }); console.log(name); };
+  await shot('/', 'seguindo');
+  await shot('/', 'paravoce', async () => { await p.getByRole('tab', { name: 'Para você' }).click(); await p.waitForTimeout(1500); });
+  await shot('/interesses', 'algoritmo');
+  await shot('/notificacoes', 'notificacoes');
+  await shot('/explorar?q=postgres', 'busca');
+  await shot('/missoes', 'missoes');
+  await shot('/carteira', 'carteira');
+  await shot('/canais/cafe', 'canal');
+  await shot('/u/bruno_pesquisa', 'perfil');
+  await shot('/brasil', 'brasil');
+  await shot('/moderacao', 'moderacao');
+  await shot('/regras', 'regras');
+  await shot('/privacidade', 'privacidade');
+  await b.close();
+})();
