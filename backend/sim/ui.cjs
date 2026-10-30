@@ -291,7 +291,7 @@ sim('Algoritmo na tela', 'Meu algoritmo: salvar fica só no aparelho, sobrevive 
 });
 
 // 10
-sim('Perfis na tela', 'Explorar: a busca de pessoas acha por parte do nome e leva ao perfil', 'docs/03 §4', async () => {
+sim('Perfis na tela', 'Explorar: a busca acha o post pelas palavras e a pessoa por parte do nome, e leva ao perfil', 'docs/03 §4', async () => {
   const a = await reg('ex');
   const b = await reg('ex');
   await mkPost(b, `post no explorar ${cur}`);
@@ -300,7 +300,12 @@ sim('Perfis na tela', 'Explorar: a busca de pessoas acha por parte do nome e lev
   await page.locator('nav[aria-label="Principal (celular)"] a', { hasText: 'Explorar' }).click();
   await page.getByText('Timeline pública desta instância').waitFor();
   await page.getByText(`post no explorar ${cur}`).first().waitFor();
-  await page.getByLabel('Buscar pessoas').fill(b.u.slice(0, 7));
+  // A busca acha o post pelas palavras (aba Posts) e a pessoa pelo nome (aba Pessoas).
+  await page.getByLabel('Buscar posts e pessoas').fill(`explorar ${cur}`);
+  await page.getByRole('tab', { name: 'Posts', selected: true }).waitFor();
+  await page.locator('article', { hasText: `post no explorar ${cur}` }).first().waitFor();
+  await page.getByLabel('Buscar posts e pessoas').fill(b.u.slice(0, 7));
+  await page.getByRole('tab', { name: 'Pessoas' }).click();
   await page.getByRole('link', { name: new RegExp(`@${b.u}`) }).first().click();
   await page.getByRole('heading', { name: `Pessoa ${b.u}` }).first().waitFor();
   await context.close();

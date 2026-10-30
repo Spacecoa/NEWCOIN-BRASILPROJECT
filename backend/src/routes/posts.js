@@ -5,7 +5,7 @@ import { parse } from '../lib/errors.js';
 import { pageMeta, parsePageParams } from '../lib/pagination.js';
 import { rateLimit } from '../lib/rateLimit.js';
 import * as posts from '../services/posts.js';
-import { publicTimelineIds } from '../services/timeline.js';
+import { publicTimelineIds, searchPostIds } from '../services/timeline.js';
 
 const router = Router();
 const idParam = z.string().regex(/^\d{1,20}$/, 'ID inválido');
@@ -27,6 +27,19 @@ router.get('/', optionalAuth, async (req, res) => {
   const ids = await publicTimelineIds(page);
   const result = await posts.hydrate(ids, req.user?.id);
   res.json({ ...result, meta: pageMeta(result.data, page.limit) });
+});
+
+// Busca aberta a visitantes (ler é livre), com limite próprio: cada busca varre o índice.
+const searchLimiter = rateLimit({ name: 'posts:search', limit: 60, windowSec: 5 * 60 });
+const searchSchema = z.object({ q: z.string().trim().min(2, 'digite pelo menos 2 letras').max(100, 'no máximo 100 caracteres') });
+
+/** GET /api/posts/busca?q= — posts com as palavras, mais recentes primeiro. */
+router.get('/busca', optionalAuth, searchLimiter, async (req, res) => {
+  const { q } = parse(searchSchema, { q: req.query.q ?? '' });
+  const page = parsePageParams({ ...req.query, q: undefined });
+  const ids = await searchPostIds(q, page);
+  const result = await posts.hydrate(ids, req.user?.id);
+  res.json({ ...result, meta: { ...pageMeta(ids.map((id) => ({ id })), page.limit), query: q } });
 });
 
 router.post('/', requireAuth, createLimiter, async (req, res) => {
