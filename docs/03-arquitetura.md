@@ -258,6 +258,7 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | POST | `/api/notificacoes/lidas` | ✔ | `{newest_id?}` marca como lidas até o mais novo que a pessoa viu |
 | GET | `/api/posts` | opc. | Timeline pública da instância |
 | POST | `/api/posts` | ✔ | `{text, reply_to_id?}` → post criado + autor |
+| GET | `/api/posts/busca?q=` | opc. | Busca posts por palavras (português, sem diferença de acento, pelo radical), mais recentes primeiro e sem ordenar por curtidas; aceita "aspas", -palavra e OR; paginação por `until_id` |
 | GET | `/api/posts/:id` | opc. | Post hidratado |
 | GET | `/api/posts/:id/thread` | opc. | Conversa inteira (`meta.focal_id`) |
 | DELETE | `/api/posts/:id` | ✔ | Apaga (só o autor; post denunciado ou removido não some de vez) |

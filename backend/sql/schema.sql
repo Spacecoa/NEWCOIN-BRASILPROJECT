@@ -445,3 +445,18 @@ CREATE TABLE IF NOT EXISTS password_resets (
   used_at    TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS password_resets_user_idx ON password_resets (user_id, created_at DESC);
+
+-- Busca de posts: texto em português, sem diferença de acento ("ônibus" acha "onibus") e
+-- pelo radical ("trabalho" acha "trabalhadores"; o radical do Postgres não junta tudo:
+-- "eleição" e "eleições" ficam separados). A configuração agora_pt é a "portuguese" do
+-- Postgres com unaccent antes do radical; o índice GIN deixa a busca rápida.
+CREATE EXTENSION IF NOT EXISTS unaccent;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname = 'agora_pt') THEN
+    CREATE TEXT SEARCH CONFIGURATION agora_pt (COPY = portuguese);
+    ALTER TEXT SEARCH CONFIGURATION agora_pt
+      ALTER MAPPING FOR hword, hword_part, word WITH unaccent, portuguese_stem;
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS posts_search_idx ON posts USING gin (to_tsvector('agora_pt', text)) WHERE repost_of_id IS NULL;

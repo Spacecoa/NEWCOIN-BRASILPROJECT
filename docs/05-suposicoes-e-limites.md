@@ -34,7 +34,7 @@ Todo comportamento "inspirado em" uma plataforma tem uma suposição por trás. 
 5. **Fan-out síncrono** dentro da requisição. Bom até milhares de seguidores; acima disso, usar uma fila.
 6. **Reconstrução da timeline sem lock.** Um post criado entre o `SELECT` e o `RPUSH` da reconstrução pode ficar fora do cache até ele expirar (TTL de 1 h) ou ser invalidado. O limite está documentado e é aceito.
 7. **`post:deleted` é enviado a todos os conectados.** Em escala, seria só para a audiência.
-8. **A busca de usuários usa `ILIKE`.**
+8. **A busca de usuários usa `ILIKE`; a de posts, a busca de texto do Postgres** (configuração `agora_pt`: `portuguese` com `unaccent`). O radical em português não junta todas as formas: "trabalho" acha "trabalhadores", mas "eleição" não acha "eleições". Não há busca por parte de palavra nem correção de erros de digitação.
 9. **A federação é só leitura** e não é assinada. As URLs usam `http://` porque o ambiente é local.
 10. **Rate limits desligados nos testes de integração** (`DISABLE_RATE_LIMIT=1`), com um teste dedicado ao limitador.
 
