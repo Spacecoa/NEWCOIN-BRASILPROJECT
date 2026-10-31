@@ -1397,7 +1397,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
       ['Seus direitos (LGPD, art. 18)', ['Ver e baixar todos os seus dados, corrigir seu perfil e excluir a conta, sozinho(a), em Perfil › Privacidade e dados.', 'Retirar o consentimento a qualquer momento: é só excluir a conta. Nada do que é seu fica.']],
     ],
   };
-  const priv = { del: false, deleted: false };
+  const priv = { del: false, deleted: false, json: null };
 
   function renderTermo() {
     return header('Termo do piloto', 'O que o Ágora guarda, para quê e como sair', '', true)
@@ -1440,7 +1440,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
         : `<div class="acts"><button class="chip warn" data-del-ask>Quero excluir minha conta</button></div>`;
     return header('Privacidade e dados', 'Só você vê esta página', '', state.stack.length > 0)
       + `<section class="sec"><h2>Quem vê o quê</h2><p class="hint">O Ágora está em piloto de pesquisa. Participar é voluntário: você pode sair quando quiser.</p>${seen.map(([t, x]) => `<div class="qcard"><b>${t}</b><div class="det2">${x}</div></div>`).join('')}<p class="hint">Você aceitou o termo do piloto ao se cadastrar. <button type="button" class="mention" data-nav="termo">Ler o termo do piloto</button> · <button type="button" class="mention" data-nav="algo">Contagem de tempo e o que o feed aprendeu</button></p></section>`
-      + `<section class="sec"><h2>Seus dados</h2><p class="hint">Você pode levar uma cópia de tudo ou apagar sua conta quando quiser, sem pedir a ninguém.</p><div class="qcard"><b>Baixar meus dados</b><div class="det2">Um arquivo com tudo o que a instância guarda sobre você: conta, posts e edições, imagens, mensagens, curtidas, seguidas, carteira, denúncias que você fez e decisões sobre sua conta.</div><div class="acts"><button class="chip" data-dl-data>Baixar arquivo (JSON)</button></div></div><div class="qcard"><b>Excluir minha conta</b><div class="det2">Não dá para desfazer. Se quiser guardar uma cópia, baixe seus dados antes.</div>${del}</div></section>`
+      + `<section class="sec"><h2>Seus dados</h2><p class="hint">Você pode levar uma cópia de tudo ou apagar sua conta quando quiser, sem pedir a ninguém.</p><div class="qcard"><b>Baixar meus dados</b><div class="det2">Um arquivo com tudo o que a instância guarda sobre você: conta, posts e edições, imagens, mensagens, curtidas, seguidas, carteira, denúncias que você fez e decisões sobre sua conta.</div><div class="acts"><button class="chip" data-dl-data>${priv.json ? 'Fechar o arquivo' : 'Ver o arquivo (JSON)'}</button></div>${priv.json ? `<p class="hint">No app, este conteúdo é baixado como agora-dados-${ME}-data.json.</p><pre style="max-height:260px;overflow:auto;font-size:12px;background:var(--bg);padding:10px;border-radius:12px;white-space:pre-wrap">${esc(priv.json)}</pre>` : ''}</div><div class="qcard"><b>Excluir minha conta</b><div class="det2">Não dá para desfazer. Se quiser guardar uma cópia, baixe seus dados antes.</div>${del}</div></section>`
       + `<section class="sec"><h2>Bloqueados</h2><p class="hint">Vocês não veem os posts um do outro e ninguém consegue seguir, responder ou curtir o outro.</p>${people(mod.blocked, 'data-unblock-u', 'Desbloquear', 'Você não bloqueou ninguém.')}</section>`
       + `<section class="sec"><h2>Silenciados</h2><p class="hint">Os posts não aparecem nos seus feeds nem nas menções. A pessoa não fica sabendo.</p>${people(mod.muted, 'data-unmute-u', 'Deixar de silenciar', 'Você não silenciou ninguém.')}</section>`
       + `<section class="sec"><h2>Suas denúncias</h2><p class="hint">A moderação analisa cada uma. Quem foi denunciado não sabe quem denunciou.</p>${mine.length ? mine.map((r) => `<div class="qcard"><div class="top2"><b>${r.postText != null ? 'Post de @' + r.target : 'Conta @' + r.target}</b><span class="statuspill ${r.status === 'aberta' ? 'open' : ''}">${r.status === 'aberta' ? 'Em análise' : r.status === 'acatada' ? 'Acatada' : 'Arquivada'}</span></div>${r.postText ? `<blockquote>${esc(r.postText)}</blockquote>` : ''}<div class="det2">Enviada ${rel(r.created)}${r.resolution ? ` · ${RESOLUTION[r.resolution]}${r.rule ? ' ' + esc(ruleLabel(r.rule)) + '.' : ''}${r.note ? ' Nota: ' + esc(r.note) : ''}` : ''}</div></div>`).join('') : '<p class="empty" style="padding:8px 0;text-align:left">Você não fez nenhuma denúncia. Use o "⋯" de um post ou perfil.</p>'}</section>`;
@@ -2040,7 +2040,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
 
   function go(view, opts = {}) {
     mod.menu = null; mod.umenu = false; mod.confirmBlock = false; mod.note = null; mod.confirm = null;
-    if (view === 'privacy') { priv.del = false; priv.deleted = false; log('http', 'GET /api/conta/bloqueados · /api/conta/silenciados · /api/denuncias · /api/instancia/termo → 200', 'só a própria pessoa vê'); }
+    if (view === 'privacy') { priv.del = false; priv.deleted = false; priv.json = null; log('http', 'GET /api/conta/bloqueados · /api/conta/silenciados · /api/denuncias · /api/instancia/termo → 200', 'só a própria pessoa vê'); }
     if (view === 'termo') log('http', 'GET /api/instancia/termo → 200', `termo público, versão ${CONSENT.version}: 8 seções e o texto do aceite`);
     if (view === 'brasil') log('http', 'GET /api/dados → 200', 'indicadores com origem, fontes, conferências A/B/C, selo e histórico de 5 anos · registro conferido em 29/10/2026');
     if (view === 'rules') log('http', 'GET /api/instancia/regras → 200', 'regras públicas, quem modera e a data da última mudança');
@@ -2274,13 +2274,10 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (d.unblockU) { setBlock(d.unblockU, false); mod.menu = null; mod.umenu = false; render(); return; }
     if (d.unmuteU) { setMute(d.unmuteU, false); render(); return; }
     if (d.dlData !== undefined) {
-      const data = exportDemoData();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-      a.download = `agora-dados-${ME}-${data.gerado_em.slice(0, 10)}.json`;
-      document.body.append(a); a.click(); a.remove();
-      log('http', 'GET /api/conta/dados → 200', `Content-Disposition: attachment · ${data.posts.length} posts, carteira, seguidas e denúncias; sem hash de senha nem quem denunciou você`);
-      toast('Arquivo baixado.'); return;
+      // A demo mostra o arquivo na tela (o app baixa um .json).
+      priv.json = priv.json ? null : JSON.stringify(exportDemoData(), null, 2);
+      if (priv.json) log('http', 'GET /api/conta/dados → 200', 'Content-Disposition: attachment · posts, carteira, seguidas e denúncias; sem hash de senha nem quem denunciou você');
+      render(); return;
     }
     if (d.delAsk !== undefined) { priv.del = true; render(); return; }
     if (d.delCancel !== undefined) { priv.del = false; render(); return; }
