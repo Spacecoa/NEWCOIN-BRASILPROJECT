@@ -27,7 +27,7 @@ São os direitos de acesso, portabilidade e eliminação da LGPD (Lei 13.709/201
 | Denúncias que você fez, decisões sobre sua conta e recursos | |
 | Convites, notificações, sessões (aparelho e datas) e pedidos de nova senha | |
 
-O arquivo não fica em cache (`Cache-Control: no-store`) e cada pessoa pode pedir até 5 por hora.
+O arquivo não fica em cache (`Cache-Control: no-store`) e cada pessoa pode pedir até 5 por hora. As imagens vão dentro do arquivo até somarem 50 MB; as que passam disso vão só com os dados e o endereço `/api/midia/<id>` (se ainda não estão num post, sem endereço). Assim o servidor nunca monta um arquivo gigante na memória.
 
 ## 2. Excluir minha conta
 
@@ -38,7 +38,7 @@ O arquivo não fica em cache (`Cache-Control: no-store`) e cada pessoa pode pedi
 **O que o app arruma para as outras pessoas:**
 
 - **Números dos posts dos outros:** curtidas, respostas, reposts, citações e recompensas são **recontados** nos posts que a conta tocou (recontar, e não "menos um", deixa o número certo mesmo que a conta tenha curtido, respondido e recompensado o mesmo post).
-- **Canais:** um canal com mais gente passa para o administrador mais antigo (ou, sem administrador, o membro mais antigo). Canal sem mais ninguém some.
+- **Canais:** um canal com mais gente passa para o administrador mais antigo (ou, sem administrador, o membro mais antigo). Conta suspensa não herda. Canal sem mais ninguém ativo some.
 - **Telas abertas:** as sessões caem na hora e os posts saem da tela de quem seguia a conta (evento `post:deleted`).
 - **Este aparelho:** o app apaga o algoritmo do "Para você" guardado no navegador. Nos outros aparelhos ele fica até a pessoa limpar os dados do site (o app não tem como alcançá-los depois que a conta some).
 - **NewCoin recebida por outras pessoas** continua delas: o extrato de cada carteira segue batendo com o saldo.
@@ -106,6 +106,37 @@ Enquanto o aceite estiver pendente, o app não conta os minutos de uso.
 1. define `RESEARCH_RESPONSIBLE`, `RESEARCH_CONTACT` e `RESEARCH_RETENTION` (o servidor avisa no log quando o contato está vazio);
 2. confere se o termo bate com o projeto aprovado pela instituição. Se a pesquisa passar por comitê de ética, o texto aprovado é o que vale: ajuste `consent.js` e troque a versão.
 
-## 5. Testes
+## 5. Verificação de segurança (31/10/2026)
 
-`backend/test/account.test.js` (9 testes): arquivo completo e sem segredos; sem o nome de quem denunciou; senha errada; tudo apagado e sessões encerradas; e-mail livre e @ reservado; números dos posts dos outros; canais passados ou apagados; convite que não volta; última pessoa moderando. `backend/test/consent.test.js` (5 testes): termo público e completo; aceite obrigatório e gravado; termo que mudou durante a leitura; conta com termo antigo aceita depois; situação do termo só para a própria pessoa. `frontend/src/pages/Privacy.test.jsx`: baixar o arquivo e excluir com senha errada e certa. `frontend/src/pages/Consent.test.jsx`: página `/termo` com e sem conta, termo novo antes do app, *Não aceito*. Simulações (docs/15): S101 a S103 na API (arquivo, exclusão, termo) e S104 e S105 na tela (a página inteira com download e exclusão; `/termo` e o termo novo antes do app). A S077 confere os dois aceites no cadastro.
+Revisão do módulo com testes de sondagem: corridas entre pedidos, tokens de conta já excluída, dados de outras pessoas, campos a mais no cadastro, pedidos sobre a conta de outra pessoa e abuso do arquivo de dados. Tudo local, com contas fictícias.
+
+**Achados e correções:**
+
+| # | Gravidade | Falha | Correção |
+|---|---|---|---|
+| V1 | Média | Duas moderadoras excluindo a conta ao mesmo tempo: cada uma via a outra e as duas saíam, e a instância ficava **sem moderação** | A conferência passou para dentro da transação e trava as contas que moderam. Uma sai e a outra recebe 409 |
+| V2 | Média | O arquivo de dados levava **todas** as imagens em base64. Uma conta com muitas imagens fazia o servidor montar centenas de MB na memória a cada pedido, com risco de derrubá-lo | Teto de 50 MB de imagens no arquivo; as demais vão com o endereço |
+| V3 | Baixa | Conta **suspensa** podia herdar um canal (e voltar mandando nele se fosse reativada) | O herdeiro precisa estar ativo |
+| V4 | Baixa | Token de conta excluída que escapa da lista de sessões encerradas (Redis reiniciado) ou pedido feito durante a própria exclusão davam **erro 500** | Chave estrangeira sem par vira 401 (se o que sumiu foi a própria conta) ou 404 (se foi outra coisa); `/api/auth/me` responde 401 |
+| V5 | Baixa | "Esqueci minha senha" esperava o envio do e-mail só quando a conta existia. Com um serviço de e-mail de verdade, a demora revelaria quem tem conta | O envio não segura mais a resposta |
+
+**Conferido e sem falha:**
+
+- O perfil público e a busca não mostram e-mail nem a situação do termo.
+- Campos a mais no cadastro (`is_moderator`, versão do termo inventada) são ignorados.
+- As rotas de conta só agem sobre a conta do token; mandar o nome de outra pessoa não muda nada.
+- Exclusão e arquivo de dados exigem login. A exclusão pede a senha, não é alcançável por outro site (o token vai no cabeçalho, não em cookie) e tem limite de tentativas.
+- O nome do arquivo usa só o @ (letras, números e `_`), sem como injetar cabeçalho.
+- Os contadores dos posts das outras pessoas ficam certos mesmo com curtidas chegando durante a exclusão.
+
+**O que fica em aberto, por decisão ou para depois:**
+
+- **Voltar depois de excluir:** quem exclui a conta (por exemplo, com denúncias em análise) pode criar outra com o mesmo e-mail. Para um piloto com convites, a moderação resolve; numa instância aberta, valeria guardar o hash do e-mail de contas excluídas com sanção ativa.
+- **O termo é cobrado pela tela, não pela API** (§4).
+- **O hash do @ reservado não tem sal:** quem testar nomes descobre que @fulano existiu. Os nomes já eram públicos.
+- **E-mail no log:** com `MAIL_TRANSPORT=log`, o link de nova senha aparece no log do servidor. Num piloto, o log precisa ficar só com a equipe, até existir um serviço de e-mail.
+- **Recontagem sob corrida:** se alguém curte o mesmo post exatamente durante a exclusão, o número pode ficar um a menos até a próxima mudança no post. É raro, e o teste com curtidas simultâneas não reproduziu.
+
+## 6. Testes
+
+`backend/test/account.test.js` (14 testes, 5 deles da verificação do §5): arquivo completo e sem segredos; sem o nome de quem denunciou; senha errada; tudo apagado e sessões encerradas; e-mail livre e @ reservado; números dos posts dos outros; canais passados ou apagados; convite que não volta; última pessoa moderando. `backend/test/consent.test.js` (5 testes): termo público e completo; aceite obrigatório e gravado; termo que mudou durante a leitura; conta com termo antigo aceita depois; situação do termo só para a própria pessoa. `frontend/src/pages/Privacy.test.jsx`: baixar o arquivo e excluir com senha errada e certa. `frontend/src/pages/Consent.test.jsx`: página `/termo` com e sem conta, termo novo antes do app, *Não aceito*. Simulações (docs/15): S101 a S103 na API (arquivo, exclusão, termo) e S104 e S105 na tela (a página inteira com download e exclusão; `/termo` e o termo novo antes do app). A S077 confere os dois aceites no cadastro.

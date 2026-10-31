@@ -60,7 +60,7 @@ export function createApp() {
 
   // Express 5 encaminha rejeições de handlers async para cá automaticamente.
   // Nunca devolve detalhes internos; só registra no log o que é falha nossa (5xx).
-  app.use((err, _req, res, _next) => {
+  app.use((err, req, res, _next) => {
     if (err instanceof HttpError) {
       return res.status(err.status).json({ error: err.message, details: err.details });
     }
@@ -70,6 +70,14 @@ export function createApp() {
     }
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'JSON inválido' });
     if (err.status >= 400 && err.status < 500) return res.status(err.status).json({ error: 'Pedido inválido' });
+    // Chave estrangeira sem par (23503): algo foi apagado enquanto o pedido rodava.
+    // Se o que sumiu foi a própria conta (excluída com um token ainda valendo), a sessão
+    // acabou; se foi outra coisa (o post curtido, a pessoa seguida), não existe mais.
+    if (err.code === '23503') {
+      const gone = /\((\d+)\) is not present in table "users"/.exec(err.detail ?? '')?.[1];
+      if (gone && gone === String(req.user?.id)) return res.status(401).json({ error: 'Sessão encerrada: esta conta não existe mais' });
+      return res.status(404).json({ error: 'Não encontrado: foi apagado enquanto você agia' });
+    }
     // Consulta cancelada pelo tempo-limite (57014) ou pool sem conexão livre: servidor ocupado.
     if (err.code === '57014' || /timeout exceeded when trying to connect/i.test(err.message ?? '')) {
       console.warn('[db]', err.message);

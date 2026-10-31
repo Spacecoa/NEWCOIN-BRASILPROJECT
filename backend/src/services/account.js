@@ -13,6 +13,11 @@ import { usernameHash } from './users.js';
 
 export const EXPORT_FORMAT = 'agora-dados/1';
 
+// Teto das imagens que vão dentro do arquivo (base64). Sem ele, uma conta com muitas
+// imagens faria o servidor montar centenas de MB na memória a cada pedido. As que passam
+// do teto vão só com os dados e o endereço, para baixar uma a uma.
+export const EXPORT_LIMITS = { mediaBytes: 50 * 1024 * 1024 };
+
 const rows = async (sql, params) => (await query(sql, params)).rows;
 
 /**
@@ -37,8 +42,15 @@ export async function exportAccount(userId) {
       p,
     ),
     rows('SELECT e.post_id, e.text, e.edited_at FROM post_edits e JOIN posts p ON p.id = e.post_id WHERE p.author_id = $1 ORDER BY e.id', p),
-    rows('SELECT id, post_id, position, mime, width, height, alt, created_at, bytes FROM media WHERE owner_id = $1 ORDER BY id', p),
+    rows('SELECT id, post_id, position, mime, size, width, height, alt, created_at FROM media WHERE owner_id = $1 ORDER BY id', p),
   ]);
+
+  // Os bytes só das imagens que cabem no teto, na ordem em que foram enviadas.
+  let budget = EXPORT_LIMITS.mediaBytes;
+  const inline = media.filter((m) => (budget -= m.size) >= 0).map((m) => m.id);
+  const bytes = new Map(
+    inline.length ? (await rows('SELECT id, bytes FROM media WHERE id = ANY($1::bigint[])', [inline])).map((r) => [r.id, r.bytes]) : [],
+  );
 
   const [likes, following, followers, mutes, blocks, hidden] = await Promise.all([
     rows('SELECT post_id, created_at FROM likes WHERE user_id = $1 ORDER BY created_at', p),
@@ -116,7 +128,10 @@ export async function exportAccount(userId) {
       'e o que é de outras pessoas (quem denunciou você, quem moderou). As imagens vão em base64, já sem metadados.',
     conta: { ...user, handle: `${user.username}@${config.instanceDomain}` },
     posts: posts.map((post) => ({ ...post, edicoes: edits.filter((e) => e.post_id === post.id).map(({ post_id: _, ...e }) => e) })),
-    imagens: media.map(({ bytes, ...m }) => ({ ...m, base64: Buffer.from(bytes).toString('base64') })),
+    imagens: media.map((m) =>
+      // Só imagem já num post tem endereço aberto; a ainda não publicada vai só com os dados.
+      bytes.has(m.id) ? { ...m, base64: Buffer.from(bytes.get(m.id)).toString('base64') } : { ...m, base64: null, url: m.post_id ? `/api/midia/${m.id}` : null },
+    ),
     curtidas: likes,
     seguindo: following,
     seguidores: followers,
@@ -138,14 +153,18 @@ export async function exportAccount(userId) {
   };
 }
 
-/** Quem herda um canal quando o dono sai: o administrador mais antigo, senão o membro mais antigo. */
+/**
+ * Quem herda um canal quando o dono sai: o administrador mais antigo, senão o membro mais
+ * antigo. Conta suspensa não herda (ela voltaria mandando no canal se fosse reativada).
+ */
 async function passChannels(client, userId) {
   const { rows: owned } = await client.query('SELECT id FROM channels WHERE owner_id = $1', [userId]);
   let passed = 0;
   for (const { id } of owned) {
     const { rows: heir } = await client.query(
-      `SELECT user_id FROM channel_members WHERE channel_id = $1 AND user_id <> $2
-        ORDER BY (role = 'admin') DESC, joined_at, user_id LIMIT 1`,
+      `SELECT m.user_id FROM channel_members m JOIN users u ON u.id = m.user_id
+        WHERE m.channel_id = $1 AND m.user_id <> $2 AND u.suspended_at IS NULL
+        ORDER BY (m.role = 'admin') DESC, m.joined_at, m.user_id LIMIT 1`,
       [id, userId],
     );
     if (!heir[0]) continue; // canal sem mais ninguém: some junto com a conta
@@ -179,12 +198,15 @@ export async function eraseAccount(userId) {
   const user = found[0];
   if (!user) throw notFound('Usuário não encontrado');
 
-  if (user.is_moderator) {
-    const { rows: others } = await query('SELECT count(*)::int AS n FROM users WHERE is_moderator AND suspended_at IS NULL AND id <> $1', [userId]);
-    if (!others[0].n) throw conflict('Você é a única pessoa que modera esta instância. Passe a moderação para outra pessoa antes de excluir a conta.');
-  }
-
   const result = await withTransaction(async (client) => {
+    if (user.is_moderator) {
+      // Trava as contas que moderam: duas moderadoras saindo ao mesmo tempo não podem
+      // deixar a instância sem moderação (cada uma veria a outra e as duas sairiam).
+      const { rows: mods } = await client.query('SELECT id, suspended_at FROM users WHERE is_moderator ORDER BY id FOR UPDATE');
+      if (!mods.some((m) => m.id !== userId && !m.suspended_at)) {
+        throw conflict('Você é a única pessoa que modera esta instância. Passe a moderação para outra pessoa antes de excluir a conta.');
+      }
+    }
     // Trava a linha: dois pedidos de exclusão ao mesmo tempo não brigam.
     const { rows: locked } = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
     if (!locked[0]) throw notFound('Usuário não encontrado');
