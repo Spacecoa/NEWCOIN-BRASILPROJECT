@@ -34,7 +34,8 @@ shots=[('visitante','Sem conta','Lê a timeline; para interagir, entra.'),
 ('brasil','Brasil em dados','Último número oficial, selo e 5 anos de histórico.'),
 ('moderacao','Fila da moderação','Denúncias abertas, recursos e decisões.'),
 ('regras','Regras da instância','Públicas; toda remoção cita uma delas.'),
-('privacidade','Bloqueios e denúncias','Só a própria pessoa vê esta página.'),
+('privacidade','Privacidade e dados','Quem vê o quê, baixar os dados e excluir a conta.'),
+('termo','Termo do piloto','O que o app guarda, para quê e como sair.'),
 ('esqueci','Esqueci minha senha','A resposta não revela quem tem conta.')]
 areas=[]
 for x in d:
@@ -55,6 +56,7 @@ for a in areas:
 gal=''.join(f"<figure><img src='{img(n)}' alt='Tela {E(t)} do app no celular' loading=lazy width=390 height=844><figcaption><b>{E(t)}</b>{E(c)}</figcaption></figure>" for n,t,c in shots)
 util=[
 ('Contas','Cadastro com aceite das regras, login com e-mail e senha, bcrypt, até 10 senhas erradas por conta a cada 15 min.','Funciona','O cadastro ainda revela se um e-mail já existe (M3).'),
+('Privacidade e dados','Termo de consentimento no cadastro (público, versionado, 18+); baixar todos os seus dados num arquivo; excluir a conta com a senha, recontando os números dos posts dos outros e reservando o @.','Funciona','Quem trava o app sem o aceite do termo novo é a tela; a API não recusa. Conta suspensa pede a exclusão a quem administra.'),
 ('Recuperar senha','Link de uso único por e-mail, válido por 30 min; a resposta não revela quem tem conta; trocar a senha encerra todas as sessões.','Parcial','O e-mail não sai de verdade: vai para o log do servidor. Falta um serviço de e-mail.'),
 ('Sessão segura','Acesso de 15 min renovado sozinho por cookie protegido; sair de um aparelho ou de todos vale na hora.','Funciona','Com vários servidores, a queda imediata do tempo real precisa de Redis Pub/Sub.'),
 ('Leitura sem conta','Timeline, conversas, perfis, regras e Brasil abertos; interagir leva ao login e volta ao mesmo lugar.','Funciona','Sem conta, bloqueios não se aplicam (não há quem bloqueou).'),
@@ -77,6 +79,7 @@ util=[
 ]
 ut=''.join(f"<tr><td><b>{E(a)}</b></td><td>{E(b)}</td><td><span class='pill {'ok' if c=='Funciona' else 'warn'}'>{E(c)}</span></td><td>{E(e)}</td></tr>" for a,b,c,e in util)
 gaps=[
+('Alta','Instalação do piloto','Para 5 a 10 pessoas de verdade, falta subir o app num endereço com HTTPS dentro de uma rede privada, com backup diário do banco testado.'),
 ('Média','Serviço de e-mail','A recuperação de senha está pronta, mas o e-mail vai para o log. Falta um serviço de envio e a confirmação de e-mail no cadastro (M3).'),
 ('Média','Contas falsas e o NWC','A evaporação desestimula guardar NWC em contas paradas, mas falta verificação de conta e teto de emissão antes de dar utilidade ao token (M6).'),
 ('Média','Federação de escrita','Falta inbox com assinatura HTTP para seguir e responder entre instâncias, e bloqueio de instância.'),

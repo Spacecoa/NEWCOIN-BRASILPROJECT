@@ -20,9 +20,9 @@ O script roda os testes, sobe o app (API em :4000, uma segunda API com acesso de
 
 | Arquivo | O que faz |
 |---|---|
-| `walk.mjs` | Chamadas reais à API, área por área (contas, visitantes, posts, imagens, editar e citar, busca, notificações, feeds, canais, missões, NWC, federação, segurança, moderação, Brasil) |
+| `walk.mjs` | Chamadas reais à API, área por área (contas, recuperar senha, privacidade e dados, visitantes, posts, imagens, editar e citar, busca, notificações, feeds, canais, missões, NWC, federação, segurança, moderação, Brasil) |
 | `e2e.cjs` | Sessão no navegador: cookie protegido, renovação sozinha, sair de um ou de todos os aparelhos, visitante que vai ao login e volta |
-| `shots.cjs` | 18 telas no celular (390 × 844) |
+| `shots.cjs` | 19 telas no celular (390 × 844) |
 | `build.py` + `tpl.html` | Monta a página com os resultados. Os textos de resumo, utilidade e "o que falta" são escritos à mão nesses dois arquivos |
 | `demo.py` | Tira o esqueleto HTML de `demo/index.html`, que o publicador acrescenta sozinho |
 

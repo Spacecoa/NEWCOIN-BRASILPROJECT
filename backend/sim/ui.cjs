@@ -1,4 +1,5 @@
-// Simulações de uso na tela (navegador real, celular 390×844), numeradas de S077 a S100.
+// Simulações de uso na tela (navegador real, celular 390×844), numeradas de S077 a S100;
+// as novas (privacidade do piloto, docs/16) são S104 e S105.
 // Cada simulação cria as próprias contas pela API e abre o próprio contexto de navegador.
 const { chromium } = require('playwright');
 const { writeFileSync } = require('node:fs');
@@ -7,6 +8,8 @@ const API = process.env.SIM_BASE ?? 'http://localhost:4020';
 const WEB = process.env.SIM_WEB ?? 'http://localhost:4174';
 const PASS = 'senha-forte-123';
 const FIRST = 77;
+const FIRST_EXTRA = 104;
+const DB = /^DATABASE_URL=(.*)$/m.exec(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '.env'), 'utf8'))?.[1];
 const out = [];
 let browser;
 let cur = '000';
@@ -52,7 +55,7 @@ const body = (page) => page.locator('body').innerText();
 const gone = async (page, text, ms = 3000) => { await page.waitForFunction((t) => !document.body.innerText.includes(t), text, { timeout: ms }); };
 
 const sims = [];
-const sim = (area, title, doc, fn) => sims.push({ area, title, doc, fn });
+const sim = (area, title, doc, fn, opts = {}) => sims.push({ area, title, doc, fn, ...opts });
 
 // 1
 sim('Cadastro e entrada', 'Cadastro pela tela: regras e termo visíveis, os dois aceites obrigatórios, erro de senha curta e entrada na timeline', 'docs/12 §1 (entrar é aceitar), docs/16 §4', async () => {
@@ -649,9 +652,9 @@ sim('Acessibilidade', 'Botões, campos e imagens têm nome acessível; há regi�
     await page.keyboard.press('Tab');
   }
   check(ordem[0] === 'email' && ordem[1] === 'password' && /Mostrar/.test(ordem[2]) && /Entrar/.test(ordem[3]), `ordem do Tab no login: ${ordem.join(' → ')}`);
-  for (const p of ['/login', '/cadastro', '/regras']) await audit(p);
+  for (const p of ['/login', '/cadastro', '/regras', '/termo']) await audit(p);
   await uiLogin(page, a.email);
-  for (const p of ['/', '/explorar', '/canais', '/missoes', '/carteira', '/interesses', '/privacidade', '/brasil', `/u/${b.u}`]) await audit(p);
+  for (const p of ['/', '/explorar', '/canais', '/missoes', '/carteira', '/interesses', '/privacidade', '/termo', '/brasil', `/u/${b.u}`]) await audit(p);
   check(problemas.length === 0, problemas.slice(0, 6).join(' | '));
   await context.close();
 });
@@ -689,11 +692,72 @@ sim('Navegação e erros', 'Abas do celular levam às telas certas; rota inexist
   return { detail: 'abas, rota inexistente, aviso sem rede em português e "Tentar de novo"' };
 });
 
+// 104
+sim('Privacidade na tela', 'Privacidade e dados: resumo de quem vê o quê, baixar o arquivo, excluir com senha errada e certa', 'docs/16 §1–§3', async () => {
+  const a = await reg('pv');
+  await mkPost(a, `post que vai sumir ${cur}`);
+  const { page, context, errs } = await open({ acceptDownloads: true });
+  await uiLogin(page, a.email);
+  await page.goto(WEB + '/privacidade');
+  await page.getByRole('heading', { name: 'Quem vê o quê' }).waitFor();
+  const txt = await body(page);
+  for (const t of ['Público', 'Restrito', 'Só você', 'Não guardamos', 'Você aceitou o termo do piloto']) check(txt.includes(t), `faltou "${t}" no resumo`);
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Baixar arquivo (JSON)' }).click()]);
+  check(download.suggestedFilename().startsWith(`agora-dados-${a.u}-`), `nome do arquivo: ${download.suggestedFilename()}`);
+  const file = JSON.parse(require('node:fs').readFileSync(await download.path(), 'utf8'));
+  eq(file.conta.username, a.u, 'o arquivo é da conta');
+  check(file.posts.some((p) => p.text.startsWith('post que vai sumir')), 'o post deveria estar no arquivo');
+
+  await page.getByRole('button', { name: 'Quero excluir minha conta' }).click();
+  await page.getByRole('checkbox', { name: /exclusão é definitiva/ }).check();
+  await page.getByLabel('Sua senha, para confirmar').fill('senha-errada-1');
+  await page.getByRole('button', { name: 'Excluir conta de vez' }).click();
+  await page.getByText('Senha incorreta').waitFor();
+  await page.getByLabel('Sua senha, para confirmar').fill(PASS);
+  await page.getByRole('button', { name: 'Excluir conta de vez' }).click();
+  // Como em "Sair": volta para a leitura de visitante, com o aviso no topo.
+  await page.getByText('Sua conta foi excluída').waitFor();
+  check(await page.getByRole('link', { name: 'Entrar' }).first().isVisible(), 'deveria aparecer o botão de entrar do visitante');
+  eq((await api(null, 'POST', '/api/auth/login', { email: a.email, password: PASS })).s, 401, 'a conta não entra mais');
+  check(errs.length === 0, `erros de página: ${errs}`);
+  await context.close();
+}, { extra: true });
+
+// 105
+sim('Privacidade na tela', 'Termo do piloto: página pública /termo; conta com termo antigo vê o termo antes do app, "Não aceito" mostra as saídas, aceitar abre o app', 'docs/16 §4', async () => {
+  const { page, context, errs } = await open();
+  await page.goto(WEB + '/termo');
+  await page.getByRole('heading', { name: 'Termo do piloto' }).waitFor();
+  const termo = await body(page);
+  for (const t of ['Quem conduz a pesquisa', 'O que o app guarda', 'Por quanto tempo', 'Seus direitos']) check(termo.includes(t), `faltou "${t}" na página do termo`);
+  check(await page.getByRole('link', { name: 'Criar conta' }).isVisible(), 'visitante deveria ver o caminho para o cadastro');
+
+  const a = await reg('tg');
+  require('node:child_process').execFileSync('psql', [DB, '-Atc', `UPDATE users SET consent_version = 'velha' WHERE id = ${a.id}`]);
+  await page.goto(WEB + '/login');
+  await page.getByLabel('E-mail').fill(a.email);
+  await page.getByLabel('Senha').fill(PASS);
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await page.getByRole('heading', { name: 'O termo do piloto mudou' }).waitFor();
+  check(!(await page.getByRole('tab', { name: 'Seguindo' }).count()), 'o app não pode abrir antes do aceite');
+  await page.getByRole('button', { name: 'Não aceito' }).click();
+  for (const name of ['Baixar arquivo (JSON)', 'Quero excluir minha conta', 'Sair e decidir depois']) check(await page.getByRole('button', { name }).isVisible(), `faltou "${name}"`);
+  await page.getByRole('checkbox', { name: /18 anos ou mais/ }).check();
+  await page.getByRole('button', { name: 'Aceito e continuo' }).click();
+  await page.getByRole('tab', { name: 'Seguindo' }).waitFor();
+  const me = await api(null, 'POST', '/api/auth/login', { email: a.email, password: PASS });
+  eq(me.j.user.consent.pending, false, 'o aceite foi gravado');
+  check(errs.length === 0, `erros de página: ${errs}`);
+  await context.close();
+}, { extra: true });
+
 (async () => {
   browser = await chromium.launch();
   const only = process.argv.includes('--only') ? new Set(process.argv[process.argv.indexOf('--only') + 1].split(',').map(Number)) : null;
-  for (const [i, s] of sims.entries()) {
-    const n = FIRST + i;
+  const base = sims.filter((s) => !s.extra);
+  const numbered = [...base.map((s, i) => ({ ...s, n: FIRST + i })), ...sims.filter((s) => s.extra).map((s, i) => ({ ...s, n: FIRST_EXTRA + i }))];
+  for (const s of numbered) {
+    const n = s.n;
     if (only && !only.has(n)) continue;
     cur = String(n).padStart(3, '0');
     lastPages = [];

@@ -44,6 +44,8 @@ Rodada final: 100 de 100, sem observações.
 
 **Depois das notificações e da recuperação de senha (30/10/2026):** a S100 passou a percorrer a aba **Notificações** (que substituiu Menções na navegação). A S083 falhou uma vez numa rodada completa. A causa: recompensar um post também cumpre a missão "Recompense alguém" (+1 NWC, `docs/08`), que só é sorteada em parte dos dias para cada conta. Quando ela sai, o saldo certo é 3, não 2. O app estava certo; a simulação agora calcula o saldo esperado pelo extrato. Nova rodada: 100 de 100.
 
+**Privacidade do piloto (31/10/2026):** cinco simulações novas, numeradas de **S101 a S105** para não mudar a numeração das 100 primeiras (tabela no fim). Elas cobrem baixar os dados, excluir a conta e o termo de consentimento ([`docs/16`](16-privacidade-e-dados.md)). A S077 (cadastro pela tela) passou a exigir os dois aceites e a mostrar o termo, e a S099 (acessibilidade) passou a auditar a página `/termo`. Na primeira rodada, a S104 falhou: depois de excluir a conta, o app ia para a leitura de visitante, e não para a tela de entrar que a simulação esperava. O comportamento foi mantido, porque é o mesmo de "Sair" (aviso no topo da leitura de visitante), e a simulação foi ajustada. Nova rodada: **105 de 105** (79 de API e 26 na tela).
+
 ## 2. Como foi feito
 
 - **Ambiente:** o app rodando localmente, com os dados do seed. Duas instâncias com o mesmo banco: uma **sem limite de pedidos** para as simulações comuns e outra **com os limites normais** para as que testam os limites (denúncias por dia, pedidos por pessoa, senhas erradas por conta, tentativas de entrada por IP, evaporação ao voltar).
@@ -150,13 +152,13 @@ PORT=4020 WORKER_ID=2 DISABLE_RATE_LIMIT=1 INSTANCE_DOMAIN=localhost:4020 node s
 cd ../frontend && npm run build && BACKEND_URL=http://localhost:4020 npx vite preview --port 4174
 
 cd ../backend
-npm run sim:api   # 76 simulações de API
-npm run sim:ui    # 24 simulações na tela
+npm run sim:api   # 79 simulações de API (S001–S076 e S101–S103)
+npm run sim:ui    # 26 simulações na tela (S077–S100, S104 e S105)
 ```
 
 Os arquivos estão em `backend/sim/`. Cada simulação é uma função pequena e legível. As variáveis `SIM_BASE`, `SIM_LIMITED` e `SIM_WEB` mudam os endereços.
 
-## 8. As 100 simulações
+## 8. As 105 simulações
 
 ✅ passou · ❌ falhou · ℹ️ passou com uma observação.
 
@@ -262,3 +264,8 @@ Os arquivos estão em `backend/sim/`. Cada simulação é uma função pequena e
 | 098 | Tela | Layout | Sem rolagem horizontal em 320, 390, 768 e 1280 px; menu inferior no celular e coluna lateral no desktop | README (mobile first) | ✅ |
 | 099 | Tela | Acessibilidade | Botões, campos e imagens têm nome acessível; há região principal, idioma e títulos; Tab percorre o login na ordem | boas práticas (WCAG 2.1 A) | ❌ |
 | 100 | Tela | Navegação e erros | Abas do celular levam às telas certas; rota inexistente e falta de rede mostram aviso, não tela vazia | README (navegação), usabilidade | ✅ ℹ️ |
+| 101 | API | Privacidade e dados | Baixar meus dados: arquivo com posts, edições, curtidas, seguidas e carteira; sem segredos nem quem denunciou | docs/16 §1 | ✅ |
+| 102 | API | Privacidade e dados | Excluir a conta: senha conferida, tudo some, números dos outros recontados, @ reservado e convite que não volta | docs/16 §2 | ✅ |
+| 103 | API | Privacidade e dados | Termo do piloto: público, aceite obrigatório no cadastro, versão velha recusada; conta com termo antigo aceita depois | docs/16 §4 | ✅ |
+| 104 | Tela | Privacidade na tela | Privacidade e dados: resumo de quem vê o quê, baixar o arquivo, excluir com senha errada e certa | docs/16 §1–§3 | ✅ |
+| 105 | Tela | Privacidade na tela | Termo do piloto: página pública /termo; conta com termo antigo vê o termo antes do app, "Não aceito" mostra as saídas, aceitar abre o app | docs/16 §4 | ✅ |

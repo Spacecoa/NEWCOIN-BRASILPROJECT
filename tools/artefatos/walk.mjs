@@ -19,12 +19,12 @@ function rec(area, step, ok, detail, ms) { out.push({ area, step, ok: !!ok, deta
 // Cada área começa com os contadores de limite zerados (como nas simulações); a área de limites mede os reais.
 const freshLimits = () => execSync("redis-cli --scan --pattern 'rl:*' | xargs -r redis-cli del", { stdio: 'ignore', shell: '/bin/bash' });
 const login = async (u) => (await call(null, 'POST', '/api/auth/login', { email: u + '@exemplo.test', password: 'senha1234' })).j.token;
-const reg = async (u) => { const x = await call(null, 'POST', '/api/auth/register', { username: u, email: u + '@a.local', password: 'senha1234', accept_rules: true }); return { tok: x.j?.token, id: x.j?.user?.id, u }; };
+const reg = async (u) => { const x = await call(null, 'POST', '/api/auth/register', { username: u, email: u + '@a.local', password: 'senha1234', accept_rules: true, accept_consent: true }); return { tok: x.j?.token, id: x.j?.user?.id, u }; };
 let r;
 
 // Contas
 freshLimits();
-r = await call(null, 'POST', '/api/auth/register', { username: 'teste_analise', email: 't@a.local', password: 'senha1234', display_name: 'Teste Análise', accept_rules: true });
+r = await call(null, 'POST', '/api/auth/register', { username: 'teste_analise', email: 't@a.local', password: 'senha1234', display_name: 'Teste Análise', accept_rules: true, accept_consent: true });
 rec('Contas', 'Cadastro', r.s === 201, `HTTP ${r.s}, sessão aberta`, r.ms);
 const T = r.j?.token;
 r = await call(null, 'POST', '/api/auth/register', { username: 'teste_sem_regras', email: 's@a.local', password: 'senha1234' });
@@ -54,6 +54,29 @@ const B2 = await login('bruno_pesquisa');
   rec('Recuperar senha', 'Entra com a senha nova', r.s === 200, `HTTP ${r.s}`, r.ms);
 }
 const T2 = (await call(null, 'POST', '/api/auth/login', { email: 't@a.local', password: 'senha-nova-123' })).j.token;
+
+// Privacidade e dados (docs/16)
+freshLimits();
+{
+  r = await call(null, 'GET', '/api/instancia/termo');
+  rec('Privacidade e dados', 'Termo do piloto é público', r.s === 200 && r.j.data.sections.length === 8, `versão ${r.j?.data?.version}, ${r.j?.data?.sections?.length} seções`, r.ms);
+  r = await call(null, 'POST', '/api/auth/register', { username: 'teste_sem_termo', email: 'st@a.local', password: 'senha1234', accept_rules: true });
+  rec('Privacidade e dados', 'Cadastro sem aceitar o termo é recusado', r.s === 400 && r.j?.details?.some((x) => x.path === 'accept_consent'), `HTTP ${r.s}: ${r.j?.details?.map((x) => x.message).join(' · ')}`, r.ms);
+  r = await call(T2, 'GET', '/api/auth/me');
+  rec('Privacidade e dados', 'A conta sabe qual versão aceitou', r.s === 200 && r.j.user.consent.pending === false, `aceita em ${r.j?.user?.consent?.accepted_at?.slice(0, 10)}`, r.ms);
+  r = await call(T2, 'GET', '/api/conta/dados');
+  const raw = JSON.stringify(r.j ?? {});
+  rec('Privacidade e dados', 'Baixar meus dados', r.s === 200 && /attachment/.test(r.h.get('content-disposition') ?? '') && !/password_hash|refresh_hash|\$2[aby]\$/.test(raw), `${Math.round(raw.length / 1024)} KB, ${Object.keys(r.j ?? {}).length} partes, sem segredos`, r.ms);
+  const x = await reg('teste_excluir');
+  const xp = (await call(x.tok, 'POST', '/api/posts', { text: 'post que vai sumir com a conta' })).j.data;
+  r = await call(x.tok, 'DELETE', '/api/conta', { password: 'errada' });
+  rec('Privacidade e dados', 'Excluir pede a senha certa', r.s === 403, `HTTP ${r.s}: ${r.j?.error}`, r.ms);
+  r = await call(x.tok, 'DELETE', '/api/conta', { password: 'senha1234' });
+  const gone = (await call(T2, 'GET', `/api/posts/${xp.id}`)).s === 404 && (await call(x.tok, 'GET', '/api/auth/me')).s === 401;
+  rec('Privacidade e dados', 'Excluir a conta apaga tudo e derruba a sessão', r.s === 200 && gone, `HTTP ${r.s}; post 404, sessão 401`, r.ms);
+  r = await call(null, 'POST', '/api/auth/register', { username: 'teste_excluir', email: 'outra@a.local', password: 'senha1234', accept_rules: true, accept_consent: true });
+  rec('Privacidade e dados', 'O @ de conta excluída fica reservado', r.s === 409, `HTTP ${r.s}: ${r.j?.error}`, r.ms);
+}
 
 // Visitantes
 r = await call(null, 'GET', '/api/posts?max_results=5'); rec('Visitantes', 'Lê a timeline da instância sem conta', r.s === 200 && r.j.data.length > 0, `${r.j.data.length} posts`, r.ms);

@@ -22,7 +22,8 @@ São os direitos de acesso, portabilidade e eliminação da LGPD (Lei 13.709/201
 | Curtidas, seguindo, seguidores, silenciados, bloqueados, posts ocultados | Posts, mensagens e dados de outras pessoas (só os ids do que você curtiu) |
 | Canais, mensagens e reações | |
 | NewCoin: saldo, extrato, recompensas dadas, missões | |
-| Atividade por dia, interesses (preferências e o que o algoritmo aprendeu) | |
+| Atividade por dia e preferências guardadas no servidor (missões, contar tempo) | |
+| O que o feed "Para você" aprendeu **neste aparelho**: o app junta ao arquivo, porque o servidor não tem (docs/07 §2.10) | |
 | Denúncias que você fez, decisões sobre sua conta e recursos | |
 | Convites, notificações, sessões (aparelho e datas) e pedidos de nova senha | |
 
@@ -39,6 +40,7 @@ O arquivo não fica em cache (`Cache-Control: no-store`) e cada pessoa pode pedi
 - **Números dos posts dos outros:** curtidas, respostas, reposts, citações e recompensas são **recontados** nos posts que a conta tocou (recontar, e não "menos um", deixa o número certo mesmo que a conta tenha curtido, respondido e recompensado o mesmo post).
 - **Canais:** um canal com mais gente passa para o administrador mais antigo (ou, sem administrador, o membro mais antigo). Canal sem mais ninguém some.
 - **Telas abertas:** as sessões caem na hora e os posts saem da tela de quem seguia a conta (evento `post:deleted`).
+- **Este aparelho:** o app apaga o algoritmo do "Para você" guardado no navegador. Nos outros aparelhos ele fica até a pessoa limpar os dados do site (o app não tem como alcançá-los depois que a conta some).
 - **NewCoin recebida por outras pessoas** continua delas: o extrato de cada carteira segue batendo com o saldo.
 
 **O que fica:**
@@ -53,6 +55,22 @@ O arquivo não fica em cache (`Cache-Control: no-store`) e cada pessoa pode pedi
 - **O convite usado não volta a valer.** O convite marca quem o usou (`used_by`), e esse campo vira vazio quando a conta é excluída; por isso o app passou a olhar `used_at`. Antes desta mudança, excluir a conta liberava o convite para outra pessoa.
 - **Conta suspensa** não consegue entrar, então não chega na tela de excluir. Ela pede a quem administra a instância, que roda `npm run conta:excluir -- <usuario> --confirmo` no servidor (faz o mesmo que o botão, sem pedir a senha).
 
+## 3. A página *Privacidade e dados*
+
+Em *Perfil › Privacidade e dados* (antes *Bloqueios e denúncias*). A página foi revista para o piloto e agora começa pelo que a pessoa precisa saber antes de usar o app:
+
+1. **Quem vê o quê**, em quatro linhas:
+   - **Público:** posts, respostas e perfil (nome, bio, quem a pessoa segue), para a instância e para visitantes.
+   - **Restrito:** mensagens de canais (quem tem conta), de grupos (só membros), denúncias e recursos (só a moderação).
+   - **Só você:** esta página, a carteira, as notificações e o que o "Para você" aprendeu, que fica no aparelho.
+   - **Não guardamos:** IP no banco, localização das fotos, anúncios ou rastreadores; sem conexão com X ou Telegram.
+
+   Logo abaixo: a data em que a pessoa aceitou o termo, o link para lê-lo, o link para a contagem de tempo e o aprendizado do feed (em *Interesses*) e o contato da equipe para dúvidas sobre dados.
+2. **Seus dados:** *Baixar meus dados* (§1) e *Excluir minha conta* (§2).
+3. O que já existia: decisões sobre a conta (com recurso), bloqueados, silenciados e o andamento das denúncias.
+
+Depois de excluir a conta, o app volta para a leitura de visitante com o aviso *"Sua conta foi excluída"* no topo, como acontece ao sair.
+
 ## 4. Termo de consentimento do piloto
 
 **Onde aparece:** no cadastro (caixa *Termo de consentimento do piloto*, com o texto inteiro e o link para a página), na página pública `/termo` (dá para ler sem conta) e, para quem já tem conta, como uma tela antes do app quando falta aceitar a versão atual.
@@ -62,7 +80,7 @@ O arquivo não fica em cache (`Cache-Control: no-store`) e cada pessoa pode pedi
 | Seção | Resumo |
 |---|---|
 | Quem conduz a pesquisa | Nome da equipe e contato (variáveis `RESEARCH_RESPONSIBLE` e `RESEARCH_CONTACT` do servidor) |
-| O que o app guarda | Conta; o que a pessoa publica; uso do app (minutos por dia, que dá para desligar, missões, NewCoin, interesses aprendidos); sessões. O IP não vai para o banco |
+| O que o app guarda | Conta; o que a pessoa publica; uso do app (minutos por dia, que dá para desligar, missões, NewCoin); sessões. O que o "Para você" aprende fica só no aparelho. O IP não vai para o banco |
 | Para quê | Fazer o app funcionar e moderar; pesquisa com números agregados, sem citar posts com nome ou @ |
 | O que não fazemos | Sem venda de dados, anúncios ou rastreadores; sem conexão com X ou Telegram; NewCoin não é dinheiro |
 | Quem vê o quê | Posts e perfil: a instância e visitantes; mensagens: quem está no canal; denúncias: a moderação; o banco: só a equipe |
@@ -90,4 +108,4 @@ Enquanto o aceite estiver pendente, o app não conta os minutos de uso.
 
 ## 5. Testes
 
-`backend/test/account.test.js` (9 testes): arquivo completo e sem segredos; sem o nome de quem denunciou; senha errada; tudo apagado e sessões encerradas; e-mail livre e @ reservado; números dos posts dos outros; canais passados ou apagados; convite que não volta; última pessoa moderando. `backend/test/consent.test.js` (5 testes): termo público e completo; aceite obrigatório e gravado; termo que mudou durante a leitura; conta com termo antigo aceita depois; situação do termo só para a própria pessoa. `frontend/src/pages/Privacy.test.jsx`: baixar o arquivo e excluir com senha errada e certa. `frontend/src/pages/Consent.test.jsx`: página `/termo` com e sem conta, termo novo antes do app, *Não aceito*. Simulação de tela 1 (`backend/sim/ui.cjs`): o cadastro pede os dois aceites e mostra o termo.
+`backend/test/account.test.js` (9 testes): arquivo completo e sem segredos; sem o nome de quem denunciou; senha errada; tudo apagado e sessões encerradas; e-mail livre e @ reservado; números dos posts dos outros; canais passados ou apagados; convite que não volta; última pessoa moderando. `backend/test/consent.test.js` (5 testes): termo público e completo; aceite obrigatório e gravado; termo que mudou durante a leitura; conta com termo antigo aceita depois; situação do termo só para a própria pessoa. `frontend/src/pages/Privacy.test.jsx`: baixar o arquivo e excluir com senha errada e certa. `frontend/src/pages/Consent.test.jsx`: página `/termo` com e sem conta, termo novo antes do app, *Não aceito*. Simulações (docs/15): S101 a S103 na API (arquivo, exclusão, termo) e S104 e S105 na tela (a página inteira com download e exclusão; `/termo` e o termo novo antes do app). A S077 confere os dois aceites no cadastro.

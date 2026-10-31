@@ -80,7 +80,7 @@ footer{font-size:13px;color:var(--muted)}
 <header>
   <div class="eyebrow">Análise completa · {{DATE}} · {{VERSION}}</div>
   <h1>Ágora por dentro: o que funciona e para que serve</h1>
-  <p class="lede">Rodei o app de verdade (Postgres, Redis, backend e frontend) com os dados do seed e percorri cada funcionalidade passo a passo, como uma pessoa usaria. Nas últimas mudanças entraram a leitura sem conta, o algoritmo que fica só no aparelho, as notificações, a busca de posts, a recuperação de senha, as imagens nos posts, editar e citar post e os números reais da aba Brasil. Depois testei a sessão no navegador. Abaixo estão os resultados medidos, as telas reais no celular e a utilidade de cada parte.</p>
+  <p class="lede">Rodei o app de verdade (Postgres, Redis, backend e frontend) com os dados do seed e percorri cada funcionalidade passo a passo, como uma pessoa usaria. Nas últimas mudanças entraram a leitura sem conta, o algoritmo que fica só no aparelho, as notificações, a busca de posts, a recuperação de senha, as imagens nos posts, editar e citar post, os números reais da aba Brasil e a privacidade do piloto (termo de consentimento, baixar os dados e excluir a conta). Depois testei a sessão no navegador. Abaixo estão os resultados medidos, as telas reais no celular e a utilidade de cada parte.</p>
 </header>
 
 <div class="stats">
@@ -100,8 +100,9 @@ footer{font-size:13px;color:var(--muted)}
     <p><b>Posts podem ter imagens.</b> Até 4, cada uma com descrição obrigatória para quem usa leitor de tela. O app reduz a foto no aparelho, e o servidor confere o tipo pelos bytes e tira a localização do GPS e os outros metadados antes de guardar.</p>
     <p><b>Dá para editar e citar.</b> O texto se edita nos primeiros 30 minutos, até 5 vezes, e as versões anteriores ficam abertas a quem lê; post com denúncia em análise não muda. Citar mostra o post original dentro do novo e avisa quem foi citado.</p>
     <p><b>Mais leve sob carga.</b> Postar não espera a cópia para cada seguidor: ela vai por uma fila (com 4 mil seguidores, o pedido caiu de 56 para 4 ms). As missões ficaram 3,7 vezes mais rápidas, a busca de pessoas usa índice, o login recusa em vez de liberar quando o Redis cai, e há métricas por rota.</p>
+    <p><b>Pronto para o piloto, do lado da privacidade.</b> Quem se cadastra lê e aceita o termo de consentimento da pesquisa (o que o app guarda, para quê, por quanto tempo e como sair). Em <i>Privacidade e dados</i>, cada pessoa vê quem vê o quê, baixa todos os seus dados num arquivo e exclui a conta de vez, sem pedir a ninguém. Excluir reconta os números dos posts das outras pessoas e reserva o @, para ninguém herdar as menções.</p>
     <p><b>A aba Brasil mostra os últimos números oficiais.</b> Inflação, cesta básica, desemprego, PIB e Selic vêm de um registro conferido à mão nas fontes (IBGE, Banco Central, DIEESE), com selo de verificação e cinco anos de histórico. Eles não se atualizam sozinhos.</p>
-    <p><b>Ainda não está pronto para público.</b> O e-mail não sai de verdade e há itens de segurança de prioridade média. Eles estão no fim da página.</p>
+    <p><b>Ainda não está pronto para público.</b> Para o piloto com pessoas de verdade falta a instalação num endereço com HTTPS e backup do banco. O e-mail não sai de verdade e há itens de segurança de prioridade média. Eles estão no fim da página.</p>
   </div>
 </section>
 
@@ -145,7 +146,7 @@ footer{font-size:13px;color:var(--muted)}
       {{GAPS}}
     </table>
   </div>
-  <p>Os detalhes de segurança estão em <code>docs/10-seguranca-e-dos.md</code> e <code>docs/14-analise-de-brechas-por-modulo.md</code>; as 100 simulações de uso, em <code>docs/15-simulacoes-de-usabilidade.md</code>.</p>
+  <p>Os detalhes de segurança estão em <code>docs/10-seguranca-e-dos.md</code> e <code>docs/14-analise-de-brechas-por-modulo.md</code>; as 105 simulações de uso, em <code>docs/15-simulacoes-de-usabilidade.md</code>; a privacidade do piloto (baixar dados, excluir a conta e o termo), em <code>docs/16-privacidade-e-dados.md</code>.</p>
 </section>
 
 <footer>Ambiente local isolado, dados fictícios do seed. Nenhuma API do X ou do Telegram foi chamada. Os números da aba Brasil vêm do registro conferido à mão em 29/10/2026. Roteiro: {{NAPI}} verificações na API (com 1 conexão WebSocket) e {{NWEB}} passos no navegador; telas com Playwright.</footer>

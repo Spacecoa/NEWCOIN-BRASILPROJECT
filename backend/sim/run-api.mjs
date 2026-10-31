@@ -7,12 +7,15 @@ import './api1.mjs';
 import './api2.mjs';
 import './api3.mjs';
 import './api4.mjs';
+import './api5.mjs';
 
 const args = process.argv.slice(2);
 const only = args.includes('--only') ? new Set(args[args.indexOf('--only') + 1].split(',').map(Number)) : null;
-const first = registry.filter((s) => !s.last);
+const first = registry.filter((s) => !s.last && !s.extra);
 const last = registry.filter((s) => s.last);
-const all = [...first, ...last].map((s, i) => ({ ...s, n: i + 1 }));
+// As 100 primeiras (S001–S076 aqui, S077–S100 na tela) mantêm o número; as novas começam em S101.
+const extra = registry.filter((s) => s.extra).map((s, i) => ({ ...s, n: 101 + i }));
+const all = [...[...first, ...last].map((s, i) => ({ ...s, n: i + 1 })), ...extra];
 if (args.includes('--list')) {
   all.forEach((s) => console.log(String(s.n).padStart(3, '0'), `[${s.area}]`, s.title));
   console.log('total:', all.length);

@@ -7,6 +7,7 @@ require('node:fs').mkdirSync(OUT, { recursive: true });
   const vis = await (await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage();
   await vis.goto(W + '/'); await vis.locator('article').first().waitFor(); await vis.waitForTimeout(600); await vis.screenshot({ path: OUT + 'visitante.png' });
   await vis.goto(W + '/esqueci-senha'); await vis.waitForTimeout(600); await vis.screenshot({ path: OUT + 'esqueci.png' });
+  await vis.goto(W + '/termo'); await vis.getByText('Quem conduz a pesquisa').waitFor(); await vis.waitForTimeout(400); await vis.screenshot({ path: OUT + 'termo.png' });
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const p = await ctx.newPage();
   await p.goto(W + '/login'); await p.waitForTimeout(500); await p.screenshot({ path: OUT + 'login.png' });

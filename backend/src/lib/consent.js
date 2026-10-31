@@ -26,8 +26,9 @@ export function consentTerm() {
         items: [
           'Conta: nome de usuário, e-mail, nome de exibição e bio. A senha fica só como hash, que ninguém consegue ler.',
           'O que você publica: posts e edições, imagens (sem localização e sem outros metadados), mensagens, reações, curtidas, seguidas, recompensas, denúncias e recursos.',
-          'Uso do app: minutos ativos por dia (dá para desligar em Interesses), missões, NewCoin e o que o feed "Para você" aprendeu dos seus interesses (você vê e apaga em Interesses).',
-          'Sessões: o tipo de aparelho e navegador e as datas em que você entrou. O endereço IP não vai para o banco: fica só alguns minutos na memória do controle de limites.',
+          'Uso do app: minutos ativos por dia (dá para desligar em Interesses), missões e NewCoin.',
+          'O que o feed "Para você" aprende dos seus interesses fica só no seu aparelho, no navegador: a instância não guarda nem vê. Você confere e apaga em Interesses.',
+          'Sessões: o tipo de aparelho e navegador e as datas em que você entrou. O endereço IP não vai para o banco: fica no máximo uma hora na memória do controle de limites, que freia abusos.',
         ],
       },
       {

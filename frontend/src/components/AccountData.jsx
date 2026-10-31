@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { api } from '../lib/api.js';
+import { forgetDevice, hasLocalState, loadState } from '../lib/deviceAlgo.js';
 
 /** Baixa tudo o que a instância guarda sobre a pessoa, num arquivo JSON. */
 export function DownloadData() {
+  const { user } = useAuth();
   const [state, setState] = useState({ busy: false, error: null, done: false });
 
   async function download() {
     setState({ busy: true, error: null, done: false });
     try {
       const data = await api('/api/conta/dados');
+      // O algoritmo do "Para você" mora só neste aparelho (docs/07 §2.10): vai junto no arquivo.
+      if (hasLocalState(user.id)) data.neste_aparelho = { algoritmo: loadState(user.id) };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -31,7 +34,7 @@ export function DownloadData() {
       <b className="block">Baixar meus dados</b>
       <p className="mt-1 text-zinc-500">
         Um arquivo com tudo o que a instância guarda sobre você: conta, posts e edições, imagens, mensagens, curtidas, seguidas,
-        carteira, interesses, denúncias que você fez e decisões sobre sua conta.
+        carteira, denúncias que você fez e decisões sobre sua conta. O que o feed "Para você" aprendeu neste aparelho vai junto.
       </p>
       <button type="button" onClick={download} disabled={state.busy} className="mt-3 min-h-11 rounded-full bg-white px-5 font-extrabold disabled:opacity-60 dark:bg-zinc-950">
         {state.busy ? 'Preparando…' : 'Baixar arquivo (JSON)'}
@@ -44,8 +47,7 @@ export function DownloadData() {
 
 /** Excluir a conta de vez: explica o que acontece e pede a senha de novo. */
 export function DeleteAccount() {
-  const { endSession } = useAuth();
-  const navigate = useNavigate();
+  const { user, endSession } = useAuth();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -57,8 +59,9 @@ export function DeleteAccount() {
     try {
       const password = new FormData(e.currentTarget).get('password');
       await api('/api/conta', { method: 'DELETE', body: { password } });
+      forgetDevice(user.id); // o algoritmo do "Para você" sai deste aparelho também
+      // Como em "Sair": o app volta para a leitura de visitante, com o aviso no topo.
       endSession('Sua conta foi excluída. Seus posts, mensagens, imagens e dados saíram da instância.');
-      navigate('/login', { replace: true });
     } catch (err) {
       setError(err.details?.map((x) => x.message).join(' · ') || err.message);
       setBusy(false);
@@ -77,6 +80,7 @@ export function DeleteAccount() {
         <form onSubmit={submit} className="mt-3 space-y-3">
           <ul className="list-disc space-y-1 pl-5">
             <li>Somem seus posts, imagens, mensagens, curtidas, seguidas, carteira NewCoin e o histórico de uso.</li>
+            <li>O que o feed &quot;Para você&quot; aprendeu sai deste aparelho. Nos outros aparelhos em que você usou o app, ele fica no navegador até você limpar os dados do site.</li>
             <li>Respostas de outras pessoas aos seus posts continuam, sem o post original.</li>
             <li>Seus canais com outras pessoas passam para o administrador (ou membro) mais antigo.</li>
             <li>Seu @ fica reservado: ninguém mais poderá usá-lo. O e-mail fica livre.</li>
