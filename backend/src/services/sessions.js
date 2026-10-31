@@ -21,7 +21,8 @@ const revokedKey = (sid) => `revoked:sid:${sid}`;
 
 const revokedMemory = new Map(); // sid -> expira em (ms)
 
-async function markRevoked(sids) {
+/** Marca sessões como encerradas na hora (e derruba as conexões ao vivo delas). */
+export async function markRevoked(sids) {
   if (!sids.length) return;
   const until = Date.now() + config.accessTokenTtlSec * 1000;
   if (revokedMemory.size > 10_000) {

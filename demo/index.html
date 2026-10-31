@@ -1264,7 +1264,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     } else {
       panel.innerHTML = `<div class="grab"><span></span></div>
         <h2 id="rsheet-title">Denúncia enviada</h2>
-        <p class="sub">Obrigado. A moderação vai analisar e você acompanha o resultado em Perfil › Bloqueios e denúncias.</p>
+        <p class="sub">Obrigado. A moderação vai analisar e você acompanha o resultado em Perfil › Privacidade e dados.</p>
         ${r.blocked ? `<p class="ok" style="margin:0;background:var(--accent-soft);color:var(--accent);border-radius:16px;padding:10px 14px;font-weight:700">Você bloqueou @${r.u}.</p>` : `<p class="sub">Se não quiser mais ver @${r.u} enquanto isso, bloqueie a conta.</p>`}
         <div class="row3">${r.blocked ? '' : `<button class="chip" data-rblock>Bloquear @${r.u}</button>`}<button class="primary" data-rclose>Pronto</button></div>`;
     }

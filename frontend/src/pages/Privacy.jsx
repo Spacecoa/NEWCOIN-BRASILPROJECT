@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { DeleteAccount, DownloadData } from '../components/AccountData.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
 import { block, mute, RESOLUTION_LABEL, STATUS_LABEL } from '../lib/moderation.js';
@@ -86,7 +87,7 @@ function Decision({ d, onChange }) {
   );
 }
 
-/** Bloqueados, silenciados e o andamento das denúncias que a pessoa fez. */
+/** Seus dados (baixar e excluir), bloqueados, silenciados e o andamento das denúncias que a pessoa fez. */
 export default function Privacy() {
   const [blocks, setBlocks] = useState(null);
   const [mutes, setMutes] = useState(null);
@@ -102,7 +103,13 @@ export default function Privacy() {
 
   return (
     <>
-      <PageHeader back title="Bloqueios e denúncias" subtitle="Só você vê esta página" />
+      <PageHeader back title="Privacidade e dados" subtitle="Só você vê esta página" />
+      <Section title="Seus dados" hint="Você pode levar uma cópia de tudo ou apagar sua conta quando quiser, sem pedir a ninguém.">
+        <div className="space-y-3">
+          <DownloadData />
+          <DeleteAccount />
+        </div>
+      </Section>
       {decisions?.length > 0 && (
         <Section title="Decisões sobre sua conta" hint="O que a moderação decidiu sobre seus posts, com a regra citada. Cada decisão aceita um recurso.">
           <ul className="space-y-3">

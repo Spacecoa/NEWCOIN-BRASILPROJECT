@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "moderacao:promover": "node src/promote.js",
+    "conta:excluir": "node src/eraseAccount.js",
     "sim:api": "node sim/run-api.mjs",
     "sim:ui": "node sim/ui.cjs"
   },

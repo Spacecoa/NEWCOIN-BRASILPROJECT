@@ -138,7 +138,7 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
 
   await withTransaction(async (db) => {
     // instance_rules e moderator_names_missing não dependem de users: sem citá-las, regras feitas à mão sobreviviam ao seed.
-    await db.query('TRUNCATE instance_rules, moderator_names_missing, users, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
+    await db.query('TRUNCATE instance_rules, moderator_names_missing, deleted_usernames, users, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
 
     // Usuários (os 12 nomeados + extras numerados, se pedido)
     const users = [];

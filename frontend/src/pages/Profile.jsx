@@ -148,7 +148,7 @@ export default function Profile() {
         {isMe && (
           <nav className="mt-3 flex flex-wrap gap-2 text-sm" aria-label="Sua conta">
             <Link to="/privacidade" className="flex min-h-11 items-center gap-2 rounded-full bg-zinc-50 px-4 hover:bg-zinc-100 dark:bg-zinc-900">
-              <Icon name="block" className="h-4 w-4" /> Bloqueios e denúncias
+              <Icon name="block" className="h-4 w-4" /> Privacidade e dados
             </Link>
             <Link to="/regras" className="flex min-h-11 items-center gap-2 rounded-full bg-zinc-50 px-4 hover:bg-zinc-100 dark:bg-zinc-900">
               <Icon name="book" className="h-4 w-4" /> Regras da instância

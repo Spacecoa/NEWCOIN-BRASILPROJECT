@@ -121,7 +121,7 @@ export default function Rules() {
               </ul>
               <h2 className="pt-2 text-base font-extrabold">Como recorrer</h2>
               <p className="text-zinc-600 dark:text-zinc-300">
-                Cada decisão aceita um recurso. Post removido: em <b>Perfil › Bloqueios e denúncias</b>. Conta suspensa: na tela de entrar, com e-mail e senha.
+                Cada decisão aceita um recurso. Post removido: em <b>Perfil › Privacidade e dados</b>. Conta suspensa: na tela de entrar, com e-mail e senha.
                 Se o recurso for aceito, o post volta ou a conta é reativada.
               </p>
             </section>

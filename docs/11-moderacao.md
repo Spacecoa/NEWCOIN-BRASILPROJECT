@@ -1,6 +1,6 @@
 # Moderação: silenciar, bloquear e denunciar
 
-**Data:** 28/10/2026 · **Escopo:** backend (`services/relations.js`, `services/moderation.js`, `routes/moderation.js`), frontend (menu "⋯" dos posts e perfis, telas *Bloqueios e denúncias* e *Fila da moderação*).
+**Data:** 28/10/2026 · **Escopo:** backend (`services/relations.js`, `services/moderation.js`, `routes/moderation.js`), frontend (menu "⋯" dos posts e perfis, telas *Privacidade e dados* (antes *Bloqueios e denúncias*) e *Fila da moderação*).
 
 ## 1. Em linguagem simples
 

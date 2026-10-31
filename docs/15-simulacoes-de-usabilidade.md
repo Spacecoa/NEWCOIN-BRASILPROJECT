@@ -250,7 +250,7 @@ Os arquivos estão em `backend/sim/`. Cada simulação é uma função pequena e
 | 086 | Tela | Perfis na tela | Explorar: a busca de pessoas acha por parte do nome e leva ao perfil | docs/03 §4 | ✅ |
 | 087 | Tela | Perfis na tela | Perfil: Seguir e Seguindo alternam e os contadores acompanham | docs/03 §4 | ✅ |
 | 088 | Tela | Moderação na tela | Silenciar pelo menu "⋯": o cartão vira aviso com Desfazer e o post volta ao desfazer | docs/11 §1 | ✅ |
-| 089 | Tela | Moderação na tela | Denunciar pelo menu: motivo, envio, confirmação e o acompanhamento em "Bloqueios e denúncias" | docs/11 §1, docs/12 | ✅ |
+| 089 | Tela | Moderação na tela | Denunciar pelo menu: motivo, envio, confirmação e o acompanhamento em "Privacidade e dados" | docs/11 §1, docs/12 | ✅ |
 | 090 | Tela | Moderação na tela | Bloquear pelo menu: pede confirmação, o post some, o perfil avisa e dá para desbloquear | docs/11 §1 | ✅ |
 | 091 | Tela | Moderação na tela | Fila da moderação: remover sem escolher a regra é recusado; com a regra, o post sai e quem denunciou vê "Acatada" | docs/12 §1 | ✅ |
 | 092 | Tela | Moderação na tela | Conta suspensa: a tela de entrar mostra o motivo e permite recorrer; depois mostra "em análise" | docs/12 §1 | ✅ |

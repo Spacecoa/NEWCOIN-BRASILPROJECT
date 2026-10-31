@@ -249,6 +249,8 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | GET | `/api/denuncias/motivos` | — | Motivos aceitos numa denúncia |
 | POST/GET | `/api/denuncias` | ✔ | Denunciar post ou conta; minhas denúncias |
 | GET | `/api/conta/bloqueados` · `/silenciados` | ✔ | Quem eu bloqueei / silenciei |
+| GET | `/api/conta/dados` | ✔ | Baixa tudo o que a instância guarda sobre mim, num JSON (até 5 por hora; ver [`docs/16`](16-privacidade-e-dados.md)) |
+| DELETE | `/api/conta` | ✔ | `{password}` → exclui a conta de vez; senha errada é 403 (até 5 tentativas a cada 15 min) |
 | GET/POST | `/api/moderacao/denuncias` · `/:id/resolver` | moderação | Fila e decisões (arquivar, remover post, suspender), citando a regra |
 | POST | `/api/moderacao/usuarios/:username/reativar` | moderação | Reativa uma conta suspensa |
 | PUT | `/api/moderacao/regras` | moderação | Edita as regras da instância |

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { config } from '../config.js';
 import { query } from '../db.js';
 import { conflict, notFound } from '../lib/errors.js';
@@ -23,7 +24,12 @@ export function formatUser(row) {
 
 const USER_COLS = 'id, username, display_name, bio, created_at, is_moderator';
 
+/** Hash do nome de usuário (sem diferença de maiúsculas), guardado quando a conta é excluída. */
+export const usernameHash = (username) => createHash('sha256').update(String(username).toLowerCase()).digest('hex');
+
 export async function createUser({ username, email, password, display_name }, db = { query }) {
+  const { rowCount: taken } = await db.query('SELECT 1 FROM deleted_usernames WHERE username_hash = $1', [usernameHash(username)]);
+  if (taken) throw conflict('Este nome de usuário pertenceu a uma conta excluída e não pode ser usado de novo');
   const id = nextId();
   const passwordHash = await hashPassword(password);
   try {

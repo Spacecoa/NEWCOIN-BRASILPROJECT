@@ -28,7 +28,7 @@ function setRefreshCookie(res, token) {
   });
 }
 
-const clearRefreshCookie = (res) =>
+export const clearRefreshCookie = (res) =>
   res.clearCookie(REFRESH_COOKIE, { httpOnly: true, secure: config.cookieSecure, sameSite: 'strict', path: COOKIE_PATH });
 
 function readCookie(req, name) {

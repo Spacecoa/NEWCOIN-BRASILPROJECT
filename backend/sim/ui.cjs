@@ -349,7 +349,7 @@ sim('Moderação na tela', 'Silenciar pelo menu "⋯": o cartão vira aviso com 
 });
 
 // 13
-sim('Moderação na tela', 'Denunciar pelo menu: motivo, envio, confirmação e o acompanhamento em "Bloqueios e denúncias"', 'docs/11 §1, docs/12', async () => {
+sim('Moderação na tela', 'Denunciar pelo menu: motivo, envio, confirmação e o acompanhamento em "Privacidade e dados"', 'docs/11 §1, docs/12', async () => {
   const a = await reg('dn');
   const b = await reg('dn');
   await follow(a, b.u);

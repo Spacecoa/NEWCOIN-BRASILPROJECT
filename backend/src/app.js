@@ -6,6 +6,7 @@ import { HttpError } from './lib/errors.js';
 import { metricsMiddleware } from './lib/metrics.js';
 import { rateLimit } from './lib/rateLimit.js';
 import { securityHeaders } from './lib/securityHeaders.js';
+import accountRoutes from './routes/account.js';
 import authRoutes from './routes/auth.js';
 import channelRoutes from './routes/channels.js';
 import federationRoutes from './routes/federation.js';
@@ -40,6 +41,7 @@ export function createApp() {
 
   app.use(express.json({ limit: '32kb' }));
   app.use('/api/auth', authRoutes);
+  app.use('/api', accountRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/posts', postRoutes);
   app.use('/api', timelineRoutes);

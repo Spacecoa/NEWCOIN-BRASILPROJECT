@@ -18,7 +18,7 @@ export async function asReader() {
 export async function resetDb() {
   readerAuth = null;
   await migrate();
-  await query('TRUNCATE official_observations, official_raw, moderator_names_missing, users, sessions, mutes, blocks, reports, sanctions, instance_rules, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
+  await query('TRUNCATE official_observations, official_raw, moderator_names_missing, deleted_usernames, users, sessions, mutes, blocks, reports, sanctions, instance_rules, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
   await ensureDefaultRules();
   const redis = getRedis();
   if (redis) await redis.flushdb();

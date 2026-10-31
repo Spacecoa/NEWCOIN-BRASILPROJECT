@@ -13,7 +13,7 @@ export function securityHeaders(req, res, next) {
   });
   // Em HTTPS, o navegador passa a recusar a versão sem cadeado do site.
   if (req.secure) res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  // Respostas de login nunca ficam em cache.
-  if (req.path.startsWith('/api/auth')) res.set('Cache-Control', 'no-store');
+  // Respostas de login e dados da conta nunca ficam em cache.
+  if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/conta')) res.set('Cache-Control', 'no-store');
   next();
 }
