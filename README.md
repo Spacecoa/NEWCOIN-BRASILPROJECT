@@ -56,9 +56,10 @@ Também há uma versão publicada em https://claude.ai/artifact/1KYADm2kxRoJqg8r
 | 12 | **Regras da instância e recursos** (decisões citam a regra; recurso aceito desfaz a decisão) | [`docs/12-regras-e-recursos.md`](docs/12-regras-e-recursos.md) |
 | 13 | **Informação oficial e verificação tripla** (análise: fontes abertas do desenvolvimento brasileiro integradas ao app) | [`docs/13-informacao-oficial-e-verificacao.md`](docs/13-informacao-oficial-e-verificacao.md) |
 | 14 | **Análise de brechas por módulo** (reengenharia do app atrás de falhas exploráveis, com as correções feitas) | [`docs/14-analise-de-brechas-por-modulo.md`](docs/14-analise-de-brechas-por-modulo.md) |
-| 15 | **Simulações de uso** (100 cenários automatizados conferindo o app contra os documentos) | [`docs/15-simulacoes-de-usabilidade.md`](docs/15-simulacoes-de-usabilidade.md), [`backend/sim/`](backend/sim) |
-| 16 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
-| 17 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
+| 15 | **Simulações de uso** (105 cenários automatizados conferindo o app contra os documentos) | [`docs/15-simulacoes-de-usabilidade.md`](docs/15-simulacoes-de-usabilidade.md), [`backend/sim/`](backend/sim) |
+| 16 | **Privacidade e dados do piloto** (baixar os próprios dados, excluir a conta, termo de consentimento) | [`docs/16-privacidade-e-dados.md`](docs/16-privacidade-e-dados.md) |
+| 17 | **Código-fonte** (backend e frontend) | [`backend/`](backend), [`frontend/`](frontend) |
+| 18 | **Script de seed** (usuários e posts fictícios) | [`backend/src/seed.js`](backend/src/seed.js) |
 
 ## Stack
 
@@ -98,7 +99,7 @@ Sem Redis, apague `REDIS_URL` do `.env`: o feed passa a ser montado só via SQL,
 ### Testes
 
 ```bash
-cd backend  && npm test   # 249 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
+cd backend  && npm test   # 262 testes: unitários + integração (precisa de Postgres e Redis; banco social_test)
 cd frontend && npm test   # 88 testes: lógica e componentes (jsdom)
 ```
 
@@ -106,7 +107,7 @@ No GitHub, os testes do backend e do frontend (e o build do frontend) rodam em c
 
 Para usar outros bancos nos testes, defina `TEST_DATABASE_URL` e `TEST_REDIS_URL`. Os testes de integração **apagam** o banco de teste e o banco 1 do Redis.
 
-As 100 simulações de usabilidade (76 de API, 24 de interface) ficam em `backend/sim/`: `npm run sim:api` e `npm run sim:ui` (com o app rodando). Resultado e achados em [`docs/15`](docs/15-simulacoes-de-usabilidade.md).
+As 105 simulações de usabilidade (79 de API, 26 de interface) ficam em `backend/sim/`: `npm run sim:api` e `npm run sim:ui` (com o app rodando). Resultado e achados em [`docs/15`](docs/15-simulacoes-de-usabilidade.md).
 
 ## Exemplos de API
 

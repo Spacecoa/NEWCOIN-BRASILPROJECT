@@ -10,6 +10,8 @@ O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limi
 
 **Atualização (28/10/2026, etapa 1):** A1, A2, A3, M7, M8 e B1 foram corrigidos, com testes (§8). Os demais itens seguem como propostas, em ordem de prioridade (§6).
 
+**Atualização (30/10/2026, etapa de robustez):** M1, M2, M5, B2 e B3 foram corrigidos e há métricas básicas. As medições foram feitas num banco de carga com 5 mil contas, 60 mil posts e 100 mil follows (§4.5, §4.6, §4.13).
+
 **Atualização (29/10/2026, pré-produção, PR #18):** a análise por módulo em [`docs/14`](14-analise-de-brechas-por-modulo.md) avançou M4, M5 e M6 (detalhes nas seções abaixo). Desde então, o servidor também deixou de calcular o feed "Para você": o ranking roda no aparelho e `/api/feed/interesses` responde 410, o que elimina a rota de C1.
 
 | # | Achado | Severidade | Situação |
@@ -18,17 +20,17 @@ O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limi
 | A1 | Segredo JWT com valor padrão conhecido | Alta | **Corrigido** (etapa 1) |
 | A2 | Tokens de 7 dias sem revogação, guardados em `localStorage` | Alta | **Corrigido** (etapa 1) |
 | A3 | Rotas caras ou públicas sem limite de requisições | Alta | **Corrigido** (etapa 1: limite geral) |
-| M1 | Fan-out síncrono dentro da requisição de postar | Média | Proposta |
-| M2 | Missões: consultas pesadas e painel coletivo recalculado a cada pedido | Média | Proposta |
+| M1 | Fan-out síncrono dentro da requisição de postar | Média | **Corrigido** (fila no Redis: o pedido de postar caiu de 56 para 4 ms com 4 mil seguidores) |
+| M2 | Missões: consultas pesadas e painel coletivo recalculado a cada pedido | Média | **Corrigido** (`GET /api/missoes` caiu de 74 para 20 ms) |
 | M3 | Enumeração de contas (cadastro e tempo de resposta do login) | Média | Parcial (login corrigido; cadastro pendente) |
 | M4 | Limite de login só por IP, e `trust proxy` não configurado | Média | **Quase todo corrigido** (contador por conta; `TRUST_PROXY=true` recusado fora de produção). Falta separar os contadores de login e cadastro |
-| M5 | WebSocket sem limites de conexões e eventos, exclusão enviada a todos | Média | **Parcial** (limites de conexões, assinaturas e tamanho). Falta enviar `post:deleted` só à audiência |
+| M5 | WebSocket sem limites de conexões e eventos, exclusão enviada a todos | Média | **Corrigido** (limites de conexões, assinaturas e tamanho; `post:deleted` só para quem pode ter o post na tela) |
 | M6 | Contas falsas podem minerar NWC pelas missões | Média | **Parcial** (sem atividade, o NWC evapora e zera em 7 dias). Verificação de conta e teto de emissão continuam propostos |
 | M7 | Sem cabeçalhos de segurança (CSP, frame-ancestors, HSTS…) | Média | **Corrigido** (etapa 1) |
 | M8 | Banco sem `statement_timeout` e pool pequeno amplificam lentidão | Média | **Corrigido** (etapa 1) |
 | B1 | Corpo acima de 32 KB responde 500 e grava o erro completo no log | Baixa | **Corrigido** (etapa 1) |
-| B2 | Busca de pessoas com `ILIKE '%…%'` (varredura completa) | Baixa | Proposta |
-| B3 | Limitador em memória (quando o Redis cai) zera ao passar de 10 mil chaves | Baixa | Parcial (descarta só janelas vencidas) |
+| B2 | Busca de pessoas com `ILIKE '%…%'` (varredura completa) | Baixa | **Corrigido** (índices de trigramas e limite na rota) |
+| B3 | Limitador em memória (quando o Redis cai) zera ao passar de 10 mil chaves | Baixa | **Corrigido** (teto que descarta só os 10% mais antigos; rotas de senha recusam com 503 quando o Redis cai) |
 | B4 | `GET /api/missoes` grava dados (credita tokens) | Baixa | Proposta |
 | I1 | Federação somente leitura e sem assinatura | Informativo | Por projeto |
 
@@ -151,6 +153,16 @@ O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limi
 - mover o fan-out para uma **fila** (BullMQ ou similar), executada por workers;
 - adotar o **modelo híbrido**: acima de N seguidores, misturar os posts na leitura, como já descreve `docs/03-arquitetura.md` §6.
 
+**Correção aplicada (30/10/2026)** (`services/fanout.js`), sem dependência nova:
+- no pedido, o post vai só para a timeline da autora, e um trabalho entra numa lista do Redis da própria instância (`fanout:queue:<WORKER_ID>`). Cada instância processa a sua fila, porque o aviso em tempo real sai do processo que recebeu o post (com uma fila só, outra instância pegava o trabalho e o aviso saía no lugar errado; as simulações S075 e S093, que usam duas instâncias, mostraram isso);
+- um trabalhador em cada processo (`startFanoutWorker`, com conexão própria e `BLMOVE`) copia para os seguidores em blocos de 1000, cedendo a vez entre os blocos, e só então manda o `timeline:new` em tempo real;
+- a fila é confiável: o trabalho fica numa lista "em andamento" do processo até terminar, e volta para a fila se o processo cair;
+- sem Redis, ou com `FANOUT_QUEUE=0`, tudo roda dentro do pedido, como antes.
+
+Medido com uma conta de 4 mil seguidores de timeline aquecida: o pedido de postar caiu de **56 ms** (mediana) para **4 ms**; o trabalho da fila leva cerca de 50 ms, fora do pedido. Quem segue vê o post alguns milissegundos depois da autora.
+
+O modelo híbrido continua proposto: para contas com centenas de milhares de seguidores, misturar na leitura sai mais barato do que copiar.
+
 ### 4.6 M2 — Missões pesadas · Média
 
 **Evidência:** consultas medidas na 1ª chamada do dia (`services/missions.js:235`):
@@ -160,6 +172,11 @@ O ponto mais grave era de **disponibilidade**. Uma **única conta**, com os limi
 **Correção proposta:**
 - reescrever a sugestão para agregar os seguidores **por autor** uma única vez (CTE com `GROUP BY`) e limitar antes aos posts mais recentes;
 - guardar o painel coletivo em cache por 60 segundos (Redis), já que ele é igual para todo mundo.
+
+**Correção aplicada (30/10/2026)**, medida num banco com 5 mil contas, 60 mil posts e 100 mil follows:
+- a consulta mais cara era a sugestão de "Construa uma ponte" (20 a 33 ms): ela percorria todas as contas atrás de quem postou nos últimos 14 dias. Agora parte dos 2000 posts mais recentes, pela chave;
+- o painel coletivo (cerca de 40 ms) fica em cache por 60 segundos em cada processo (`MISSIONS_COLLECTIVE_CACHE_SEC`);
+- resultado: `GET /api/missoes` caiu de **74 ms** para **20 ms** (mediana). A sugestão de "Amplifique uma voz pequena" ficou abaixo de 3 ms nesse volume.
 
 ### 4.7 M3 — Enumeração de contas · Média
 
@@ -220,7 +237,7 @@ Login e cadastro ainda dividem o mesmo contador por IP.
 - 30 assinaturas por minuto;
 - `maxHttpBufferSize` de 16 KB.
 
-O `post:deleted` continua indo para todas as conexões. Ele só leva o id do post.
+**Correção aplicada (30/10/2026):** o `post:deleted` vai só para quem pode ter o post na tela: a autora, quem a segue, quem repostou e quem segue quem repostou (`deletionAudience` em `services/timeline.js`). Antes ia para todas as conexões.
 
 ### 4.10 M6 — Contas falsas e o token NWC · Média
 
@@ -269,8 +286,8 @@ O `post:deleted` continua indo para todas as conexões. Ele só leva o id do pos
 ### 4.13 Achados baixos
 
 - **B1 — Corpo grande demais vira erro 500.** O limite de 32 KB funciona (`app.js:19`), mas o tratamento de erros não reconhece `entity.too.large`. A resposta é **500 "Erro interno"** e o erro completo vai para o log a cada pedido, o que permite encher o log com pouco esforço (confirmado com uma requisição de 40 KB). Correção: responder **413** sem registrar o erro completo. **Corrigido:** 413 com mensagem curta; erros 4xx do Express não vão mais para o log.
-- **B2 — Busca com `ILIKE '%…%'`** (`services/users.js:124`). Ela varre a tabela inteira: 9 a 13 ms com 5 mil contas, crescendo de forma linear. Correção: índice `pg_trgm` em `username` e `display_name`, com um limite de requisições na rota.
-- **B3 — Limitador em memória.** Quando o Redis cai, o contador em memória é apagado inteiro ao passar de 10 mil chaves (`lib/rateLimit.js:24`), zerando todos os limites, e cada processo conta separadamente. Correção: descartar só as entradas mais antigas, e falhar fechado (recusar) nas rotas de login quando o Redis estiver fora. **Parcial:** agora só as janelas vencidas são descartadas; falhar fechado continua proposto.
+- **B2 — Busca com `ILIKE '%…%'`** (`services/users.js:124`). Ela varre a tabela inteira: 9 a 13 ms com 5 mil contas, crescendo de forma linear. Correção: índice `pg_trgm` em `username` e `display_name`, com um limite de requisições na rota. **Corrigido (30/10/2026):** índices de trigramas, consulta com `username::text` (o `citext` não usa o índice) e limite de 120 buscas a cada 5 minutos. Uma busca seletiva caiu para 0,5 ms com 5 mil contas.
+- **B3 — Limitador em memória.** Quando o Redis cai, o contador em memória é apagado inteiro ao passar de 10 mil chaves (`lib/rateLimit.js:24`), zerando todos os limites, e cada processo conta separadamente. Correção: descartar só as entradas mais antigas, e falhar fechado (recusar) nas rotas de login quando o Redis estiver fora. **Corrigido (30/10/2026):** passando de 50 mil chaves, saem as janelas vencidas e, se ainda precisar, os 10% mais antigos; e as rotas de senha (login, cadastro, recurso de suspensão, recuperar senha e o contador por conta) respondem **503** quando o Redis configurado cai, em vez de contar em cada processo do zero. As demais rotas seguem contando na memória.
 - **B4 — `GET /api/missoes` grava dados.** A rota credita tokens. É idempotente e exige token no cabeçalho (sem risco de CSRF), mas um `GET` com efeito colateral pode ser disparado por pré-carregamentos e caches. Correção: creditar só em `POST /api/missoes/verificar`, ou documentar o comportamento.
 - **I1 — Federação.** A federação é somente leitura e sem assinatura, por projeto (`docs/03` §5). Ao implementar o `inbox`, será preciso:
   - exigir HTTP Signatures;
@@ -309,10 +326,14 @@ Inundação de conexões, de pacotes ou de requisições vindas de muitas origen
 | **Feito** | C1 (MMR otimizado + limite em `/api/feed/interesses`) | — | Uma conta derrubava o serviço |
 | **Feito (etapa 1)** | A1, A2, A3 (limite geral), M7, M8, B1; `trust proxy` configurável; B3 parcial | — | Autenticação e base pronta para rede aberta (§8) |
 | **Feito (PR #18)** | M4 (limite por conta, `trust proxy` seguro), M5 (limites do WebSocket), M6 parcial (evaporação); demais achados de [`docs/14`](14-analise-de-brechas-por-modulo.md) | — | Pré-produção |
-| 2 | M3 (cadastro), resto de M4 (separar contadores de login e cadastro) e de M5 (`post:deleted` só para a audiência) | Médio | Fecha o que resta da autenticação e do tempo real |
-| 3 | M2 (consultas e cache das missões), B2, B3 (falhar fechado), B4 | Médio | Robustez sob carga |
-| 4 | M1 (fan-out em fila e híbrido), proxy reverso e observabilidade (§5) | Maior | Escala |
+| **Feito (robustez, 30/10/2026)** | M1 (fila), M2, resto de M5, B2, B3 e métricas básicas (`GET /api/metricas`) | — | Robustez sob carga |
+| 2 | M3 (cadastro, com confirmação de e-mail), resto de M4 (separar contadores de login e cadastro) e B4 | Médio | Fecha o que resta da autenticação |
+| 3 | Modelo híbrido do fan-out, proxy reverso (§5) e painéis sobre as métricas | Maior | Escala |
 | Antes de dar utilidade ao NWC | Resto de M6 (verificação de conta e teto de emissão) | Médio | O incentivo econômico muda o modelo de ameaça |
+
+### Métricas
+
+`GET /api/metricas` devolve, no formato de texto do Prometheus, pedidos por rota e por classe de status, o tempo de resposta em faixas, o tamanho da fila de distribuição, as conexões do banco, os contadores de limite em memória e a memória do processo. A rota só existe com `METRICS_TOKEN` configurado e exige o mesmo token no cabeçalho `Authorization: Bearer`; sem isso, responde 404. As rotas aparecem pelo padrão (`GET /api/posts/:id`), nunca com o ID, para não criar uma série por post.
 
 ## 7. Como reproduzir as medições
 

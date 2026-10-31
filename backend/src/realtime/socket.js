@@ -74,7 +74,8 @@ export function attachRealtime(httpServer) {
       for (const uid of audience) io.to(`user:${uid}`).emit('timeline:new', post);
     },
     'session:revoked': ({ sid }) => io.in(`session:${sid}`).disconnectSockets(true),
-    'post:deleted': ({ id }) => io.emit('post:deleted', { id }),
+    // Só para quem pode ter o post na tela (docs/10, M5); antes ia para todas as conexões.
+    'post:deleted': ({ id, audience = [] }) => audience.length && io.to(audience.map((uid) => `user:${uid}`)).emit('post:deleted', { id }),
     notification: ({ userIds, type, post }) => {
       for (const uid of userIds) io.to(`user:${uid}`).emit('notification', { type, post });
     },

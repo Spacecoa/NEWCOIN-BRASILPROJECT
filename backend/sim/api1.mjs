@@ -4,7 +4,7 @@ import { sim } from './lib.mjs';
 // ---------------------------------------------------------------- Contas e sessão
 sim('Contas e sessão', 'Cadastro aceitando as regras: token de 15 min, cookie protegido e handle federado', 'docs/03 §4, docs/10 A2, docs/12', async () => {
   const username = 'cad' + Math.random().toString(36).slice(2, 8);
-  const r = await call(null, 'POST', '/api/auth/register', { username, email: `${username}@sim.test`, password: PASSWORD, accept_rules: true, display_name: 'Pessoa Nova' });
+  const r = await call(null, 'POST', '/api/auth/register', { username, email: `${username}@sim.test`, password: PASSWORD, accept_rules: true, accept_consent: true, display_name: 'Pessoa Nova' });
   status(r, 201, 'cadastro');
   check(r.j.user.handle === `${username}@localhost:4020`, `handle: ${r.j.user.handle}`);
   check(r.j.user.is_moderator === false, 'conta nova não pode ser moderação');
@@ -28,7 +28,7 @@ sim('Contas e sessão', 'Cadastro sem aceitar as regras é recusado e não cria 
 
 sim('Contas e sessão', 'Campos inválidos e duplicidade (sem diferenciar maiúsculas) no cadastro', 'docs/03 §4, schema CITEXT', async () => {
   const ok = await reg('dup');
-  const bad = (over) => call(null, 'POST', '/api/auth/register', { username: 'x' + Math.random().toString(36).slice(2, 8), email: `${Math.random().toString(36).slice(2)}@sim.test`, password: PASSWORD, accept_rules: true, ...over });
+  const bad = (over) => call(null, 'POST', '/api/auth/register', { username: 'x' + Math.random().toString(36).slice(2, 8), email: `${Math.random().toString(36).slice(2)}@sim.test`, password: PASSWORD, accept_rules: true, accept_consent: true, ...over });
   for (const [label, over] of [['usuário curto', { username: 'ab' }], ['usuário com espaço', { username: 'com espaco' }], ['usuário com 21 caracteres', { username: 'a'.repeat(21) }], ['usuário com acento', { username: 'josé_x' }], ['e-mail inválido', { email: 'nao-e-email' }], ['senha de 7 caracteres', { password: '1234567' }], ['senha de 129 caracteres', { password: 'x'.repeat(129) }], ['nome de exibição vazio', { display_name: '' }]]) {
     const r = await bad(over);
     check(r.s === 400, `${label}: esperado 400, veio ${r.s}`);
@@ -91,7 +91,7 @@ sim('Convites', 'Convite de uso único: a pessoa nova segue quem convidou e o c�
   const code = inv.j.data.code;
   check(/^[a-z2-9]{8}$/.test(code) && !/[01ilo]/.test(code), `código fora do formato documentado: ${code}`);
   eq(inv.j.data.path, `/cadastro?convite=${code}`, 'caminho do convite');
-  const mk = (u) => call(null, 'POST', '/api/auth/register', { username: u, email: `${u}@sim.test`, password: PASSWORD, accept_rules: true, invite_code: code });
+  const mk = (u) => call(null, 'POST', '/api/auth/register', { username: u, email: `${u}@sim.test`, password: PASSWORD, accept_rules: true, accept_consent: true, invite_code: code });
   const u1 = 'iv1' + Math.random().toString(36).slice(2, 7);
   status(await mk(u1), 201, 'cadastro com o convite');
   const fol = await call(null, 'GET', `/api/users/${a.u}/followers`);
@@ -104,7 +104,7 @@ sim('Convites', 'Convite de uso único: a pessoa nova segue quem convidou e o c�
 });
 
 sim('Convites', 'Código inexistente ou malformado não cria conta; no máximo 10 convites abertos', 'docs/08 §5', async () => {
-  const mk = (u, code) => call(null, 'POST', '/api/auth/register', { username: u, email: `${u}@sim.test`, password: PASSWORD, accept_rules: true, invite_code: code });
+  const mk = (u, code) => call(null, 'POST', '/api/auth/register', { username: u, email: `${u}@sim.test`, password: PASSWORD, accept_rules: true, accept_consent: true, invite_code: code });
   const u = 'ic' + Math.random().toString(36).slice(2, 7);
   status(await mk(u, 'abcdefgh'), 400, 'código bem formado, mas inexistente');
   status(await mk(u, 'curto'), 400, 'código malformado');

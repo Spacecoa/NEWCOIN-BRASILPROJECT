@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto';
 import { config } from '../config.js';
+import { CONSENT_VERSION } from '../lib/consent.js';
 import { query } from '../db.js';
 import { conflict, notFound } from '../lib/errors.js';
 import { hashPassword } from '../lib/auth.js';
@@ -23,14 +25,19 @@ export function formatUser(row) {
 
 const USER_COLS = 'id, username, display_name, bio, created_at, is_moderator';
 
-export async function createUser({ username, email, password, display_name }, db = { query }) {
+/** Hash do nome de usuário (sem diferença de maiúsculas), guardado quando a conta é excluída. */
+export const usernameHash = (username) => createHash('sha256').update(String(username).toLowerCase()).digest('hex');
+
+export async function createUser({ username, email, password, display_name, consent_version }, db = { query }) {
+  const { rowCount: taken } = await db.query('SELECT 1 FROM deleted_usernames WHERE username_hash = $1', [usernameHash(username)]);
+  if (taken) throw conflict('Este nome de usuário pertenceu a uma conta excluída e não pode ser usado de novo');
   const id = nextId();
   const passwordHash = await hashPassword(password);
   try {
     const { rows } = await db.query(
-      `INSERT INTO users (id, username, email, password_hash, display_name, rules_accepted_at)
-       VALUES ($1, $2, $3, $4, $5, now()) RETURNING ${USER_COLS}`,
-      [id, username, email, passwordHash, display_name ?? username],
+      `INSERT INTO users (id, username, email, password_hash, display_name, rules_accepted_at, consent_version, consent_at)
+       VALUES ($1, $2, $3, $4, $5, now(), $6::text, CASE WHEN $6::text IS NULL THEN NULL ELSE now() END) RETURNING ${USER_COLS}`,
+      [id, username, email, passwordHash, display_name ?? username, consent_version ?? null],
     );
     return formatUser(rows[0]);
   } catch (err) {
@@ -51,6 +58,24 @@ export async function getUserById(id) {
   const { rows } = await query(`SELECT ${USER_COLS} FROM users WHERE id = $1`, [id]);
   if (!rows[0]) throw notFound('Usuário não encontrado');
   return formatUser(rows[0]);
+}
+
+/**
+ * A própria conta (login, renovação, /me): os dados públicos e mais a situação do termo de
+ * consentimento, que só a pessoa vê. pending = aceitou outra versão (ou nenhuma).
+ */
+export async function getSelf(id) {
+  const { rows } = await query(`SELECT ${USER_COLS}, consent_version, consent_at FROM users WHERE id = $1`, [id]);
+  if (!rows[0]) throw notFound('Usuário não encontrado');
+  const { consent_version: version, consent_at: at } = rows[0];
+  return { ...formatUser(rows[0]), consent: { version, accepted_at: at, current: CONSENT_VERSION, pending: version !== CONSENT_VERSION } };
+}
+
+/** Aceita a versão atual do termo. Recusa outra versão (a tela estava com um texto velho). */
+export async function acceptConsent(id, version) {
+  if (version !== CONSENT_VERSION) throw conflict('O termo mudou enquanto você lia. Recarregue a página e leia a versão nova.');
+  await query('UPDATE users SET consent_version = $2, consent_at = now() WHERE id = $1', [id, version]);
+  return getSelf(id);
 }
 
 export async function getUsersByIds(ids) {
@@ -145,7 +170,7 @@ export async function searchUsers(q, limit = 10, viewerId = null) {
   // Busca não mostra contas suspensas nem quem tem bloqueio com quem busca.
   const { rows } = await query(
     `SELECT ${USER_COLS} FROM users
-     WHERE (username ILIKE $1 OR display_name ILIKE $1)
+     WHERE (username::text ILIKE $1 OR display_name ILIKE $1) -- ::text: usa o índice de trigramas
        AND id NOT IN ${hiddenAuthorsSql('$3', { muted: false })}
      ORDER BY username LIMIT $2`,
     [`%${q.replace(/[%_\\]/g, '\\$&')}%`, limit, viewerId ?? 0],

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { config } from '../src/config.js';
 import { query } from '../src/db.js';
+import { resetCollectiveCache } from '../src/services/missions.js';
 import { api, post, resetDb, signup } from './helpers.js';
 
 // Torna a conta "veterana" (criada há 60 dias).
@@ -205,12 +207,12 @@ describe('convites', () => {
     expect(code).toMatch(/^[a-z0-9]{8}$/);
     expect(path).toBe(`/cadastro?convite=${code}`);
 
-    const reg = await api().post('/api/auth/register').send({ username: 'nina', email: 'nina@x.io', password: 'senha1234', accept_rules: true, invite_code: code.toUpperCase() });
+    const reg = await api().post('/api/auth/register').send({ username: 'nina', email: 'nina@x.io', password: 'senha1234', accept_rules: true, accept_consent: true, invite_code: code.toUpperCase() });
     expect(reg.status).toBe(201);
     const following = await api().get('/api/users/nina/following');
     expect(following.body.data.map((u) => u.username)).toEqual(['ana']);
 
-    const again = await api().post('/api/auth/register').send({ username: 'otavio', email: 'o@x.io', password: 'senha1234', accept_rules: true, invite_code: code });
+    const again = await api().post('/api/auth/register').send({ username: 'otavio', email: 'o@x.io', password: 'senha1234', accept_rules: true, accept_consent: true, invite_code: code });
     expect(again.status).toBe(400);
     expect((await api().get('/api/users/otavio')).status).toBe(404); // nada foi criado
 
@@ -224,9 +226,28 @@ describe('convites', () => {
   });
 
   it('código malformado é recusado e há limite de convites abertos', async () => {
-    const bad = await api().post('/api/auth/register').send({ username: 'nina', email: 'n@x.io', password: 'senha1234', accept_rules: true, invite_code: 'x' });
+    const bad = await api().post('/api/auth/register').send({ username: 'nina', email: 'n@x.io', password: 'senha1234', accept_rules: true, accept_consent: true, invite_code: 'x' });
     expect(bad.status).toBe(400);
     for (let i = 0; i < 10; i++) expect((await api().post('/api/convites').set(ana.auth)).status).toBe(201);
     expect((await api().post('/api/convites').set(ana.auth)).status).toBe(409);
+  });
+
+  it('o painel coletivo fica em cache (igual para todos) e não é recalculado a cada pedido', async () => {
+    const before = config.collectiveCacheSec;
+    config.collectiveCacheSec = 60;
+    resetCollectiveCache();
+    try {
+      await resetDb();
+      const [a, b] = await Promise.all([signup('cache_a'), signup('cache_b')]);
+      await Promise.all([age(a), age(b)]);
+      expect((await missions(a)).collective.novos_membros_semana).toBe(0);
+      await signup('nova_pessoa'); // conta nova: entra no painel só quando o cache vence
+      expect((await missions(b)).collective.novos_membros_semana).toBe(0);
+      resetCollectiveCache();
+      expect((await missions(b)).collective.novos_membros_semana).toBe(1);
+    } finally {
+      config.collectiveCacheSec = before;
+      resetCollectiveCache();
+    }
   });
 });

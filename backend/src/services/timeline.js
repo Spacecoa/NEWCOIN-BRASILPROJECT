@@ -60,15 +60,18 @@ export async function homeTimelineIds(userId, page) {
   }
 }
 
-/** Empurra o post para as timelines do autor e de seus seguidores. Retorna os IDs alcançados. */
-export async function fanOut(postId, authorId) {
-  const { rows } = await query('SELECT follower_id FROM follows WHERE followee_id = $1', [authorId]);
-  const audience = [authorId, ...rows.map((r) => r.follower_id)];
+/**
+ * Empurra o post para as timelines de `userIds`, em blocos de 1000, cedendo a vez entre um
+ * bloco e outro para não travar o processo com contas de muitos seguidores.
+ */
+export const FANOUT_CHUNK = 1000;
+export async function pushToTimelines(userIds, postId) {
   const redis = getRedis();
-  if (redis) {
+  if (!redis) return;
+  for (let i = 0; i < userIds.length; i += FANOUT_CHUNK) {
     try {
       const pipe = redis.pipeline();
-      for (const uid of audience) {
+      for (const uid of userIds.slice(i, i + FANOUT_CHUNK)) {
         pipe.lpushx(key(uid), postId);
         pipe.ltrim(key(uid), 0, config.timelineCacheSize - 1);
       }
@@ -76,8 +79,13 @@ export async function fanOut(postId, authorId) {
     } catch {
       /* cache é best-effort; o SQL continua sendo a fonte da verdade */
     }
+    if (i + FANOUT_CHUNK < userIds.length) await new Promise((r) => setImmediate(r));
   }
-  return audience;
+}
+
+export async function followerIds(authorId) {
+  const { rows } = await query('SELECT follower_id FROM follows WHERE followee_id = $1', [authorId]);
+  return rows.map((r) => r.follower_id);
 }
 
 export async function invalidateHomeTimeline(userId) {
@@ -125,6 +133,23 @@ export async function searchPostIds(q, { untilId, limit }) {
      )
      SELECT id FROM found WHERE removed_at IS NULL ORDER BY id DESC LIMIT $3`,
     [q, untilId, limit],
+  );
+  return rows.map((r) => r.id);
+}
+
+/**
+ * Quem pode ter o post na tela: a autora, quem a segue, quem repostou e quem segue quem
+ * repostou. É para essas pessoas (e não para todas as conexões) que vai o aviso de post
+ * apagado (docs/10, M5). Calcular ANTES de apagar: os reposts somem junto com o original.
+ */
+export async function deletionAudience(postId, db = { query }) {
+  const { rows } = await db.query(
+    `WITH people AS (
+       SELECT author_id AS id FROM posts WHERE id = $1
+       UNION SELECT author_id FROM posts WHERE repost_of_id = $1
+     )
+     SELECT id FROM people UNION SELECT follower_id FROM follows WHERE followee_id IN (SELECT id FROM people)`,
+    [postId],
   );
   return rows.map((r) => r.id);
 }

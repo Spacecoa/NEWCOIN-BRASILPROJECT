@@ -4,6 +4,7 @@ import Layout from './components/Layout.jsx';
 import VisitorLayout from './components/VisitorLayout.jsx';
 import Channel from './pages/Channel.jsx';
 import Channels from './pages/Channels.jsx';
+import Consent from './pages/Consent.jsx';
 import Explore from './pages/Explore.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import Home from './pages/Home.jsx';
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="/esqueci-senha" element={<ForgotPassword />} />
         <Route path="/redefinir-senha" element={<ResetPassword />} />
         <Route path="/regras" element={<Rules />} />
+        <Route path="/termo" element={<Consent />} />
         {/* Visitante: lê posts, threads, perfis e a aba Brasil. Interagir pede login. */}
         <Route element={<VisitorLayout />}>
           <Route index element={<Explore />} />
@@ -70,6 +72,7 @@ export default function App() {
         <Route path="privacidade" element={<Privacy />} />
         <Route path="moderacao" element={<Moderation />} />
         <Route path="regras" element={<Rules />} />
+        <Route path="termo" element={<Consent />} />
         <Route path="brasil" element={<Brasil />} />
       </Route>
       <Route path="/login" element={<AfterLogin />} />

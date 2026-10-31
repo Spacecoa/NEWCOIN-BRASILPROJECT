@@ -10,7 +10,7 @@ A moderação precisa de um combinado claro. Sem regras escritas, qualquer decis
 2. **Entrar é aceitar.** O cadastro mostra as regras e só continua com "Li e aceito as regras". O app guarda quando a pessoa aceitou.
 3. **Toda punição cita uma regra.** Para remover um post ou suspender uma conta, quem modera precisa escolher qual regra foi quebrada. Arquivar uma denúncia não precisa.
 4. **Quem foi afetado fica sabendo e pode recorrer uma vez por decisão:**
-   - **Post removido:** aparece em *Perfil › Bloqueios e denúncias › Decisões sobre sua conta*, com o texto, a regra e a nota da moderação. Ali há o botão **Recorrer**.
+   - **Post removido:** aparece em *Perfil › Privacidade e dados › Decisões sobre sua conta*, com o texto, a regra e a nota da moderação. Ali há o botão **Recorrer**.
    - **Conta suspensa:** a pessoa não consegue entrar, então a tela de entrar mostra o motivo (regra e nota) e um campo para recorrer, usando o mesmo e-mail e senha.
 5. **A moderação decide o recurso.** Ela pode aceitar, e então a decisão é desfeita (o post volta ou a conta é reativada), ou manter a decisão. Nos dois casos escreve uma nota que a pessoa vê.
 

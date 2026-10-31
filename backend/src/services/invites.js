@@ -12,7 +12,7 @@ function newCode() {
 }
 
 export async function createInvite(userId) {
-  const { rows } = await query('SELECT count(*)::int AS n FROM invites WHERE inviter_id = $1 AND used_by IS NULL', [userId]);
+  const { rows } = await query('SELECT count(*)::int AS n FROM invites WHERE inviter_id = $1 AND used_at IS NULL', [userId]);
   if (rows[0].n >= MAX_OPEN) throw conflict(`Você já tem ${MAX_OPEN} convites sem uso. Envie um deles antes de gerar outro.`);
   const code = newCode();
   const { rows: created } = await query('INSERT INTO invites (code, inviter_id) VALUES ($1, $2) RETURNING code, created_at', [code, userId]);
@@ -35,7 +35,9 @@ export async function listInvites(userId) {
  */
 export async function registerWithInvite(input, code) {
   return withTransaction(async (client) => {
-    const { rows } = await client.query('SELECT inviter_id FROM invites WHERE code = $1 AND used_by IS NULL FOR UPDATE', [code]);
+    // used_at, e não used_by: quem usou o convite pode excluir a conta (used_by vira NULL),
+    // e o convite não pode voltar a valer por isso.
+    const { rows } = await client.query('SELECT inviter_id FROM invites WHERE code = $1 AND used_at IS NULL FOR UPDATE', [code]);
     if (!rows[0]) throw badRequest('Convite inválido ou já usado');
     const user = await createUser(input, client);
     await client.query('UPDATE invites SET used_by = $1, used_at = now() WHERE code = $2', [user.id, code]);

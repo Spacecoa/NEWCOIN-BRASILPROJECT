@@ -531,7 +531,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
 <body data-auth="out">
 <header class="intro">
   <h1>Ágora <span>em ação</span></h1>
-  <p>Demonstração interativa com dados fictícios (só a aba Brasil traz números reais, das fontes oficiais). Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste (com imagens, cada uma com descrição), edite e cite posts, recompense posts com o token NWC, cumpra as missões do dia, acompanhe quem interagiu no sino de notificações, busque posts no Explorar, veja os últimos números oficiais do país na aba Brasil, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância, cita as regras e decide recursos) e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
+  <p>Demonstração interativa com dados fictícios (só a aba Brasil traz números reais, das fontes oficiais). Você é a Ana: veja o feed “Para você” e ajuste o algoritmo, poste (com imagens, cada uma com descrição), edite e cite posts, recompense posts com o token NWC, cumpra as missões do dia, acompanhe quem interagiu no sino de notificações, busque posts no Explorar, veja os últimos números oficiais do país na aba Brasil, silencie, bloqueie ou denuncie pelo “⋯” (a Ana também modera a instância, cita as regras e decide recursos), baixe seus dados e leia o termo do piloto em Perfil › Privacidade e dados, e simule a atividade de outras pessoas. Bastidores mostra o que o backend faria a cada ação.</p>
 </header>
 
 <section class="gate" id="gate" aria-label="Entrar">
@@ -1264,7 +1264,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     } else {
       panel.innerHTML = `<div class="grab"><span></span></div>
         <h2 id="rsheet-title">Denúncia enviada</h2>
-        <p class="sub">Obrigado. A moderação vai analisar e você acompanha o resultado em Perfil › Bloqueios e denúncias.</p>
+        <p class="sub">Obrigado. A moderação vai analisar e você acompanha o resultado em Perfil › Privacidade e dados.</p>
         ${r.blocked ? `<p class="ok" style="margin:0;background:var(--accent-soft);color:var(--accent);border-radius:16px;padding:10px 14px;font-weight:700">Você bloqueou @${r.u}.</p>` : `<p class="sub">Se não quiser mais ver @${r.u} enquanto isso, bloqueie a conta.</p>`}
         <div class="row3">${r.blocked ? '' : `<button class="chip" data-rblock>Bloquear @${r.u}</button>`}<button class="primary" data-rclose>Pronto</button></div>`;
     }
@@ -1289,7 +1289,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
   }
 
   function myLinksHTML() {
-    return `<div class="mylinks"><button class="chip" data-nav="privacy">${svgI('block', 'sm')} Bloqueios e denúncias</button><button class="chip" data-nav="rules">${svgI('book', 'sm')} Regras da instância</button>${MODERATORS.has(ME) ? `<button class="chip" data-nav="moderation">${svgI('shield', 'sm')} Fila da moderação</button>` : ''}</div>`;
+    return `<div class="mylinks"><button class="chip" data-nav="privacy">${svgI('block', 'sm')} Privacidade e dados</button><button class="chip" data-nav="rules">${svgI('book', 'sm')} Regras da instância</button>${MODERATORS.has(ME) ? `<button class="chip" data-nav="moderation">${svgI('shield', 'sm')} Fila da moderação</button>` : ''}</div>`;
   }
 
   // Aba "Brasil em dados": os mesmos números do registro conferido à mão do app
@@ -1382,12 +1382,65 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
         <h2 style="margin-top:12px">Como recorrer</h2><p>Cada decisão aceita um recurso. Se for aceito, o post volta ou a conta é reativada. Quem modera: @${ME}.</p></section>`;
   }
 
+  // Termo de consentimento do piloto: o mesmo texto de backend/src/lib/consent.js (docs/16).
+  const CONSENT = {
+    version: '2026-10-piloto-1',
+    summary: 'O Ágora é um protótipo de pesquisa acadêmica sobre redes sociais com algoritmo aberto, missões e moderação transparente. Participar é voluntário e sem pagamento. Você pode sair quando quiser, sem dar motivo: baixe seus dados e exclua a conta em Perfil › Privacidade e dados.',
+    sections: [
+      ['Quem conduz a pesquisa', ['Equipe de pesquisa do protótipo Ágora (no piloto, o nome da equipe definido no servidor).', 'Dúvidas, pedidos e reclamações: o contato da equipe.']],
+      ['O que o app guarda', ['Conta: nome de usuário, e-mail, nome de exibição e bio. A senha fica só como hash, que ninguém consegue ler.', 'O que você publica: posts e edições, imagens (sem localização e sem outros metadados), mensagens, reações, curtidas, seguidas, recompensas, denúncias e recursos.', 'Uso do app: minutos ativos por dia (dá para desligar em Interesses), missões e NewCoin.', 'O que o feed "Para você" aprende dos seus interesses fica só no seu aparelho, no navegador: a instância não guarda nem vê.', 'Sessões: o tipo de aparelho e navegador e as datas em que você entrou. O endereço IP não vai para o banco: fica no máximo uma hora na memória do controle de limites, que freia abusos.']],
+      ['Para quê', ['Fazer o app funcionar e moderar conforme as regras da instância.', 'Pesquisa: entender como as pessoas usam uma rede assim, com números agregados. Nenhum post seu é citado em trabalho da pesquisa com seu nome ou seu @.']],
+      ['O que não fazemos', ['Não vendemos nem passamos seus dados para empresas. Não há anúncios nem rastreadores de terceiros.', 'O app não se conecta ao X, ao Telegram nem a outras redes.', 'A NewCoin não é dinheiro: não compra nada e não vale nada fora do app.']],
+      ['Quem vê o quê', ['Seus posts e seu perfil: as pessoas da instância e quem abrir o endereço dela como visitante.', 'Mensagens: quem está no canal ou grupo.', 'Denúncias e recursos: a moderação da instância.', 'O banco de dados inteiro: só a equipe da pesquisa, que cuida do servidor.']],
+      ['Por quanto tempo', ['Enquanto durar o piloto. Quando ele terminar, a equipe apaga os dados em até 6 meses; ficam só números agregados, sem nomes.']],
+      ['Riscos e cuidados', ['Como em qualquer rede, alguém pode ver ou copiar o que você publica.', 'É um protótipo: pode ter falhas e sair do ar. Não publique dados sensíveis (saúde, endereço, documentos, senhas).']],
+      ['Seus direitos (LGPD, art. 18)', ['Ver e baixar todos os seus dados, corrigir seu perfil e excluir a conta, sozinho(a), em Perfil › Privacidade e dados.', 'Retirar o consentimento a qualquer momento: é só excluir a conta. Nada do que é seu fica.']],
+    ],
+  };
+  const priv = { del: false, deleted: false };
+
+  function renderTermo() {
+    return header('Termo do piloto', 'O que o Ágora guarda, para quê e como sair', '', true)
+      + `<section class="sec"><p>${esc(CONSENT.summary)}</p>${CONSENT.sections.map(([t, items]) => `<h2 style="margin-top:14px">${esc(t)}</h2><ul class="hint" style="padding-left:20px;margin:4px 0">${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`).join('')}<p class="hint">Versão do termo: ${CONSENT.version}. No cadastro, o aceite é uma caixa: “Tenho 18 anos ou mais, li o termo e aceito participar do piloto. Sei que posso sair quando quiser.”</p></section>`;
+  }
+
+  /** O arquivo de "Baixar meus dados", montado com o que a demo tem na memória. */
+  function exportDemoData() {
+    const mine = [...posts.values()].filter((p) => p.author === ME);
+    return {
+      formato: 'agora-dados/1',
+      gerado_em: new Date().toISOString(),
+      instancia: 'demo (dados fictícios)',
+      leia_me: 'Exemplo do arquivo que o app gera. No app, ele traz também imagens, mensagens, sessões e notificações.',
+      conta: { username: ME, display_name: USERS[ME].name, handle: `${ME}@ágora.demo` },
+      posts: mine.map((p) => ({ id: String(p.id), text: p.text, created_at: p.created.toISOString(), repost_of_id: p.repostOf ? String(p.repostOf) : null, reply_to_id: p.replyTo ? String(p.replyTo) : null })),
+      seguindo: [...(following[ME] ?? [])],
+      silenciados: [...mod.muted],
+      bloqueados: [...mod.blocked],
+      newcoin: { saldo: wallet.balance, extrato: wallet.ledger.map((l) => ({ amount: l.amount, kind: l.kind, label: l.label })) },
+      denuncias_feitas: mod.reports.filter((r) => r.reporter === ME).map((r) => ({ alvo: r.target, motivo: r.reason, status: r.status })),
+    };
+  }
+
   function renderPrivacy() {
     const people = (set, attr, label, empty) => set.size
       ? `<ul class="plist">${[...set].map((u) => `<li><button data-profile="${u}" style="text-align:left"><b>${esc(USERS[u].name)}</b> <span class="handle">@${u}</span></button><button class="chip" ${attr}="${u}">${label}</button></li>`).join('')}</ul>`
       : `<p class="empty" style="padding:8px 0;text-align:left">${empty}</p>`;
     const mine = mod.reports.filter((r) => r.reporter === ME).sort((a, b) => b.id - a.id);
-    return header('Bloqueios e denúncias', 'Só você vê esta página', '', state.stack.length > 0)
+    const seen = [
+      ['Público', 'Seus posts, respostas e perfil (nome, bio, quem você segue): as pessoas da instância e visitantes que abrirem o endereço dela.'],
+      ['Restrito', 'Mensagens de canais: quem tem conta na instância. Mensagens de grupos: só quem é membro. Denúncias e recursos: só a moderação.'],
+      ['Só você', 'Esta página, sua carteira, suas notificações e o que o feed "Para você" aprendeu, que fica só neste aparelho.'],
+      ['Não guardamos', 'Seu IP no banco, a localização das fotos, anúncios ou rastreadores de outras empresas. O app não se conecta ao X nem ao Telegram.'],
+    ];
+    const del = priv.deleted
+      ? `<p class="hint" role="status" style="color:var(--ink)"><b>Na demo nada foi apagado.</b> No app, a conta, os posts, as imagens e as mensagens saem da instância, a sessão cai e você volta como visitante, com o aviso no topo.</p>`
+      : priv.del
+        ? `<ul class="hint" style="padding-left:20px;margin:8px 0"><li>Somem seus posts, imagens, mensagens, curtidas, seguidas, carteira NWC e o histórico de uso.</li><li>Respostas de outras pessoas aos seus posts continuam, sem o post original.</li><li>Seus canais com outras pessoas passam para o administrador (ou membro) mais antigo.</li><li>Seu @ fica reservado: ninguém mais poderá usá-lo. O e-mail fica livre.</li></ul><p class="hint">No app, ele pede a sua senha de novo.</p><div class="acts"><button class="btn-danger" data-del-go>Excluir conta de vez (simulado)</button><button class="chip" data-del-cancel>Cancelar</button></div>`
+        : `<div class="acts"><button class="chip warn" data-del-ask>Quero excluir minha conta</button></div>`;
+    return header('Privacidade e dados', 'Só você vê esta página', '', state.stack.length > 0)
+      + `<section class="sec"><h2>Quem vê o quê</h2><p class="hint">O Ágora está em piloto de pesquisa. Participar é voluntário: você pode sair quando quiser.</p>${seen.map(([t, x]) => `<div class="qcard"><b>${t}</b><div class="det2">${x}</div></div>`).join('')}<p class="hint">Você aceitou o termo do piloto ao se cadastrar. <button type="button" class="mention" data-nav="termo">Ler o termo do piloto</button> · <button type="button" class="mention" data-nav="algo">Contagem de tempo e o que o feed aprendeu</button></p></section>`
+      + `<section class="sec"><h2>Seus dados</h2><p class="hint">Você pode levar uma cópia de tudo ou apagar sua conta quando quiser, sem pedir a ninguém.</p><div class="qcard"><b>Baixar meus dados</b><div class="det2">Um arquivo com tudo o que a instância guarda sobre você: conta, posts e edições, imagens, mensagens, curtidas, seguidas, carteira, denúncias que você fez e decisões sobre sua conta.</div><div class="acts"><button class="chip" data-dl-data>Baixar arquivo (JSON)</button></div></div><div class="qcard"><b>Excluir minha conta</b><div class="det2">Não dá para desfazer. Se quiser guardar uma cópia, baixe seus dados antes.</div>${del}</div></section>`
       + `<section class="sec"><h2>Bloqueados</h2><p class="hint">Vocês não veem os posts um do outro e ninguém consegue seguir, responder ou curtir o outro.</p>${people(mod.blocked, 'data-unblock-u', 'Desbloquear', 'Você não bloqueou ninguém.')}</section>`
       + `<section class="sec"><h2>Silenciados</h2><p class="hint">Os posts não aparecem nos seus feeds nem nas menções. A pessoa não fica sabendo.</p>${people(mod.muted, 'data-unmute-u', 'Deixar de silenciar', 'Você não silenciou ninguém.')}</section>`
       + `<section class="sec"><h2>Suas denúncias</h2><p class="hint">A moderação analisa cada uma. Quem foi denunciado não sabe quem denunciou.</p>${mine.length ? mine.map((r) => `<div class="qcard"><div class="top2"><b>${r.postText != null ? 'Post de @' + r.target : 'Conta @' + r.target}</b><span class="statuspill ${r.status === 'aberta' ? 'open' : ''}">${r.status === 'aberta' ? 'Em análise' : r.status === 'acatada' ? 'Acatada' : 'Arquivada'}</span></div>${r.postText ? `<blockquote>${esc(r.postText)}</blockquote>` : ''}<div class="det2">Enviada ${rel(r.created)}${r.resolution ? ` · ${RESOLUTION[r.resolution]}${r.rule ? ' ' + esc(ruleLabel(r.rule)) + '.' : ''}${r.note ? ' Nota: ' + esc(r.note) : ''}` : ''}</div></div>`).join('') : '<p class="empty" style="padding:8px 0;text-align:left">Você não fez nenhuma denúncia. Use o "⋯" de um post ou perfil.</p>'}</section>`;
@@ -1936,6 +1989,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     else if (state.view === 'profile') html = renderProfile();
     else if (state.view === 'channel') html = renderChannel();
     else if (state.view === 'privacy') html = renderPrivacy();
+    else if (state.view === 'termo') html = renderTermo();
     else if (state.view === 'moderation') html = renderModeration();
     else if (state.view === 'rules') html = renderRules();
     else if (state.view === 'brasil') html = renderBrasil();
@@ -1943,7 +1997,7 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     else html = renderFeed(state.view);
     mainEl.innerHTML = html;
     state.fresh.clear();
-    const navKey = (state.view === 'profile' && state.profile === ME) || state.view === 'privacy' ? 'me' : state.view === 'algo' ? 'home' : state.view;
+    const navKey = (state.view === 'profile' && state.profile === ME) || state.view === 'privacy' || state.view === 'termo' ? 'me' : state.view === 'algo' ? 'home' : state.view;
     // (Missões e Regras ficam na barra lateral; no celular, Missões abre pelo atalho do Início.)
     const item = (cls) => ([key, icon, label]) => `<button class="${cls}" data-nav="${key}" ${key === navKey ? 'aria-current="page"' : ''}>${svgI(icon, key === navKey && !['explore', 'missions'].includes(key) ? 'fill' : '')}${label}${key === 'notifications' && unreadCount() ? `<span class="badge" aria-hidden="true">${unreadCount()}</span><span class="sr">, ${unreadCount()} não lidas</span>` : ''}</button>`;
     document.getElementById('side-items').innerHTML = SIDE_NAV.map(item('navbtn')).join('');
@@ -1986,12 +2040,13 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
 
   function go(view, opts = {}) {
     mod.menu = null; mod.umenu = false; mod.confirmBlock = false; mod.note = null; mod.confirm = null;
-    if (view === 'privacy') log('http', 'GET /api/conta/bloqueados · /api/conta/silenciados · /api/denuncias → 200', 'só a própria pessoa vê');
+    if (view === 'privacy') { priv.del = false; priv.deleted = false; log('http', 'GET /api/conta/bloqueados · /api/conta/silenciados · /api/denuncias · /api/instancia/termo → 200', 'só a própria pessoa vê'); }
+    if (view === 'termo') log('http', 'GET /api/instancia/termo → 200', `termo público, versão ${CONSENT.version}: 8 seções e o texto do aceite`);
     if (view === 'brasil') log('http', 'GET /api/dados → 200', 'indicadores com origem, fontes, conferências A/B/C, selo e histórico de 5 anos · registro conferido em 29/10/2026');
     if (view === 'rules') log('http', 'GET /api/instancia/regras → 200', 'regras públicas, quem modera e a data da última mudança');
     if (view === 'moderation') log('http', `GET /api/moderacao/denuncias?status=aberta → 200`, 'assertModerator(): confere users.is_moderator no banco a cada pedido');
-    if (opts.push !== false && (view === 'thread' || view === 'profile' || view === 'algo')) state.stack.push({ view: state.view, focal: state.focal, profile: state.profile });
-    if (!['thread', 'profile', 'algo'].includes(view)) state.stack = [];
+    if (opts.push !== false && (view === 'thread' || view === 'profile' || view === 'algo' || view === 'termo')) state.stack.push({ view: state.view, focal: state.focal, profile: state.profile });
+    if (!['thread', 'profile', 'algo', 'termo'].includes(view)) state.stack = [];
     state.view = view;
     state.draft = '';
     if (view !== 'thread' && view !== 'profile' && view !== 'algo') { state.shown = PAGE; state.shownFy = PAGE; }
@@ -2218,6 +2273,21 @@ body[data-auth="out"] .app, body[data-auth="out"] nav.tabs, body[data-auth="out"
     if (d.blockU) { setBlock(d.blockU, true, d.ctx || null); mod.menu = null; mod.umenu = false; mod.confirmBlock = false; toast(`Você bloqueou @${d.blockU}`); render(); return; }
     if (d.unblockU) { setBlock(d.unblockU, false); mod.menu = null; mod.umenu = false; render(); return; }
     if (d.unmuteU) { setMute(d.unmuteU, false); render(); return; }
+    if (d.dlData !== undefined) {
+      const data = exportDemoData();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      a.download = `agora-dados-${ME}-${data.gerado_em.slice(0, 10)}.json`;
+      document.body.append(a); a.click(); a.remove();
+      log('http', 'GET /api/conta/dados → 200', `Content-Disposition: attachment · ${data.posts.length} posts, carteira, seguidas e denúncias; sem hash de senha nem quem denunciou você`);
+      toast('Arquivo baixado.'); return;
+    }
+    if (d.delAsk !== undefined) { priv.del = true; render(); return; }
+    if (d.delCancel !== undefined) { priv.del = false; render(); return; }
+    if (d.delGo !== undefined) {
+      log('http', 'DELETE /api/conta { password } → 200', 'senha conferida · DELETE FROM users (cascata) · números dos posts dos outros recontados · canais passados · hash do @ reservado · sessões derrubadas');
+      priv.del = false; priv.deleted = true; render(); return;
+    }
     if (d.undoHide !== undefined) { const n0 = mod.note; (n0.kind === 'mute' ? setMute : setBlock)(n0.u, false); mod.note = null; render(); return; }
     if (d.reportOpen) { const u = d.reportOpen; mod.menu = null; mod.umenu = false; render(); openReport(u, d.reportPost); return; }
     if (d.rclose !== undefined) { rsheet.hidden = true; mod.report = null; if (d.nav) { go(d.nav); return; } render(); return; }

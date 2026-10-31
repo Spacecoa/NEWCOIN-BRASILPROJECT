@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { useAuth } from '../auth/AuthContext.jsx';
+import { DeleteAccount, DownloadData } from '../components/AccountData.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { api } from '../lib/api.js';
+import { loadConsent } from '../lib/consent.js';
 import { block, mute, RESOLUTION_LABEL, STATUS_LABEL } from '../lib/moderation.js';
 import { ruleLabel } from '../lib/rules.js';
 import { relativeTime } from '../lib/time.js';
@@ -86,7 +89,45 @@ function Decision({ d, onChange }) {
   );
 }
 
-/** Bloqueados, silenciados e o andamento das denúncias que a pessoa fez. */
+/** Quem vê o quê no piloto, em poucas linhas, com os controles que a pessoa tem. */
+const VISIBILITY = [
+  ['Público', 'Seus posts, respostas e perfil (nome, bio, quem você segue): as pessoas da instância e visitantes que abrirem o endereço dela.'],
+  ['Restrito', 'Mensagens de canais: quem tem conta na instância. Mensagens de grupos: só quem é membro. Denúncias e recursos: só a moderação.'],
+  ['Só você', 'Esta página, sua carteira, suas notificações e o que o feed "Para você" aprendeu, que fica só neste aparelho.'],
+  ['Não guardamos', 'Seu IP no banco, a localização das fotos, anúncios ou rastreadores de outras empresas. O app não se conecta ao X nem ao Telegram.'],
+];
+
+const day = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+function PilotSummary() {
+  const { user } = useAuth();
+  const [term, setTerm] = useState(null);
+  useEffect(() => {
+    loadConsent().then(setTerm, () => setTerm(false));
+  }, []);
+  const consent = user?.consent;
+  return (
+    <div className="space-y-3 text-sm">
+      <dl className="divide-y divide-zinc-100 rounded-2xl bg-zinc-50 dark:divide-zinc-800 dark:bg-zinc-900">
+        {VISIBILITY.map(([title, text]) => (
+          <div key={title} className="p-4">
+            <dt className="font-extrabold">{title}</dt>
+            <dd className="mt-0.5 text-zinc-600 dark:text-zinc-300">{text}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-zinc-600 dark:text-zinc-300">
+        {consent?.accepted_at && !consent.pending ? <>Você aceitou o termo do piloto em {day(consent.accepted_at)}. </> : null}
+        <Link to="/termo" className="font-extrabold text-brand-600 hover:underline">Ler o termo do piloto</Link>
+        {' · '}
+        <Link to="/interesses" className="font-extrabold text-brand-600 hover:underline">Contagem de tempo e o que o feed aprendeu</Link>
+      </p>
+      {term && <p className="text-zinc-500">Dúvidas ou pedidos sobre seus dados: {term.contact}.</p>}
+    </div>
+  );
+}
+
+/** Seus dados (baixar e excluir), bloqueados, silenciados e o andamento das denúncias que a pessoa fez. */
 export default function Privacy() {
   const [blocks, setBlocks] = useState(null);
   const [mutes, setMutes] = useState(null);
@@ -102,7 +143,16 @@ export default function Privacy() {
 
   return (
     <>
-      <PageHeader back title="Bloqueios e denúncias" subtitle="Só você vê esta página" />
+      <PageHeader back title="Privacidade e dados" subtitle="Só você vê esta página" />
+      <Section title="Quem vê o quê" hint="O Ágora está em piloto de pesquisa. Participar é voluntário: você pode sair quando quiser.">
+        <PilotSummary />
+      </Section>
+      <Section title="Seus dados" hint="Você pode levar uma cópia de tudo ou apagar sua conta quando quiser, sem pedir a ninguém.">
+        <div className="space-y-3">
+          <DownloadData />
+          <DeleteAccount />
+        </div>
+      </Section>
       {decisions?.length > 0 && (
         <Section title="Decisões sobre sua conta" hint="O que a moderação decidiu sobre seus posts, com a regra citada. Cada decisão aceita um recurso.">
           <ul className="space-y-3">

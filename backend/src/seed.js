@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { getRedis, closeRedis } from './cache.js';
 import { pool, withTransaction } from './db.js';
 import { hashPassword } from './lib/auth.js';
+import { CONSENT_VERSION } from './lib/consent.js';
 import { cleanImage } from './lib/images.js';
 import { encodePng } from './lib/png.js';
 import { createSnowflake, snowflakeToDate } from './lib/snowflake.js';
@@ -138,7 +139,7 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
 
   await withTransaction(async (db) => {
     // instance_rules e moderator_names_missing não dependem de users: sem citá-las, regras feitas à mão sobreviviam ao seed.
-    await db.query('TRUNCATE instance_rules, moderator_names_missing, users, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
+    await db.query('TRUNCATE instance_rules, moderator_names_missing, deleted_usernames, users, follows, posts, likes, mentions, channels, channel_members, messages, message_reactions CASCADE');
 
     // Usuários (os 12 nomeados + extras numerados, se pedido)
     const users = [];
@@ -308,6 +309,9 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
       await db.query('UPDATE channels SET pts = $2 WHERE id = $1', [cid, pts]);
     }
 
+    // Todas as contas fictícias aceitaram o termo do piloto ao se cadastrar (docs/16).
+    await db.query('UPDATE users SET consent_version = $1, consent_at = created_at', [CONSENT_VERSION]);
+
     // Moderação: a Ana modera a instância de teste, e uma conta de spam fictícia já tem
     // duas denúncias abertas, para a fila da moderação não começar vazia.
     let reports = 0;
@@ -318,6 +322,7 @@ export async function seed({ users: userCount = PEOPLE.length, postsPerUser = 8,
         'INSERT INTO users (id, username, email, password_hash, display_name, bio, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
         [spamId, 'promo_rapida', 'promo_rapida@exemplo.test', passwordHash, 'Promo Rápida', 'Ganhe NWC fácil!!! Link na bio.', new Date(Date.now() - 12 * 86_400_000)],
       );
+      await db.query('UPDATE users SET consent_version = $1, consent_at = created_at WHERE id = $2', [CONSENT_VERSION, spamId]);
       userByName.set('promo_rapida', spamId);
       await insertPost({ author: { id: spamId }, text: 'GANHE 500 NWC POR DIA!!! Mande sua senha no privado e eu deposito na hora. Vagas limitadas!!!' });
       const spamPost = posts.at(-1).id;

@@ -2,14 +2,15 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { authenticate, checkPassword, dummyHash, requireAuth, signToken } from '../lib/auth.js';
-import { parse, unauthorized } from '../lib/errors.js';
+import { conflict, parse, unauthorized } from '../lib/errors.js';
 import { failureCounter, rateLimit } from '../lib/rateLimit.js';
 import { registerWithInvite } from '../services/invites.js';
 import { touchActivity } from '../services/evaporation.js';
 import { activeSuspension } from '../services/moderation.js';
 import { requestReset, resetPassword } from '../services/passwordReset.js';
 import { createSession, revokeAllSessions, revokeByRefresh, revokeSession, rotateSession } from '../services/sessions.js';
-import { createUser, findUserForLogin, formatUser, getUserById } from '../services/users.js';
+import { CONSENT_VERSION } from '../lib/consent.js';
+import { createUser, findUserForLogin, formatUser, getSelf } from '../services/users.js';
 
 const router = Router();
 
@@ -28,7 +29,7 @@ function setRefreshCookie(res, token) {
   });
 }
 
-const clearRefreshCookie = (res) =>
+export const clearRefreshCookie = (res) =>
   res.clearCookie(REFRESH_COOKIE, { httpOnly: true, secure: config.cookieSecure, sameSite: 'strict', path: COOKIE_PATH });
 
 function readCookie(req, name) {
@@ -50,7 +51,7 @@ async function startSession(req, res, user, status = 200) {
   const { sid, refreshToken } = await createSession(user.id, req.get('user-agent'));
   await touchActivity(user.id).catch(() => {}); // entrar é usar o app (evaporação do NWC)
   setRefreshCookie(res, refreshToken);
-  res.status(status).json({ token: signToken(user, sid), expires_in: config.accessTokenTtlSec, user });
+  res.status(status).json({ token: signToken(user, sid), expires_in: config.accessTokenTtlSec, user: await getSelf(user.id) });
 }
 
 const registerSchema = z.object({
@@ -61,6 +62,10 @@ const registerSchema = z.object({
   invite_code: z.string().trim().toLowerCase().regex(/^[a-z0-9]{8}$/, 'código de convite inválido').optional(),
   // Entrar na instância é aceitar as regras dela (GET /api/instancia/regras).
   accept_rules: z.literal(true, { error: 'é preciso ler e aceitar as regras da instância' }),
+  // E aceitar o termo de consentimento do piloto (GET /api/instancia/termo, docs/16).
+  accept_consent: z.literal(true, { error: 'é preciso ler e aceitar o termo de consentimento' }),
+  // A versão que a tela mostrou; se o termo mudou nesse meio-tempo, o cadastro pede para reler.
+  consent_version: z.string().max(40).optional(),
 });
 
 // O app entra com e-mail e senha. "login" (e-mail ou usuário) continua aceito para scripts antigos.
@@ -73,10 +78,13 @@ const loginSchema = z
   .refine((v) => v.email || v.login, { message: 'informe o e-mail', path: ['email'] });
 
 // Limite de tentativas por IP para mitigar força bruta.
-const authLimiter = rateLimit({ name: 'auth', limit: 20, windowSec: 15 * 60, key: (req) => req.ip });
+// Falha fechada: com o Redis fora do ar, recusa (503) em vez de deixar testar senhas sem limite.
+const authLimiter = rateLimit({ name: 'auth', limit: 20, windowSec: 15 * 60, key: (req) => req.ip, failClosed: true });
 
 router.post('/register', authLimiter, async (req, res) => {
-  const { invite_code: inviteCode, accept_rules: _accepted, ...input } = parse(registerSchema, req.body);
+  const { invite_code: inviteCode, accept_rules: _rules, accept_consent: _consent, consent_version: seen, ...fields } = parse(registerSchema, req.body);
+  if (seen && seen !== CONSENT_VERSION) throw conflict('O termo de consentimento mudou enquanto você lia. Recarregue a página e leia a versão nova.');
+  const input = { ...fields, consent_version: CONSENT_VERSION };
   const user = inviteCode ? await registerWithInvite(input, inviteCode) : await createUser(input);
   await startSession(req, res, user, 201);
 });
@@ -84,12 +92,16 @@ router.post('/register', authLimiter, async (req, res) => {
 // Além do limite por IP, um limite de SENHAS ERRADAS por conta: quem testa a senha de uma
 // pessoa a partir de muitos IPs para em 10 erros a cada 15 min (docs/14, A-4). Só erros
 // contam; ainda assim, quem atacar uma conta pode atrasar o login dela nessa janela.
-const accountFailures = failureCounter({ name: 'auth:account', limit: 10, windowSec: 15 * 60 });
+const accountFailures = failureCounter({ name: 'auth:account', limit: 10, windowSec: 15 * 60, failClosed: true });
 
 router.post('/login', authLimiter, async (req, res) => {
   const { email, login, password } = parse(loginSchema, req.body);
   const accountKey = String(email ?? login).toLowerCase();
   const gate = await accountFailures.check(accountKey);
+  if (gate.unavailable) {
+    res.set('retry-after', '5');
+    return res.status(503).json({ error: 'O controle de tentativas está fora do ar. Tente de novo em alguns segundos.', retry_after: 5 });
+  }
   if (gate.blocked) {
     res.set('retry-after', String(gate.retryAfter));
     return res.status(429).json({ error: 'Muitas tentativas com senha errada para esta conta. Tente de novo em alguns minutos.', retry_after: gate.retryAfter });
@@ -127,7 +139,7 @@ const refreshLimiter = rateLimit({ name: 'auth:refresh', limit: 60, windowSec: 1
 router.post('/refresh', refreshLimiter, async (req, res) => {
   try {
     const { sid, userId, refreshToken } = await rotateSession(readCookie(req, REFRESH_COOKIE));
-    const user = await getUserById(userId);
+    const user = await getSelf(userId);
     if (refreshToken) setRefreshCookie(res, refreshToken);
     res.json({ token: signToken(user, sid), expires_in: config.accessTokenTtlSec, user });
   } catch (err) {
@@ -155,7 +167,7 @@ router.post('/logout-all', requireAuth, async (req, res) => {
 
 // Esqueci a senha. Mesma resposta para qualquer e-mail (não revela quem tem conta); o limite
 // por IP segura quem tenta mandar e-mails em massa, e o serviço só manda 3 por hora por conta.
-const resetLimiter = rateLimit({ name: 'auth:reset', limit: 10, windowSec: 15 * 60, key: (req) => req.ip });
+const resetLimiter = rateLimit({ name: 'auth:reset', limit: 10, windowSec: 15 * 60, key: (req) => req.ip, failClosed: true });
 const RESET_SENT = 'Se houver uma conta com este e-mail, enviamos um link para criar uma senha nova. Ele vale por 30 minutos.';
 
 router.post('/senha/esqueci', resetLimiter, async (req, res) => {
@@ -176,7 +188,7 @@ router.post('/senha/redefinir', authLimiter, async (req, res) => {
 });
 
 router.get('/me', requireAuth, async (req, res) => {
-  res.json({ user: await getUserById(req.user.id) });
+  res.json({ user: await getSelf(req.user.id) });
 });
 
 export default router;

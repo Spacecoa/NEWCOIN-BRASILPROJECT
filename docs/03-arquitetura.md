@@ -157,6 +157,7 @@ sequenceDiagram
   participant API as Express /api/posts
   participant PG as PostgreSQL
   participant RD as Redis
+  participant W as Trabalhador da fila
   participant BUS as Barramento
   participant IO as Socket.io
   participant A as Alice (segue Bob)
@@ -164,15 +165,19 @@ sequenceDiagram
   B->>API: POST /api/posts {text, reply_to_id?}
   API->>API: JWT · zod (1–280) · rate limit
   API->>PG: BEGIN · SELECT pai FOR UPDATE · reply_count+1<br/>INSERT post · INSERT mentions · COMMIT
-  API->>PG: SELECT follower_id WHERE followee_id = Bob
-  API->>RD: pipeline: LPUSHX tl:home:ID · LTRIM 0..799 (Bob + seguidores)
-  API->>BUS: post:created {post, audience}
+  API->>RD: LPUSHX tl:home:Bob · LPUSH fanout:queue:N {post, autor}
+  API-->>B: 201 {data, includes}
+  RD-->>W: BLMOVE fanout:queue:N → fanout:processing:N
+  W->>PG: SELECT follower_id WHERE followee_id = Bob
+  W->>RD: pipeline em blocos de 1000: LPUSHX tl:home:ID · LTRIM 0..799
+  W->>BUS: post:created {post, audience}
   BUS->>IO: emitir em user:ID de cada seguidor
   IO-->>A: timeline:new
   Note over A: aparece "Mostrar 1 post novo"<br/>(não insere automaticamente)
-  API-->>B: 201 {data, includes}
   A->>API: GET /api/timeline?since_id=<mais novo que Alice tem>
 ```
+
+A cópia para os seguidores sai do pedido de postar e vai para uma fila no Redis (`services/fanout.js`): o pedido responde em poucos milissegundos, e um trabalhador da mesma instância distribui o post (cada instância tem a sua fila). Sem Redis, tudo acontece no próprio pedido.
 
 `LPUSHX` só empurra se a lista **já existir**. Assim não se cria uma timeline parcial para quem não abriu o app recentemente: ela é reconstruída inteira na próxima leitura.
 
@@ -232,18 +237,22 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 
 | Método | Rota | Auth | Descrição |
 |---|---|---|---|
-| POST | `/api/auth/register` | — | Cria a conta e devolve `{token, user}` |
+| POST | `/api/auth/register` | — | Cria a conta e devolve `{token, user}`; exige `accept_rules` e `accept_consent` (`consent_version` opcional: se não for a atual, 409) |
 | POST | `/api/auth/login` | — | `{email, password}` → `{token, user}` + cookie de sessão (`{login}` com e-mail ou usuário segue aceito) |
 | POST | `/api/auth/refresh` | cookie | Troca o cookie de sessão por um token novo (rotação) |
 | POST | `/api/auth/logout` | ✔ ou cookie | Encerra a sessão deste aparelho na hora |
 | POST | `/api/auth/logout-all` | ✔ | Encerra as sessões em todos os aparelhos |
-| GET | `/api/auth/me` | ✔ | Usuário atual |
+| GET | `/api/auth/me` | ✔ | Usuário atual, com `consent` (versão aceita, data, versão atual e `pending`) |
 | POST | `/api/auth/senha/esqueci` | — | `{email}` → mesma resposta exista ou não a conta; se existir, manda o link (30 min, uso único, até 3 por hora) |
 | POST | `/api/auth/senha/redefinir` | link | `{token, password}` → troca a senha, invalida os outros links e encerra todas as sessões |
 | POST/DELETE | `/api/users/:username/mute` · `/block` | ✔ | Silenciar / bloquear (ver [`docs/11`](11-moderacao.md)) |
 | GET | `/api/denuncias/motivos` | — | Motivos aceitos numa denúncia |
 | POST/GET | `/api/denuncias` | ✔ | Denunciar post ou conta; minhas denúncias |
 | GET | `/api/conta/bloqueados` · `/silenciados` | ✔ | Quem eu bloqueei / silenciei |
+| GET | `/api/conta/dados` | ✔ | Baixa tudo o que a instância guarda sobre mim, num JSON (até 5 por hora; ver [`docs/16`](16-privacidade-e-dados.md)) |
+| DELETE | `/api/conta` | ✔ | `{password}` → exclui a conta de vez; senha errada é 403 (até 5 tentativas a cada 15 min) |
+| GET | `/api/instancia/termo` | — | Termo de consentimento do piloto (versão, seções, texto do aceite) |
+| POST | `/api/conta/termo` | ✔ | `{version}` → aceita a versão atual do termo (outra versão é 409) |
 | GET/POST | `/api/moderacao/denuncias` · `/:id/resolver` | moderação | Fila e decisões (arquivar, remover post, suspender), citando a regra |
 | POST | `/api/moderacao/usuarios/:username/reativar` | moderação | Reativa uma conta suspensa |
 | PUT | `/api/moderacao/regras` | moderação | Edita as regras da instância |
@@ -303,6 +312,7 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | POST | `/api/moderacao/dados/atualizar` | moderação | Busca de novo nas fontes (desligado por padrão) |
 | GET | `/.well-known/webfinger?resource=acct:u@dominio` | — | Descoberta federada |
 | GET | `/.well-known/nodeinfo` | — | Metadados da instância |
+| GET | `/api/metricas` | token | Métricas no formato do Prometheus (pedidos, tempos, fila, banco, memória); só existe com `METRICS_TOKEN` |
 | GET | `/federation/users/:u` · `/outbox` | — | Ator e últimos posts (ActivityStreams) |
 
 **Eventos Socket.io (servidor → cliente):** `timeline:new`, `notification` (`like`, `repost`, `reply`, `mention`, `follow` ou `tip`; o app soma 1 no contador), `post:deleted`, `message:new`, `message:reactions`. **Cliente → servidor:** `channel:subscribe` (com ack `{ok, pts}`) e `channel:unsubscribe`.

@@ -180,7 +180,7 @@ sim('Missões e token', '"Traga alguém de confiança": conta quando o convite �
   const inv = (await call(a.tok, 'POST', '/api/convites')).j.data;
   eq(find(await missionsOf(a), 'convidar').status, 'todo', 'convite gerado mas não usado');
   const u = 'cv' + Math.random().toString(36).slice(2, 8);
-  status(await call(null, 'POST', '/api/auth/register', { username: u, email: `${u}@sim.test`, password: PASSWORD, accept_rules: true, invite_code: inv.code }), 201, 'a pessoa convidada entra');
+  status(await call(null, 'POST', '/api/auth/register', { username: u, email: `${u}@sim.test`, password: PASSWORD, accept_rules: true, accept_consent: true, invite_code: inv.code }), 201, 'a pessoa convidada entra');
   const m = await missionsOf(a);
   eq(find(m, 'convidar').status, 'done', 'depois de usar o convite');
   check(m.token.earned_today >= 4, 'deveria ter ganhado 4 NWC');

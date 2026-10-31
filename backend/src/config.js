@@ -87,10 +87,23 @@ export const config = {
   tokenName: env.TOKEN_NAME ?? 'NewCoin',
   tokenSymbol: env.TOKEN_SYMBOL ?? 'NWC',
   missionTimezone: env.MISSION_TZ ?? 'America/Sao_Paulo',
+  // Painel coletivo das missões: igual para todos, recalculado no máximo a cada N segundos.
+  collectiveCacheSec: num(env.MISSIONS_COLLECTIVE_CACHE_SEC, 60),
   timelineCacheSize: Number(env.TIMELINE_CACHE_SIZE ?? 800),
+  // GET /api/metricas só existe com este token (e exige o mesmo token no cabeçalho).
+  metricsToken: env.METRICS_TOKEN || null,
+  // Distribuir posts para os seguidores por fila no Redis (1) ou dentro do pedido (0).
+  fanoutQueue: env.FANOUT_QUEUE !== '0',
   // Contas que moderam a instância (usernames separados por vírgula), promovidas ao iniciar.
   // Coleta automática das fontes oficiais da aba "Brasil em dados" (minutos). Desligada por
   // padrão: a aba usa o registro conferido à mão (src/official/registro.js).
   officialDataRefreshMin: num(env.OFFICIAL_DATA_REFRESH_MIN, 0),
   moderators: (env.MODERATORS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+  // Quem conduz o piloto, como falar com a equipe e quanto tempo os dados ficam (termo de
+  // consentimento, docs/16). Num piloto de verdade, defina as três no servidor.
+  research: {
+    responsible: env.RESEARCH_RESPONSIBLE || 'Equipe de pesquisa do protótipo Ágora',
+    contact: env.RESEARCH_CONTACT || 'a moderação da instância (perfis com o selo de moderação)',
+    retention: env.RESEARCH_RETENTION || 'Quando ele terminar, a equipe apaga os dados em até 6 meses; ficam só números agregados, sem nomes.',
+  },
 };

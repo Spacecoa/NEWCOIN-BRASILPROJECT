@@ -3,13 +3,16 @@ import express from 'express';
 import { config } from './config.js';
 import { requesterKey } from './lib/auth.js';
 import { HttpError } from './lib/errors.js';
+import { metricsMiddleware } from './lib/metrics.js';
 import { rateLimit } from './lib/rateLimit.js';
 import { securityHeaders } from './lib/securityHeaders.js';
+import accountRoutes from './routes/account.js';
 import authRoutes from './routes/auth.js';
 import channelRoutes from './routes/channels.js';
 import federationRoutes from './routes/federation.js';
 import feedRoutes from './routes/feed.js';
 import mediaRoutes from './routes/media.js';
+import metricsRoutes from './routes/metrics.js';
 import missionRoutes from './routes/missions.js';
 import moderationRoutes from './routes/moderation.js';
 import notificationRoutes from './routes/notifications.js';
@@ -25,6 +28,7 @@ export function createApp() {
   // Atrás de um proxy reverso, req.ip só é o IP real se dissermos em quem confiar.
   app.set('trust proxy', config.trustProxy);
   app.use(securityHeaders);
+  app.use(metricsMiddleware);
   app.use(cors({ origin: config.corsOrigin, credentials: true }));
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
@@ -37,6 +41,7 @@ export function createApp() {
 
   app.use(express.json({ limit: '32kb' }));
   app.use('/api/auth', authRoutes);
+  app.use('/api', accountRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/posts', postRoutes);
   app.use('/api', timelineRoutes);
@@ -48,6 +53,7 @@ export function createApp() {
   app.use('/api', officialDataRoutes);
   app.use('/api', notificationRoutes);
   app.use('/api', mediaRoutes);
+  app.use('/api', metricsRoutes);
   app.use(federationRoutes);
 
   app.use((_req, res) => res.status(404).json({ error: 'Rota não encontrada' }));

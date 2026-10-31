@@ -96,7 +96,7 @@ export default function ReportDialog({ postId, username, onClose, onBlocked }) {
           <div className="space-y-4" role="status">
             <h2 id="report-title" className="text-lg font-extrabold">Denúncia enviada</h2>
             <p className="text-zinc-600 dark:text-zinc-300">
-              Obrigado. A moderação vai analisar e você acompanha o resultado em <b>Perfil › Bloqueios e denúncias</b>.
+              Obrigado. A moderação vai analisar e você acompanha o resultado em <b>Perfil › Privacidade e dados</b>.
             </p>
             {blocked ? (
               <p className="rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-700 dark:bg-zinc-900 dark:text-brand-500">Você bloqueou @{username}.</p>

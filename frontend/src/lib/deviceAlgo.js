@@ -38,6 +38,16 @@ export function loadState(userId) {
   }
 }
 
+/** Apaga deste aparelho o algoritmo da conta (ex.: a conta foi excluída). */
+export function forgetDevice(userId) {
+  memory.delete(userId);
+  try {
+    localStorage.removeItem(key(userId));
+  } catch {
+    /* armazenamento indisponível: só havia a memória */
+  }
+}
+
 function saveState(userId, state) {
   memory.set(userId, state);
   try {

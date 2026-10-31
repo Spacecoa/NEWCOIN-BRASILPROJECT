@@ -21,9 +21,16 @@ for port in 4000 4030 4173 4175; do
 done
 
 echo "1/6 testes automáticos"
-TB=$(cd "$ROOT/backend" && npx vitest run 2>&1 | sed -n 's/^ *Tests *\([0-9]*\) passed.*/\1/p' | tail -1)
-TF=$(cd "$ROOT/frontend" && npx vitest run 2>&1 | sed -n 's/^ *Tests *\([0-9]*\) passed.*/\1/p' | tail -1)
-[ -n "$TB" ] && [ -n "$TF" ] || { echo "algum teste falhou: rode npm test em backend/ e frontend/" >&2; exit 1; }
+# A saída fica em arquivo: se algum teste falhar, o script diz qual (antes, parava calado).
+(cd "$ROOT/backend" && npx vitest run >"$OUT/testes-backend.log" 2>&1) || true
+(cd "$ROOT/frontend" && npx vitest run >"$OUT/testes-frontend.log" 2>&1) || true
+TB=$(sed -n 's/^ *Tests *\([0-9]*\) passed ([0-9]*)$/\1/p' "$OUT/testes-backend.log" | tail -1)
+TF=$(sed -n 's/^ *Tests *\([0-9]*\) passed ([0-9]*)$/\1/p' "$OUT/testes-frontend.log" | tail -1)
+if [ -z "$TB" ] || [ -z "$TF" ]; then
+  echo "algum teste falhou (logs em $OUT/testes-*.log):" >&2
+  grep -h -E '^ *(FAIL|×)' "$OUT/testes-backend.log" "$OUT/testes-frontend.log" | head -20 >&2 || true
+  exit 1
+fi
 echo "   backend $TB, frontend $TF"
 
 echo "2/6 banco limpo e servidores"

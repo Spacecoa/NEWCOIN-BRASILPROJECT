@@ -510,3 +510,21 @@ BEGIN
       CHECK (kind IN ('like', 'repost', 'reply', 'mention', 'follow', 'tip', 'quote'));
   END IF;
 END $$;
+
+-- Busca de pessoas por parte do nome (ILIKE '%…%'): índices de trigramas no lugar de varrer a
+-- tabela (docs/10, B2). username é citext: a consulta compara username::text para usar o índice.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS users_username_trgm_idx ON users USING gin ((username::text) gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS users_display_name_trgm_idx ON users USING gin (display_name gin_trgm_ops);
+
+-- Exclusão de conta (docs/16). Os dados da pessoa somem; fica só o hash do nome de usuário,
+-- para ninguém se cadastrar depois com o mesmo @ e herdar as menções antigas (como no Mastodon).
+CREATE TABLE IF NOT EXISTS deleted_usernames (
+  username_hash TEXT PRIMARY KEY CHECK (username_hash ~ '^[0-9a-f]{64}$'),
+  deleted_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Termo de consentimento do piloto (docs/16): qual versão a pessoa aceitou e quando.
+-- Contas antigas ficam com NULL e veem o termo ao entrar.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_version TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_at TIMESTAMPTZ;
