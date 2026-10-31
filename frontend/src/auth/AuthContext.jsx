@@ -62,6 +62,8 @@ export function AuthProvider({ children }) {
       loading,
       notice,
       clearNotice: () => setNotice(null),
+      // Troca os dados da própria conta (ex.: depois de aceitar o termo novo).
+      updateUser: setUser,
       // Encerra só o lado do app, com um aviso (ex.: depois de trocar a senha, quando o servidor já encerrou as sessões).
       endSession: endLocal,
       socket: user ? getSocket(user.id) : null,

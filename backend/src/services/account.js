@@ -23,7 +23,7 @@ const rows = async (sql, params) => (await query(sql, params)).rows;
 export async function exportAccount(userId) {
   const p = [userId];
   const [user] = await rows(
-    `SELECT id, username, email, display_name, bio, created_at, rules_accepted_at, last_active_at, is_moderator, suspended_at
+    `SELECT id, username, email, display_name, bio, created_at, rules_accepted_at, consent_version, consent_at, last_active_at, is_moderator, suspended_at
        FROM users WHERE id = $1`,
     p,
   );

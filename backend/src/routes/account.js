@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { requireAuth } from '../lib/auth.js';
 import { parse } from '../lib/errors.js';
 import { rateLimit } from '../lib/rateLimit.js';
+import { consentTerm } from '../lib/consent.js';
 import { deleteAccount, exportAccount } from '../services/account.js';
+import { acceptConsent } from '../services/users.js';
 import { clearRefreshCookie } from './auth.js';
 
 const router = Router();
@@ -27,6 +29,17 @@ router.delete('/conta', requireAuth, deleteLimiter, async (req, res) => {
   const result = await deleteAccount(req.user.id, password);
   clearRefreshCookie(res);
   res.json({ ok: true, ...result, message: 'Conta excluída. Seus posts, mensagens, imagens e dados saíram da instância.' });
+});
+
+/** Pública: o termo de consentimento do piloto, para ler antes de criar a conta (docs/16). */
+router.get('/instancia/termo', (_req, res) => {
+  res.json({ data: consentTerm() });
+});
+
+/** Aceitar a versão atual do termo (conta antiga, ou o termo mudou). Devolve a conta atualizada. */
+router.post('/conta/termo', requireAuth, async (req, res) => {
+  const { version } = parse(z.object({ version: z.string().min(1).max(40) }).strict(), req.body);
+  res.json({ user: await acceptConsent(req.user.id, version) });
 });
 
 export default router;

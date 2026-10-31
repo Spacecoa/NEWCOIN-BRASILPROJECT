@@ -33,7 +33,7 @@ describe('regras da instância', () => {
     expect(without.status).toBe(400);
     expect(without.body.details.map((d) => d.path)).toContain('accept_rules');
     expect((await api().post('/api/auth/register').send({ username: 'nina', email: 'n@x.io', password: 'senha1234', accept_rules: false })).status).toBe(400);
-    const ok = await api().post('/api/auth/register').send({ username: 'nina', email: 'n@x.io', password: 'senha1234', accept_rules: true });
+    const ok = await api().post('/api/auth/register').send({ username: 'nina', email: 'n@x.io', password: 'senha1234', accept_rules: true, accept_consent: true });
     expect(ok.status).toBe(201);
     const { rows } = await query('SELECT rules_accepted_at FROM users WHERE username = $1', ['nina']);
     expect(rows[0].rules_accepted_at).toBeInstanceOf(Date);

@@ -237,12 +237,12 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 
 | Método | Rota | Auth | Descrição |
 |---|---|---|---|
-| POST | `/api/auth/register` | — | Cria a conta e devolve `{token, user}` |
+| POST | `/api/auth/register` | — | Cria a conta e devolve `{token, user}`; exige `accept_rules` e `accept_consent` (`consent_version` opcional: se não for a atual, 409) |
 | POST | `/api/auth/login` | — | `{email, password}` → `{token, user}` + cookie de sessão (`{login}` com e-mail ou usuário segue aceito) |
 | POST | `/api/auth/refresh` | cookie | Troca o cookie de sessão por um token novo (rotação) |
 | POST | `/api/auth/logout` | ✔ ou cookie | Encerra a sessão deste aparelho na hora |
 | POST | `/api/auth/logout-all` | ✔ | Encerra as sessões em todos os aparelhos |
-| GET | `/api/auth/me` | ✔ | Usuário atual |
+| GET | `/api/auth/me` | ✔ | Usuário atual, com `consent` (versão aceita, data, versão atual e `pending`) |
 | POST | `/api/auth/senha/esqueci` | — | `{email}` → mesma resposta exista ou não a conta; se existir, manda o link (30 min, uso único, até 3 por hora) |
 | POST | `/api/auth/senha/redefinir` | link | `{token, password}` → troca a senha, invalida os outros links e encerra todas as sessões |
 | POST/DELETE | `/api/users/:username/mute` · `/block` | ✔ | Silenciar / bloquear (ver [`docs/11`](11-moderacao.md)) |
@@ -251,6 +251,8 @@ Formato de lista: `{ data: [...], includes: { users, posts }, meta: { result_cou
 | GET | `/api/conta/bloqueados` · `/silenciados` | ✔ | Quem eu bloqueei / silenciei |
 | GET | `/api/conta/dados` | ✔ | Baixa tudo o que a instância guarda sobre mim, num JSON (até 5 por hora; ver [`docs/16`](16-privacidade-e-dados.md)) |
 | DELETE | `/api/conta` | ✔ | `{password}` → exclui a conta de vez; senha errada é 403 (até 5 tentativas a cada 15 min) |
+| GET | `/api/instancia/termo` | — | Termo de consentimento do piloto (versão, seções, texto do aceite) |
+| POST | `/api/conta/termo` | ✔ | `{version}` → aceita a versão atual do termo (outra versão é 409) |
 | GET/POST | `/api/moderacao/denuncias` · `/:id/resolver` | moderação | Fila e decisões (arquivar, remover post, suspender), citando a regra |
 | POST | `/api/moderacao/usuarios/:username/reativar` | moderação | Reativa uma conta suspensa |
 | PUT | `/api/moderacao/regras` | moderação | Edita as regras da instância |

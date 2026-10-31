@@ -50,7 +50,7 @@ const rnd = () => Math.random().toString(36).slice(2, 6);
 export async function reg(tag = 'u', { base, extra = {} } = {}) {
   const u = `${tag}${state.sim}_${rnd()}`.slice(0, 20).replace(/[^A-Za-z0-9_]/g, '_');
   const email = `${u}@sim.test`;
-  const r = await call(null, 'POST', '/api/auth/register', { username: u, email, password: PASSWORD, accept_rules: true, ...extra }, { base });
+  const r = await call(null, 'POST', '/api/auth/register', { username: u, email, password: PASSWORD, accept_rules: true, accept_consent: true, ...extra }, { base });
   check(r.s === 201, `cadastro de ${u} falhou: ${r.s} ${JSON.stringify(r.j)?.slice(0, 160)}`);
   return { u, id: r.j.user.id, tok: r.j.token, email, cookie: r.cookie.split(';')[0], base: base ?? state.base };
 }

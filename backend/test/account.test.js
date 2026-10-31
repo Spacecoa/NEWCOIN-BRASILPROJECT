@@ -99,8 +99,8 @@ describe('excluir a conta', () => {
       expect(rows[0].n, t).toBe(0);
     }
     // O e-mail volta a ficar livre; o @ não (ninguém herda as menções antigas).
-    expect((await api().post('/api/auth/register').send({ username: 'ana_nova', email: 'ana@exemplo.test', password: 'senha1234', accept_rules: true })).status).toBe(201);
-    const taken = await api().post('/api/auth/register').send({ username: 'ANA', email: 'outra@exemplo.test', password: 'senha1234', accept_rules: true });
+    expect((await api().post('/api/auth/register').send({ username: 'ana_nova', email: 'ana@exemplo.test', password: 'senha1234', accept_rules: true, accept_consent: true })).status).toBe(201);
+    const taken = await api().post('/api/auth/register').send({ username: 'ANA', email: 'outra@exemplo.test', password: 'senha1234', accept_rules: true, accept_consent: true });
     expect(taken.status).toBe(409);
     expect(taken.body.error).toMatch(/conta excluída/);
     const { rows } = await query('SELECT username_hash FROM deleted_usernames');
@@ -149,7 +149,7 @@ describe('excluir a conta', () => {
     const { code } = (await api().post('/api/convites').set(ana.auth)).body.data;
     const nina = await signup('nina', { invite_code: code });
     expect((await remove(nina)).status).toBe(200);
-    const again = await api().post('/api/auth/register').send({ username: 'otavio', email: 'o@exemplo.test', password: 'senha1234', accept_rules: true, invite_code: code });
+    const again = await api().post('/api/auth/register').send({ username: 'otavio', email: 'o@exemplo.test', password: 'senha1234', accept_rules: true, accept_consent: true, invite_code: code });
     expect(again.status).toBe(400);
   });
 

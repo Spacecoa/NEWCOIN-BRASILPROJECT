@@ -33,7 +33,7 @@ describe('autenticação', () => {
     expect(bad.status).toBe(400);
     expect(bad.body.details.map((d) => d.path)).toEqual(expect.arrayContaining(['username', 'email', 'password']));
     await signup('alice');
-    const dup = await api().post('/api/auth/register').send({ username: 'Alice', email: 'outro@x.io', password: 'senha1234', accept_rules: true });
+    const dup = await api().post('/api/auth/register').send({ username: 'Alice', email: 'outro@x.io', password: 'senha1234', accept_rules: true, accept_consent: true });
     expect(dup.status).toBe(409);
   });
 

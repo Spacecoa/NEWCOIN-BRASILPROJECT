@@ -99,4 +99,11 @@ export const config = {
   // padrão: a aba usa o registro conferido à mão (src/official/registro.js).
   officialDataRefreshMin: num(env.OFFICIAL_DATA_REFRESH_MIN, 0),
   moderators: (env.MODERATORS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+  // Quem conduz o piloto, como falar com a equipe e quanto tempo os dados ficam (termo de
+  // consentimento, docs/16). Num piloto de verdade, defina as três no servidor.
+  research: {
+    responsible: env.RESEARCH_RESPONSIBLE || 'Equipe de pesquisa do protótipo Ágora',
+    contact: env.RESEARCH_CONTACT || 'a moderação da instância (perfis com o selo de moderação)',
+    retention: env.RESEARCH_RETENTION || 'Quando ele terminar, a equipe apaga os dados em até 6 meses; ficam só números agregados, sem nomes.',
+  },
 };

@@ -523,3 +523,8 @@ CREATE TABLE IF NOT EXISTS deleted_usernames (
   username_hash TEXT PRIMARY KEY CHECK (username_hash ~ '^[0-9a-f]{64}$'),
   deleted_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Termo de consentimento do piloto (docs/16): qual versão a pessoa aceitou e quando.
+-- Contas antigas ficam com NULL e veem o termo ao entrar.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_version TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_at TIMESTAMPTZ;

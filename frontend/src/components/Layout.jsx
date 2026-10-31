@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Avatar from './Avatar.jsx';
+import ConsentGate from './ConsentGate.jsx';
 import Icon from './Icon.jsx';
 import { useUnreadNotifications } from '../lib/notifications.js';
 import { useActivityBeat } from '../lib/useActivityBeat.js';
@@ -26,8 +27,10 @@ const UnreadLabel = ({ show, unread }) => (show && unread > 0 ? <span className=
 // A partir de md, a mesma navegação vira coluna lateral.
 export default function Layout() {
   const { user, logout, socket } = useAuth();
-  useActivityBeat(Boolean(user));
+  useActivityBeat(Boolean(user) && !user.consent?.pending);
   const unread = useUnreadNotifications(socket);
+  // Sem o aceite da versão atual do termo, o app não abre: primeiro ler e decidir (docs/16).
+  if (user.consent?.pending) return <ConsentGate />;
   const items = [
     ['/', 'home', 'Início'],
     ['/brasil', 'chart', 'Brasil'],

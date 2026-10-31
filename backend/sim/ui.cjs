@@ -21,7 +21,7 @@ async function api(tok, method, path, body) {
 }
 async function reg(tag = 'u') {
   const u = `${tag}${cur}_${rnd()}`.slice(0, 20);
-  const r = await api(null, 'POST', '/api/auth/register', { username: u, email: `${u}@sim.test`, password: PASS, accept_rules: true, display_name: `Pessoa ${u}` });
+  const r = await api(null, 'POST', '/api/auth/register', { username: u, email: `${u}@sim.test`, password: PASS, accept_rules: true, accept_consent: true, display_name: `Pessoa ${u}` });
   if (r.s !== 201) throw new Error(`cadastro de ${u} falhou: ${r.s}`);
   return { u, id: r.j.user.id, tok: r.j.token, email: `${u}@sim.test` };
 }
@@ -55,7 +55,7 @@ const sims = [];
 const sim = (area, title, doc, fn) => sims.push({ area, title, doc, fn });
 
 // 1
-sim('Cadastro e entrada', 'Cadastro pela tela: regras visíveis, aceite obrigatório, erro de senha curta e entrada na timeline', 'docs/12 §1 (entrar é aceitar)', async () => {
+sim('Cadastro e entrada', 'Cadastro pela tela: regras e termo visíveis, os dois aceites obrigatórios, erro de senha curta e entrada na timeline', 'docs/12 §1 (entrar é aceitar), docs/16 §4', async () => {
   const { page, errs, context } = await open();
   const u = `cad${cur}_${rnd()}`;
   await page.goto(WEB + '/cadastro');
@@ -71,9 +71,13 @@ sim('Cadastro e entrada', 'Cadastro pela tela: regras visíveis, aceite obrigat�
   await page.getByRole('button', { name: 'Cadastrar' }).click();
   check(page.url().includes('/cadastro'), 'sem aceitar as regras e com senha curta, o cadastro não pode seguir');
   const invalid = await page.evaluate(() => [...document.querySelectorAll('input:invalid')].map((i) => i.name));
-  check(invalid.includes('password') && invalid.includes('accept_rules'), `o navegador deveria apontar a senha e o aceite: ${invalid}`);
+  check(invalid.includes('password') && invalid.includes('accept_rules') && invalid.includes('accept_consent'), `o navegador deveria apontar a senha e os dois aceites: ${invalid}`);
+  await page.getByText('Termo de consentimento do piloto').click();
+  const termo = await body(page);
+  for (const t of ['Quem conduz a pesquisa', 'O que o app guarda', 'Seus direitos']) check(termo.includes(t), `o termo deveria mostrar "${t}"`);
   await page.getByLabel(/Senha/).fill(PASS);
-  await page.getByRole('checkbox').check();
+  await page.getByRole('checkbox', { name: /aceito as regras/ }).check();
+  await page.getByRole('checkbox', { name: /18 anos ou mais/ }).check();
   await page.getByRole('button', { name: 'Cadastrar' }).click();
   await page.getByRole('tab', { name: 'Seguindo' }).waitFor();
   const me = await api(null, 'POST', '/api/auth/login', { email: `${u}@sim.test`, password: PASS });

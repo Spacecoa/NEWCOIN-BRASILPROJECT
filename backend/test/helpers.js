@@ -28,7 +28,7 @@ export async function resetDb() {
 export async function signup(username, extra = {}) {
   const res = await api()
     .post('/api/auth/register')
-    .send({ username, email: `${username}@exemplo.test`, password: 'senha1234', accept_rules: true, ...extra });
+    .send({ username, email: `${username}@exemplo.test`, password: 'senha1234', accept_rules: true, accept_consent: true, ...extra });
   if (res.status !== 201) throw new Error(`signup falhou: ${res.status} ${JSON.stringify(res.body)}`);
   return { user: res.body.user, token: res.body.token, auth: { Authorization: `Bearer ${res.body.token}` } };
 }
