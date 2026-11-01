@@ -188,7 +188,10 @@ router.post('/senha/redefinir', authLimiter, async (req, res) => {
 });
 
 router.get('/me', requireAuth, async (req, res) => {
-  res.json({ user: await getSelf(req.user.id) });
+  // Conta excluída com um token ainda valendo: a sessão acabou (401), não "não encontrado".
+  const user = await getSelf(req.user.id).catch((err) => (err.status === 404 ? null : Promise.reject(err)));
+  if (!user) throw unauthorized('Sessão encerrada: esta conta não existe mais');
+  res.json({ user });
 });
 
 export default router;

@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { getRedis } from '../src/cache.js';
 import { config } from '../src/config.js';
 import { query } from '../src/db.js';
 import { encodePng } from '../src/lib/png.js';
+import { EXPORT_LIMITS } from '../src/services/account.js';
 import { promoteModerators } from '../src/services/moderation.js';
+import { resetSessionMemory } from '../src/services/sessions.js';
 import { api, post, resetDb, signup } from './helpers.js';
 
 const png = () => encodePng(20, 10, (x, y) => [x * 9, y * 20, 120]);
@@ -167,6 +170,78 @@ describe('excluir a conta', () => {
       expect(rows.map((r) => r.username)).toContain('ana');
     } finally {
       config.moderators = old;
+    }
+  });
+});
+
+// Verificação de segurança do módulo (docs/16 §5): falhas achadas e corrigidas.
+describe('exclusão e dados: integridade sob corrida e abuso', () => {
+  beforeEach(resetDb);
+
+  it('duas moderadoras saindo ao mesmo tempo: uma sai, a outra fica (a instância não fica sem moderação)', async () => {
+    const [ana, bia] = await Promise.all([signup('ana'), signup('bia')]);
+    await promoteModerators(['ana', 'bia']);
+    const res = await Promise.all([remove(ana), remove(bia)]);
+    expect(res.map((r) => r.status).sort()).toEqual([200, 409]);
+    const { rows } = await query('SELECT count(*)::int AS n FROM users WHERE is_moderator');
+    expect(rows[0].n).toBe(1);
+  });
+
+  it('conta suspensa não herda canal; sem outra pessoa ativa, o canal some', async () => {
+    const [ana, bia, caio] = await Promise.all([signup('ana'), signup('bia'), signup('caio')]);
+    await api().post('/api/channels').set(ana.auth).send({ slug: 'bairro', title: 'Bairro', kind: 'channel' });
+    await api().post('/api/channels').set(ana.auth).send({ slug: 'rua', title: 'Rua', kind: 'channel' });
+    await api().post('/api/channels/bairro/members').set(bia.auth);
+    await api().put('/api/channels/bairro/members/bia/role').set(ana.auth).send({ role: 'admin' });
+    await api().post('/api/channels/bairro/members').set(caio.auth);
+    await api().post('/api/channels/rua/members').set(bia.auth);
+    await query('UPDATE users SET suspended_at = now() WHERE id = $1', [bia.user.id]);
+    expect((await remove(ana)).body).toMatchObject({ channels_passed: 1, channels_removed: 1 });
+    const { rows } = await query("SELECT u.username FROM channels c JOIN users u ON u.id = c.owner_id WHERE c.slug = 'bairro'");
+    expect(rows).toEqual([{ username: 'caio' }]);
+    expect((await query("SELECT 1 FROM channels WHERE slug = 'rua'")).rowCount).toBe(0);
+  });
+
+  it('token de conta excluída que escapou da lista de revogados (Redis reiniciado) dá 401, não erro 500', async () => {
+    const [ana, bia] = await Promise.all([signup('ana'), signup('bia')]);
+    const p = await post(bia, 'post da bia');
+    expect((await remove(ana)).status).toBe(200);
+    resetSessionMemory();
+    const redis = getRedis();
+    if (redis) for (const k of await redis.keys('revoked:*')) await redis.del(k);
+    expect((await api().post('/api/posts').set(ana.auth).send({ text: 'fantasma' })).status).toBe(401);
+    expect((await api().post(`/api/posts/${p.id}/like`).set(ana.auth)).status).toBe(401);
+    expect((await api().post('/api/users/bia/follow').set(ana.auth)).status).toBe(401);
+    expect((await api().get('/api/auth/me').set(ana.auth)).status).toBe(401);
+  });
+
+  it('agir durante a própria exclusão não gera erro 500', async () => {
+    const [ana, bia] = await Promise.all([signup('ana'), signup('bia')]);
+    const posts = await Promise.all([1, 2, 3, 4].map((i) => post(bia, `post ${i}`)));
+    const res = await Promise.all([remove(ana), ...posts.map((x) => api().post(`/api/posts/${x.id}/like`).set(ana.auth))]);
+    expect(res[0].status).toBe(200);
+    for (const r of res.slice(1)) expect([200, 401]).toContain(r.status);
+    const { rows } = await query('SELECT count(*)::int AS n FROM posts WHERE like_count <> (SELECT count(*) FROM likes l WHERE l.post_id = posts.id)');
+    expect(rows[0].n).toBe(0);
+  });
+
+  it('o arquivo de dados tem teto para as imagens: as que passam vão só com o endereço', async () => {
+    const ana = await signup('ana');
+    const up = async () => (await api().post('/api/midia').set(ana.auth).set('Content-Type', 'image/png').send(png())).body.data;
+    const [m1, m2, m3] = [await up(), await up(), await up()];
+    await api().post('/api/posts').set(ana.auth).send({ text: 'duas imagens', media: [{ id: m1.id, alt: 'Faixa um' }, { id: m2.id, alt: 'Faixa dois' }] });
+    const { rows } = await query('SELECT size FROM media WHERE id = $1', [m1.id]);
+    const old = EXPORT_LIMITS.mediaBytes;
+    EXPORT_LIMITS.mediaBytes = rows[0].size; // cabe só a primeira
+    try {
+      const { body } = await exportData(ana);
+      const byId = Object.fromEntries(body.imagens.map((m) => [m.id, m]));
+      expect(byId[m1.id].base64).toBeTruthy();
+      expect(byId[m2.id]).toMatchObject({ base64: null, url: `/api/midia/${m2.id}` });
+      // Ainda sem post: o endereço não abriria, então vai sem ele.
+      expect(byId[m3.id]).toMatchObject({ base64: null, url: null });
+    } finally {
+      EXPORT_LIMITS.mediaBytes = old;
     }
   });
 });

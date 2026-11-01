@@ -31,7 +31,9 @@ export async function requestReset(email) {
     [nextId(), user.id, sha256(token), RESET.ttlMin],
   );
   const link = `${config.webUrl}/redefinir-senha?token=${token}`;
-  await sendMail({
+  // Sem await: a resposta não espera o envio. Com um serviço de e-mail de verdade, esperar
+  // faria o pedido de uma conta que existe demorar mais, e a demora revelaria quem tem conta.
+  sendMail({
     to: user.email,
     subject: 'Ágora: redefinir sua senha',
     text: [
@@ -43,7 +45,7 @@ export async function requestReset(email) {
       `O link vale por ${RESET.ttlMin} minutos e uma vez só. Ao trocar a senha, você sai da conta em todos os aparelhos.`,
       'Se não foi você, ignore este e-mail: sua senha continua a mesma.',
     ].join('\n'),
-  });
+  }).catch((err) => console.warn('[e-mail] o envio falhou:', err.message));
 }
 
 /** Troca a senha pelo link. Invalida os outros links da conta e encerra todas as sessões. */
